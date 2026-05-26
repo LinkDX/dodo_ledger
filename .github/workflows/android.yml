@@ -50,23 +50,23 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Build Debug APK with Gradle
+      - name: Build Release APK with Gradle
         run: |
           chmod +x android/gradlew
-          ./android/gradlew -p ./android assembleDebug
+          ./android/gradlew -p ./android assembleRelease
 
-      - name: Upload Debug APK Artifact
+      - name: Upload Release APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dodo-ledger-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: dodo-ledger-release-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
 
       - name: Publish Latest APK to GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # 複製並重命名 APK 檔名
-          cp android/app/build/outputs/apk/debug/app-debug.apk dodo-ledger-debug.apk
+          cp android/app/build/outputs/apk/release/app-release.apk dodo-ledger-release.apk
           
           # 刪除舊的 latest release（如果存在），確保覆蓋上傳
           gh release delete latest --yes || true
@@ -76,8 +76,8 @@ jobs:
           git push origin :refs/tags/latest || true
           
           # 建立新的 latest pre-release 並上傳 APK
-          gh release create latest dodo-ledger-debug.apk \
-            --title "Dodo Ledger 最新 Android 測試版 (Latest Debug APK) 🐱" \
-            --notes "🐱 這是由 GitHub Actions 自動建置的最新 Android 測試版 APK。免解壓，下載即可直接在手機上安裝！更新時間：$(date +'%Y-%m-%d %H:%M:%S' -u) UTC" \
+          gh release create latest dodo-ledger-release.apk \
+            --title "Dodo Ledger 最新 Android 正式版 (Latest Release APK) 🐱" \
+            --notes "🐱 這是由 GitHub Actions 自動建置的最新 Android Release 版 APK。免解壓，下載即可直接在手機上安裝！更新時間：$(date +'%Y-%m-%d %H:%M:%S' -u) UTC" \
             --prerelease \
             --target master

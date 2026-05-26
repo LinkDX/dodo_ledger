@@ -91,7 +91,7 @@
 本專案已正式整合 **Capacitor 混合式一鍵打包與原生整合架構**。不只是一般的網頁包殼，我們更深度實作了以下行動端專屬的核心特色：
 
 1. **📲 一鍵自動化 APK 建置**：
-   專案根目錄內置了自癒式建置腳本 `./build-apk.sh`。此腳本具備環境自動偵測與自癒修復能力，會自動安裝與配置 JDK 17 編譯環境，完成 Web 專案打包、同步至 Android 專案，並自動產出發布用的測試版 APK 到 `build-artifacts/dodo-ledger-debug.apk`。
+   專案根目錄內置了自癒式建置腳本 `./build-apk.sh`。此腳本具備環境自動偵測與自癒修復能力，會自動安裝與配置 JDK 17 編譯環境，完成 Web 專案打包、同步至 Android 專案，並自動產出發布用的 Release 正式版 APK 到 `build-artifacts/dodo-ledger-release.apk`。
 2. **🔄 雙緩衝自建熱更新 (Live Updates) 引擎**：
    在不依賴第三方付費服務（如 Appflow）的前提下，獨立設計並實作了靜默式熱更新機制。App 在啟動時會於背景比對 GitHub Pages 上的 `version.json`，自動下載並解壓縮 `app-update.zip` 至沙盒目錄，並在使用者下一次啟動時無感套用，且具備斷網時的優雅降級保護。
 3. **🔏 SharedPreferences 安全鎖持久化**：
@@ -106,7 +106,7 @@
 ./build-apk.sh
 ```
 建置完成後，產出的 APK 會自動命名並存放在：
-👉 **`build-artifacts/dodo-ledger-debug.apk`**
+👉 **`build-artifacts/dodo-ledger-release.apk`**
 
 ---
 

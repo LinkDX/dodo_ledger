@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ==============================================================================
-# Dodo Ledger - 本地一鍵快速打包 Android Debug APK 腳本 (高適應力環境自愈版)
+# Dodo Ledger - 本地一鍵快速打包 Android Release APK 腳本 (高適應力環境自愈版)
 # ==============================================================================
 
 # 一旦任何指令失敗，立即停止執行
@@ -125,20 +125,20 @@ npm run build
 echo -e "\n${YELLOW}[Step 2/4] 正在同步資源至 Android 容器 (npx cap sync)...${NC}"
 npx cap sync android
 
-# 4. 呼叫 Gradle 編譯 Debug APK
-echo -e "\n${YELLOW}[Step 3/4] 正在呼叫 Gradle 編譯 Debug 測試版 APK...${NC}"
+# 4. 呼叫 Gradle 編譯 Release APK
+echo -e "\n${YELLOW}[Step 3/4] 正在呼叫 Gradle 編譯 Release 正式版 APK...${NC}"
 chmod +x android/gradlew
-./android/gradlew -p ./android assembleDebug
+./android/gradlew -p ./android assembleRelease
 
 # 5. 提取 APK 並放置於方便拿取的根目錄
 echo -e "\n${YELLOW}[Step 4/4] 正在整理 APK 檔案...${NC}"
 mkdir -p build-artifacts
-cp android/app/build/outputs/apk/debug/app-debug.apk build-artifacts/dodo-ledger-debug.apk
+cp android/app/build/outputs/apk/release/app-release.apk build-artifacts/dodo-ledger-release.apk
 
 echo -e "\n${GREEN}======================================================${NC}"
 echo -e "${GREEN}✨ 打包完成！Dodo 貓理財助理已打包成功喵！${NC}"
 echo -e "${GREEN}======================================================${NC}"
-echo -e "🎉 您的 Android 測試版 APK 已安全放置於："
-echo -e "   👉 ${YELLOW}build-artifacts/dodo-ledger-debug.apk${NC}"
+echo -e "🎉 您的 Android Release 版 APK 已安全放置於："
+echo -e "   👉 ${YELLOW}build-artifacts/dodo-ledger-release.apk${NC}"
 echo -e "💡 您可以隨時將此 APK 傳送至手機中直接安裝測試囉！"
 echo -e "${GREEN}======================================================${NC}"

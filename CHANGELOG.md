@@ -2,6 +2,16 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [1.9.1] - 2026-05-26
+
+### 🤖 Android 建置全面升級為 Release 版本
+
+- **Gradle 簽名配置最佳化**：在 `android/app/build.gradle` 中為 `release` 建置類型指定 `signingConfig signingConfigs.debug`，實現「免自備私密金鑰」且符合 Release 編譯規範的 APK 簽署。
+- **Release 編譯輸出**：更新一鍵打包指令腳本 `build-apk.sh` 與 GitHub Actions 管線配置，將編譯目標全面由 `assembleDebug` 升級為 `assembleRelease`，產出的 APK 具備最佳的程式混淆、體積壓縮與運行效能。
+- **一鍵下載網址更新**：GitHub Release 的下載檔名與專案說明連結全面改為 `dodo-ledger-release.apk`，讓測試與使用體驗更加完美。
+
+---
+
 ## [1.9.0] - 2026-05-26
 
 ### 📱 Android 行動端移植與自建雙緩衝熱更新系統
