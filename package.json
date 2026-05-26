@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
-    "prepare-deploy": "node scripts/prepare-deploy.cjs"
+    "prepare-deploy": "node scripts/prepare-deploy.cjs",
+    "generate:icons": "node scripts/generate-icons.cjs"
   },
   "dependencies": {
     "@capacitor/android": "^6.1.2",
@@ -26,6 +27,7 @@
     "@types/node": "^24.12.3",
     "@vitejs/plugin-vue": "^6.0.6",
     "@vue/tsconfig": "^0.9.1",
+    "sharp": "^0.34.5",
     "typescript": "~6.0.2",
     "vite": "^8.0.12",
     "vitest": "^4.1.7",

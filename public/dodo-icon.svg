@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 背景圓角方形 (馬卡龍奶油黃) -->
+  <rect width="512" height="512" rx="115" fill="#FFF8EC"/>
+  
+  <!-- 左耳外 -->
+  <ellipse cx="148" cy="135" rx="52" ry="62" transform="rotate(-20,148,135)" fill="#F5E6D3"/>
+  <!-- 左耳內 (粉桃) -->
+  <ellipse cx="148" cy="138" rx="30" ry="38" transform="rotate(-20,148,138)" fill="#F9C4C4"/>
+  
+  <!-- 右耳外 -->
+  <ellipse cx="364" cy="135" rx="52" ry="62" transform="rotate(20,364,135)" fill="#F5E6D3"/>
+  <!-- 右耳內 (粉桃) -->
+  <ellipse cx="364" cy="138" rx="30" ry="38" transform="rotate(20,364,138)" fill="#F9C4C4"/>
+  
+  <!-- 頭部主體 (乳白) -->
+  <ellipse cx="256" cy="230" rx="155" ry="145" fill="#FDF6EE"/>
+  <!-- 頭部輪廓線 -->
+  <ellipse cx="256" cy="230" rx="155" ry="145" fill="none" stroke="#3D2B1F" stroke-width="8"/>
+  
+  <!-- 身體 (乳白) -->
+  <ellipse cx="256" cy="370" rx="130" ry="110" fill="#FDF6EE"/>
+  <ellipse cx="256" cy="370" rx="130" ry="110" fill="none" stroke="#3D2B1F" stroke-width="8"/>
+  
+  <!-- 左鬚 -->
+  <line x1="155" y1="228" x2="88" y2="218" stroke="#3D2B1F" stroke-width="5" stroke-linecap="round"/>
+  <line x1="155" y1="240" x2="88" y2="240" stroke="#3D2B1F" stroke-width="5" stroke-linecap="round"/>
+  <line x1="155" y1="252" x2="88" y2="262" stroke="#3D2B1F" stroke-width="5" stroke-linecap="round"/>
+  <!-- 右鬚 -->
+  <line x1="357" y1="228" x2="424" y2="218" stroke="#3D2B1F" stroke-width="5" stroke-linecap="round"/>
+  <line x1="357" y1="240" x2="424" y2="240" stroke="#3D2B1F" stroke-width="5" stroke-linecap="round"/>
+  <line x1="357" y1="252" x2="424" y2="262" stroke="#3D2B1F" stroke-width="5" stroke-linecap="round"/>
+  
+  <!-- 左眼白 -->
+  <ellipse cx="204" cy="210" rx="32" ry="36" fill="white"/>
+  <!-- 左眼珠 -->
+  <ellipse cx="204" cy="215" rx="20" ry="22" fill="#3D2B1F"/>
+  <!-- 左眼高光 -->
+  <circle cx="212" cy="207" r="6" fill="white"/>
+  <circle cx="197" cy="220" r="3" fill="white"/>
+  
+  <!-- 右眼白 -->
+  <ellipse cx="308" cy="210" rx="32" ry="36" fill="white"/>
+  <!-- 右眼珠 -->
+  <ellipse cx="308" cy="215" rx="20" ry="22" fill="#3D2B1F"/>
+  <!-- 右眼高光 -->
+  <circle cx="316" cy="207" r="6" fill="white"/>
+  <circle cx="301" cy="220" r="3" fill="white"/>
+  
+  <!-- 鼻子 (小三角) -->
+  <path d="M256 248 L247 263 L265 263 Z" fill="#F9C4C4"/>
+  
+  <!-- 嘴巴 (W形可愛嘴) -->
+  <path d="M237 270 Q247 280 256 272 Q265 280 275 270" fill="none" stroke="#3D2B1F" stroke-width="5" stroke-linecap="round"/>
+  
+  <!-- 左腮紅 -->
+  <ellipse cx="180" cy="258" rx="26" ry="16" fill="#F9C4C4" opacity="0.6"/>
+  <!-- 右腮紅 -->
+  <ellipse cx="332" cy="258" rx="26" ry="16" fill="#F9C4C4" opacity="0.6"/>
+  
+  <!-- 薄荷綠錢包 (在身體前方) -->
+  <!-- 錢包主體 -->
+  <rect x="188" y="326" width="136" height="88" rx="20" fill="#A8E6CF"/>
+  <rect x="188" y="326" width="136" height="88" rx="20" fill="none" stroke="#3D2B1F" stroke-width="6"/>
+  <!-- 錢包扣環金屬 -->
+  <ellipse cx="256" cy="326" rx="28" ry="10" fill="#F4C842"/>
+  <ellipse cx="256" cy="326" rx="28" ry="10" fill="none" stroke="#3D2B1F" stroke-width="5"/>
+  <!-- 錢包上的小花裝飾 -->
+  <circle cx="256" cy="368" r="14" fill="#FFF8EC"/>
+  <circle cx="256" cy="354" r="5" fill="#F9C4C4"/>
+  <circle cx="269" cy="361" r="5" fill="#F9C4C4"/>
+  <circle cx="269" cy="375" r="5" fill="#F9C4C4"/>
+  <circle cx="256" cy="382" r="5" fill="#F9C4C4"/>
+  <circle cx="243" cy="375" r="5" fill="#F9C4C4"/>
+  <circle cx="243" cy="361" r="5" fill="#F9C4C4"/>
+  <circle cx="256" cy="368" r="6" fill="#F4C842"/>
+  
+  <!-- 左手爪 -->
+  <ellipse cx="188" cy="358" rx="28" ry="22" fill="#FDF6EE"/>
+  <ellipse cx="188" cy="358" rx="28" ry="22" fill="none" stroke="#3D2B1F" stroke-width="6"/>
+  <!-- 右手爪 -->
+  <ellipse cx="324" cy="358" rx="28" ry="22" fill="#FDF6EE"/>
+  <ellipse cx="324" cy="358" rx="28" ry="22" fill="none" stroke="#3D2B1F" stroke-width="6"/>
+  
+  <!-- 薰衣草領圈 -->
+  <path d="M155 295 Q256 330 357 295" fill="none" stroke="#C3B1E1" stroke-width="14" stroke-linecap="round"/>
+  <!-- 領圈金屬扣 -->
+  <circle cx="256" cy="318" r="10" fill="#F4C842"/>
+  <circle cx="256" cy="318" r="10" fill="none" stroke="#3D2B1F" stroke-width="4"/>
+</svg>
