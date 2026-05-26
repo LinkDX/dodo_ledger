@@ -218,3 +218,29 @@
 | **流汗驚嚇** | 眼睛張大、額頭流一滴汗 | 當月預算消耗 80% ~ 100% | 「喵！再花下去就沒有小魚乾了！」<br>「主人！我們要吃土了喵！」 |
 | **遮眼大哭** | 貓爪捂住哭泣的眼睛 | 當月預算消耗大於 100% (超支) | 「嗚喵！！！超支啦！！！」<br>「不管了啦！逗逗貓要把信用卡藏起來了！」 |
 | **伸懶腰報告** | 伸懶腰、打哈欠、搖尾巴 | 當啟動時有週期記帳自動觸發 | 「喵～主人早安！我剛剛幫您處理了 [項目] 喔！」 |
+
+---
+
+## 5. 全域系統操作日誌與財務稽核規格
+
+為確保多人共同記帳時帳目清晰，專案引入了「財務核心稽核日誌」防護機制：
+
+### 5.1 日誌 Schema 定義 (`SystemLog`)
+所有全域核心操作記錄於雲端 Firestore 與本地 LocalStorage 下的 `logs` 欄位（排除任何趣味摸貓/餵食娛樂日誌）。
+
+| 欄位名稱 | 型態 | 說明 |
+| :--- | :--- | :--- |
+| `id` | string | 日誌唯一 ID (UUID) |
+| `operator` | string | 執行操作的成員暱稱（若尚未登入/系統產生則標記為 "系統自動"，週期自動扣款則標記為 "逗逗貓"） |
+| `operatorAvatar`| string | 執行操作成員的可愛頭像/圖示 |
+| `action` | string | 操作型態代碼（如 `create_profile`, `add_expense`, `delete_transaction` 等） |
+| `description` | string | 詳細語意異動描述（詳載金額、主子分類、扣繳帳戶與期數資訊） |
+| `date` | number | 操作發生的時間戳記 |
+
+### 5.2 核心日誌觸發範疇
+- **成員異動**：身分建立 (`create_profile`)、身分刪除 (`delete_profile`)、理財預算更新 (`update_budget`)、記帳雙層分類調整 (`update_categories`)。
+- **核心財務**：新增支出/收入/轉帳 (`add_expense`, `add_income`, `add_transfer`)、新增信用卡分期 (`add_expense_installment`)、刪除核心明細 (`delete_transaction`, `delete_expense_installment`)、繳納信用卡帳單 (`pay_credit_card`)。
+- **自動週期性扣款**：由逗逗貓為您服務記帳所產生的核心扣款交易 (`auto_recurring`)。
+
+### 5.3 終端機日誌稽核工具
+使用者可在終端機直接執行 `./view-logs`，從 Firebase 雲端資料庫拉取最新 logs，印出美輪美奐的 ANSI 彩色時間軸、操作成員暱稱與財務稽核表格。
