@@ -467,242 +467,250 @@ const switchToCredit = () => {
     </div>
 
     <!-- ========== 一鍵還款彈窗 ========== -->
-    <div v-if="showPayModal" class="modal-overlay">
-      <div class="modal-card card-jelly pop-jelly">
-        <div class="mascot-pay-header">
-          <span class="cat-pop-emoji">🐱</span>
-          <p class="cat-speech-bubble">「喵嗚～主人！本期帳單要從哪一個銀行帳戶扣款繳納呢？」</p>
-        </div>
-        <div class="pay-amount-summary">
-          <span class="summary-label">繳納帳單月份</span>
-          <span class="summary-period">{{ selectedPeriod }} 帳單</span>
-          <h3 class="summary-amount">${{ formatCurrency(billTotalAmount) }}</h3>
-        </div>
-        <div class="form-group">
-          <label class="label-cute">扣款銀行 / 現金帳戶</label>
-          <select v-model="linkedBankId" class="input-jelly">
-            <option v-for="b in bankAccounts" :key="b.id" :value="b.id">
-              {{ b.name }} (餘額: ${{ formatCurrency(b.balance) }})
-            </option>
-          </select>
-        </div>
-        <div class="modal-actions">
-          <button class="btn-jelly btn-cancel" @click="showPayModal = false">取消</button>
-          <button 
-            class="btn-jelly btn-confirm-pay" 
-            :disabled="!linkedBankId || bankAccounts.length === 0"
-            @click="handlePayBill"
-          >
-            確認扣款還卡費 ➜
-          </button>
+    <Teleport to="#app">
+      <div v-if="showPayModal" class="modal-overlay">
+        <div class="modal-card card-jelly pop-jelly">
+          <div class="mascot-pay-header">
+            <span class="cat-pop-emoji">🐱</span>
+            <p class="cat-speech-bubble">「喵嗚～主人！本期帳單要從哪一個銀行帳戶扣款繳納呢？」</p>
+          </div>
+          <div class="pay-amount-summary">
+            <span class="summary-label">繳納帳單月份</span>
+            <span class="summary-period">{{ selectedPeriod }} 帳單</span>
+            <h3 class="summary-amount">${{ formatCurrency(billTotalAmount) }}</h3>
+          </div>
+          <div class="form-group">
+            <label class="label-cute">扣款銀行 / 現金帳戶</label>
+            <select v-model="linkedBankId" class="input-jelly">
+              <option v-for="b in bankAccounts" :key="b.id" :value="b.id">
+                {{ b.name }} (餘額: ${{ formatCurrency(b.balance) }})
+              </option>
+            </select>
+          </div>
+          <div class="modal-actions">
+            <button class="btn-jelly btn-cancel" @click="showPayModal = false">取消</button>
+            <button 
+              class="btn-jelly btn-confirm-pay" 
+              :disabled="!linkedBankId || bankAccounts.length === 0"
+              @click="handlePayBill"
+            >
+              確認扣款還卡費 ➜
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </Teleport>
 
     <!-- 1. 新增帳戶可愛彈窗 -->
-    <div v-if="showAddModal" class="modal-overlay">
-      <div class="modal-card card-jelly pop-jelly">
-        <h3 class="modal-title">新增理財帳戶</h3>
-        
-        <div class="form-group">
-          <label class="label-cute">帳戶名稱</label>
-          <input v-model="newName" type="text" placeholder="例如：生活現金、Richart 存款" class="input-jelly" maxlength="15" />
-        </div>
-
-        <div class="form-group">
-          <label class="label-cute">帳戶類型</label>
-          <div class="type-selector-grid">
-            <button 
-              v-for="t in (['cash', 'bank', 'credit_card', 'electronic_ticket'] as AccountType[])" 
-              :key="t"
-              class="btn-jelly btn-type-select"
-              :class="{ active: newType === t }"
-              @click="newType = t"
-            >
-              {{ t === 'cash' ? '現金' : t === 'bank' ? '銀行' : t === 'credit_card' ? '信用卡' : '電子票證' }}
-            </button>
+    <Teleport to="#app">
+      <div v-if="showAddModal" class="modal-overlay">
+        <div class="modal-card card-jelly pop-jelly">
+          <h3 class="modal-title">新增理財帳戶</h3>
+          
+          <div class="form-group">
+            <label class="label-cute">帳戶名稱</label>
+            <input v-model="newName" type="text" placeholder="例如：生活現金、Richart 存款" class="input-jelly" maxlength="15" />
           </div>
-        </div>
 
-        <div class="form-group">
-          <label class="label-cute">
-            {{ newType === 'credit_card' ? '已消費欠款金額' : '初始餘額' }}
-          </label>
-          <input v-model="newBalance" type="number" placeholder="0" class="input-jelly" />
-        </div>
-
-        <!-- 信用卡專屬欄位 (動態展開) -->
-        <Transition name="expand-details">
-          <div v-if="newType === 'credit_card'" class="credit-exclusive-fields card-jelly">
-            <h4 class="sub-fields-title">💳 信用卡參數設定</h4>
-            <div class="form-group">
-              <label class="label-cute">信用額度</label>
-              <input v-model="creditLimit" type="number" placeholder="50000" class="input-jelly" />
+          <div class="form-group">
+            <label class="label-cute">帳戶類型</label>
+            <div class="type-selector-grid">
+              <button 
+                v-for="t in (['cash', 'bank', 'credit_card', 'electronic_ticket'] as AccountType[])" 
+                :key="t"
+                class="btn-jelly btn-type-select"
+                :class="{ active: newType === t }"
+                @click="newType = t"
+              >
+                {{ t === 'cash' ? '現金' : t === 'bank' ? '銀行' : t === 'credit_card' ? '信用卡' : '電子票證' }}
+              </button>
             </div>
-            <div class="fields-row">
-              <div class="form-group half-width">
-                <label class="label-cute">每月結帳日</label>
-                <input v-model="billingCycleDate" type="number" min="1" max="31" placeholder="10" class="input-jelly" />
+          </div>
+
+          <div class="form-group">
+            <label class="label-cute">
+              {{ newType === 'credit_card' ? '已消費欠款金額' : '初始餘額' }}
+            </label>
+            <input v-model="newBalance" type="number" placeholder="0" class="input-jelly" />
+          </div>
+
+          <!-- 信用卡專屬欄位 (動態展開) -->
+          <Transition name="expand-details">
+            <div v-if="newType === 'credit_card'" class="credit-exclusive-fields card-jelly">
+              <h4 class="sub-fields-title">💳 信用卡參數設定</h4>
+              <div class="form-group">
+                <label class="label-cute">信用額度</label>
+                <input v-model="creditLimit" type="number" placeholder="50000" class="input-jelly" />
               </div>
-              <div class="form-group half-width">
-                <label class="label-cute">每月繳款截止日</label>
-                <input v-model="paymentDueDate" type="number" min="1" max="31" placeholder="25" class="input-jelly" />
+              <div class="fields-row">
+                <div class="form-group half-width">
+                  <label class="label-cute">每月結帳日</label>
+                  <input v-model="billingCycleDate" type="number" min="1" max="31" placeholder="10" class="input-jelly" />
+                </div>
+                <div class="form-group half-width">
+                  <label class="label-cute">每月繳款截止日</label>
+                  <input v-model="paymentDueDate" type="number" min="1" max="31" placeholder="25" class="input-jelly" />
+                </div>
+              </div>
+            </div>
+          </Transition>
+
+          <div class="form-group">
+            <label class="label-cute">帳戶 Emoji 頭像（可選）</label>
+            <div class="avatar-picker-grid">
+              <button
+                class="btn-jelly avatar-option"
+                :class="{ active: newAvatar === '' }"
+                @click="newAvatar = ''"
+              >
+                —
+              </button>
+              <button
+                v-for="em in avatarOptions"
+                :key="em"
+                class="btn-jelly avatar-option"
+                :class="{ active: newAvatar === em }"
+                @click="newAvatar = em"
+              >
+                {{ em }}
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="label-cute">卡片配色</label>
+            <div class="color-picker-grid">
+              <div 
+                v-for="(col, idx) in cardColors" 
+                :key="idx"
+                class="color-dot btn-jelly"
+                :class="{ active: selectedColorIdx === idx }"
+                :style="{ backgroundColor: col.value }"
+                @click="selectedColorIdx = idx"
+              >
+                <Check v-if="selectedColorIdx === idx" :size="14" stroke-width="4" stroke="#2C1E1B" />
               </div>
             </div>
           </div>
-        </Transition>
 
-        <div class="form-group">
-          <label class="label-cute">帳戶 Emoji 頭像（可選）</label>
-          <div class="avatar-picker-grid">
-            <button
-              class="btn-jelly avatar-option"
-              :class="{ active: newAvatar === '' }"
-              @click="newAvatar = ''"
-            >
-              —
-            </button>
-            <button
-              v-for="em in avatarOptions"
-              :key="em"
-              class="btn-jelly avatar-option"
-              :class="{ active: newAvatar === em }"
-              @click="newAvatar = em"
-            >
-              {{ em }}
-            </button>
+          <div class="modal-actions">
+            <button class="btn-jelly btn-cancel" @click="toggleAddModal">取消</button>
+            <button class="btn-jelly btn-confirm" :disabled="!newName.trim()" @click="handleAddAccount">建立卡片</button>
           </div>
-        </div>
-
-        <div class="form-group">
-          <label class="label-cute">卡片配色</label>
-          <div class="color-picker-grid">
-            <div 
-              v-for="(col, idx) in cardColors" 
-              :key="idx"
-              class="color-dot btn-jelly"
-              :class="{ active: selectedColorIdx === idx }"
-              :style="{ backgroundColor: col.value }"
-              @click="selectedColorIdx = idx"
-            >
-              <Check v-if="selectedColorIdx === idx" :size="14" stroke-width="4" stroke="#2C1E1B" />
-            </div>
-          </div>
-        </div>
-
-        <div class="modal-actions">
-          <button class="btn-jelly btn-cancel" @click="toggleAddModal">取消</button>
-          <button class="btn-jelly btn-confirm" :disabled="!newName.trim()" @click="handleAddAccount">建立卡片</button>
         </div>
       </div>
-    </div>
+    </Teleport>
 
     <!-- 2. 帳戶互轉可愛彈窗 -->
-    <div v-if="showTransferModal" class="modal-overlay">
-      <div class="modal-card card-jelly pop-jelly">
-        <h3 class="modal-title">資金帳戶互轉</h3>
+    <Teleport to="#app">
+      <div v-if="showTransferModal" class="modal-overlay">
+        <div class="modal-card card-jelly pop-jelly">
+          <h3 class="modal-title">資金帳戶互轉</h3>
 
-        <div class="form-group">
-          <label class="label-cute">來源帳戶 (扣款)</label>
-          <select v-model="fromAccountId" class="input-jelly">
-            <option v-for="a in accounts" :key="a.id" :value="a.id">{{ a.name }} (${{ formatCurrency(a.balance) }})</option>
-          </select>
-        </div>
+          <div class="form-group">
+            <label class="label-cute">來源帳戶 (扣款)</label>
+            <select v-model="fromAccountId" class="input-jelly">
+              <option v-for="a in accounts" :key="a.id" :value="a.id">{{ a.name }} (${{ formatCurrency(a.balance) }})</option>
+            </select>
+          </div>
 
-        <div class="form-group">
-          <label class="label-cute">目的帳戶 (存款)</label>
-          <select v-model="toAccountId" class="input-jelly">
-            <option v-for="a in accounts" :key="a.id" :value="a.id">{{ a.name }} (${{ formatCurrency(a.balance) }})</option>
-          </select>
-        </div>
+          <div class="form-group">
+            <label class="label-cute">目的帳戶 (存款)</label>
+            <select v-model="toAccountId" class="input-jelly">
+              <option v-for="a in accounts" :key="a.id" :value="a.id">{{ a.name }} (${{ formatCurrency(a.balance) }})</option>
+            </select>
+          </div>
 
-        <div class="form-group">
-          <label class="label-cute">轉帳金額</label>
-          <input v-model="transferAmount" type="number" placeholder="金額..." class="input-jelly" />
-        </div>
+          <div class="form-group">
+            <label class="label-cute">轉帳金額</label>
+            <input v-model="transferAmount" type="number" placeholder="金額..." class="input-jelly" />
+          </div>
 
-        <div class="form-group">
-          <label class="label-cute">轉帳手續費 (將計為一筆獨立支出)</label>
-          <input v-model="transferFee" type="number" placeholder="0" class="input-jelly" />
-        </div>
+          <div class="form-group">
+            <label class="label-cute">轉帳手續費 (將計為一筆獨立支出)</label>
+            <input v-model="transferFee" type="number" placeholder="0" class="input-jelly" />
+          </div>
 
-        <div class="form-group">
-          <label class="label-cute">備註</label>
-          <input v-model="transferNote" type="text" placeholder="轉零用錢、存錢..." class="input-jelly" />
-        </div>
+          <div class="form-group">
+            <label class="label-cute">備註</label>
+            <input v-model="transferNote" type="text" placeholder="轉零用錢、存錢..." class="input-jelly" />
+          </div>
 
-        <div class="modal-actions">
-          <button class="btn-jelly btn-cancel" @click="toggleTransferModal">取消</button>
-          <button 
-            class="btn-jelly btn-confirm-transfer" 
-            :disabled="!transferAmount || fromAccountId === toAccountId"
-            @click="handleTransfer"
-          >
-            確認轉帳 ➜
-          </button>
+          <div class="modal-actions">
+            <button class="btn-jelly btn-cancel" @click="toggleTransferModal">取消</button>
+            <button 
+              class="btn-jelly btn-confirm-transfer" 
+              :disabled="!transferAmount || fromAccountId === toAccountId"
+              @click="handleTransfer"
+            >
+              確認轉帳 ➜
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </Teleport>
 
     <!-- 3. 編輯帳戶彈窗 -->
-    <div v-if="showEditModal" class="modal-overlay">
-      <div class="modal-card card-jelly pop-jelly">
-        <div class="modal-header-row">
-          <h3 class="modal-title">✏️ 編輯帳戶</h3>
-          <button class="btn-jelly btn-close-edit" @click="closeEditModal">
-            <X :size="14" />
-          </button>
-        </div>
-
-        <div class="form-group">
-          <label class="label-cute">帳戶名稱</label>
-          <input v-model="editName" type="text" class="input-jelly" maxlength="15" />
-        </div>
-
-        <div class="form-group">
-          <label class="label-cute">Emoji 頭像</label>
-          <div class="avatar-picker-grid">
-            <button
-              class="btn-jelly avatar-option"
-              :class="{ active: editAvatar === '' }"
-              @click="editAvatar = ''"
-            >
-              —
-            </button>
-            <button
-              v-for="em in avatarOptions"
-              :key="em"
-              class="btn-jelly avatar-option"
-              :class="{ active: editAvatar === em }"
-              @click="editAvatar = em"
-            >
-              {{ em }}
+    <Teleport to="#app">
+      <div v-if="showEditModal" class="modal-overlay">
+        <div class="modal-card card-jelly pop-jelly">
+          <div class="modal-header-row">
+            <h3 class="modal-title">✏️ 編輯帳戶</h3>
+            <button class="btn-jelly btn-close-edit" @click="closeEditModal">
+              <X :size="14" />
             </button>
           </div>
-        </div>
 
-        <div class="form-group">
-          <label class="label-cute">卡片配色</label>
-          <div class="color-picker-grid">
-            <div
-              v-for="(col, idx) in cardColors"
-              :key="idx"
-              class="color-dot btn-jelly"
-              :class="{ active: editColorIdx === idx }"
-              :style="{ backgroundColor: col.value }"
-              @click="editColorIdx = idx"
-            >
-              <Check v-if="editColorIdx === idx" :size="14" stroke-width="4" stroke="#2C1E1B" />
+          <div class="form-group">
+            <label class="label-cute">帳戶名稱</label>
+            <input v-model="editName" type="text" class="input-jelly" maxlength="15" />
+          </div>
+
+          <div class="form-group">
+            <label class="label-cute">Emoji 頭像</label>
+            <div class="avatar-picker-grid">
+              <button
+                class="btn-jelly avatar-option"
+                :class="{ active: editAvatar === '' }"
+                @click="editAvatar = ''"
+              >
+                —
+              </button>
+              <button
+                v-for="em in avatarOptions"
+                :key="em"
+                class="btn-jelly avatar-option"
+                :class="{ active: editAvatar === em }"
+                @click="editAvatar = em"
+              >
+                {{ em }}
+              </button>
             </div>
           </div>
-        </div>
 
-        <div class="modal-actions">
-          <button class="btn-jelly btn-cancel" @click="closeEditModal">取消</button>
-          <button class="btn-jelly btn-confirm" :disabled="!editName.trim()" @click="handleSaveEdit">儲存 ✔</button>
+          <div class="form-group">
+            <label class="label-cute">卡片配色</label>
+            <div class="color-picker-grid">
+              <div
+                v-for="(col, idx) in cardColors"
+                :key="idx"
+                class="color-dot btn-jelly"
+                :class="{ active: editColorIdx === idx }"
+                :style="{ backgroundColor: col.value }"
+                @click="editColorIdx = idx"
+              >
+                <Check v-if="editColorIdx === idx" :size="14" stroke-width="4" stroke="#2C1E1B" />
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-actions">
+            <button class="btn-jelly btn-cancel" @click="closeEditModal">取消</button>
+            <button class="btn-jelly btn-confirm" :disabled="!editName.trim()" @click="handleSaveEdit">儲存 ✔</button>
+          </div>
         </div>
       </div>
-    </div>
+    </Teleport>
   </div>
 </template>
 

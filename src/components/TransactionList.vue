@@ -23,6 +23,10 @@ const { transactions, accounts, categories: allCategories, deleteTransaction, ed
 type FilterType = 'all' | 'expense' | 'income' | 'transfer'
 const activeFilter = ref<FilterType>('all')
 
+// 搜尋功能
+const searchQuery = ref('')
+const searchCrossMonth = ref(true) // 預設開啟跨月搜尋
+
 // 月份篩選 (預設本月)
 const now = new Date()
 const selectedMonth = ref(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
@@ -79,12 +83,38 @@ const availableMonths = computed(() => {
 
 // 經過篩選後的交易清單
 const filteredTransactions = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase()
   return [...transactions.value]
     .filter(tx => {
-      const d = new Date(tx.date)
-      const txMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      if (txMonth !== selectedMonth.value) return false
+      // 1. 月份篩選（在未輸入關鍵字，或使用者未勾選「跨月份搜尋」時啟用）
+      if (!query || !searchCrossMonth.value) {
+        const d = new Date(tx.date)
+        const txMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+        if (txMonth !== selectedMonth.value) return false
+      }
+
+      // 2. 類型篩選
       if (activeFilter.value !== 'all' && tx.type !== activeFilter.value) return false
+
+      // 3. 搜尋關鍵字篩選
+      if (query) {
+        const noteMatch = tx.note?.toLowerCase().includes(query)
+        const catMatch = tx.category?.toLowerCase().includes(query)
+        const subCatMatch = tx.subCategory?.toLowerCase().includes(query)
+        const amountMatch = String(tx.amount).includes(query)
+        
+        // 帳戶名稱比對
+        const fromAccountName = getAccountName(tx.fromAccountId).toLowerCase()
+        const toAccountName = getAccountName(tx.toAccountId).toLowerCase()
+        const accountMatch = fromAccountName.includes(query) || toAccountName.includes(query)
+        
+        // 記帳人比對
+        const creatorMatch = tx.createdBy?.toLowerCase().includes(query)
+
+        if (!noteMatch && !catMatch && !subCatMatch && !amountMatch && !accountMatch && !creatorMatch) {
+          return false
+        }
+      }
       return true
     })
     .sort((a, b) => b.date - a.date)
@@ -192,22 +222,48 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
       v-model="selectedMonth"
       :available-months="availableMonths"
       class="mb-picker"
+      :style="searchQuery && searchCrossMonth ? 'opacity: 0.55; pointer-events: none;' : ''"
     />
+
+    <!-- 搜尋欄 -->
+    <div class="search-bar card-jelly">
+      <div class="search-input-wrapper">
+        <span class="search-icon">🔍</span>
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="搜尋備註、分類、帳戶、金額..."
+          class="search-input"
+        />
+        <button v-if="searchQuery" class="btn-clear btn-jelly" @click="searchQuery = ''" title="清除搜尋">
+          <X :size="12" />
+        </button>
+      </div>
+      <div v-if="searchQuery" class="search-options">
+        <label class="search-toggle btn-jelly">
+          <input type="checkbox" v-model="searchCrossMonth" />
+          <span class="toggle-text">🌐 跨月份搜尋</span>
+        </label>
+        <span class="results-count">
+          共 {{ filteredTransactions.length }} 筆
+        </span>
+      </div>
+    </div>
 
     <!-- 本月小計卡 -->
     <div class="summary-strip card-jelly">
       <div class="summary-item">
-        <span class="summary-label">收入</span>
+        <span class="summary-label">{{ searchQuery ? '結果收入' : '收入' }}</span>
         <span class="summary-value income-val">+${{ formatCurrency(monthSummary.income) }}</span>
       </div>
       <div class="summary-divider" />
       <div class="summary-item">
-        <span class="summary-label">支出</span>
+        <span class="summary-label">{{ searchQuery ? '結果支出' : '支出' }}</span>
         <span class="summary-value expense-val">-${{ formatCurrency(monthSummary.expense) }}</span>
       </div>
       <div class="summary-divider" />
       <div class="summary-item">
-        <span class="summary-label">結餘</span>
+        <span class="summary-label">{{ searchQuery ? '結果結餘' : '結餘' }}</span>
         <span class="summary-value" :class="monthSummary.net >= 0 ? 'income-val' : 'expense-val'">
           {{ monthSummary.net >= 0 ? '+' : '-' }}${{ formatCurrency(monthSummary.net) }}
         </span>
@@ -236,10 +292,15 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
     <div class="tx-list-area">
       <!-- 空狀態 -->
       <div v-if="filteredTransactions.length === 0" class="empty-state card-jelly">
-        <p class="empty-emoji">🐾</p>
-        <p class="empty-text">這個月還沒有符合條件的記帳喔～</p>
-        <button class="btn-jelly btn-go-add" @click="emit('change-tab', 'add')">
+        <p class="empty-emoji">{{ searchQuery ? '🔍' : '🐾' }}</p>
+        <p class="empty-text">
+          {{ searchQuery ? `找不到符合關鍵字「${searchQuery}」的記帳喔～` : '這個月還沒有符合條件的記帳喔～' }}
+        </p>
+        <button v-if="!searchQuery" class="btn-jelly btn-go-add" @click="emit('change-tab', 'add')">
           <PlusCircle :size="14" /> 立刻記第一筆！
+        </button>
+        <button v-else class="btn-jelly btn-go-add" @click="searchQuery = ''">
+          清除搜尋條件 🧹
         </button>
       </div>
 
@@ -734,5 +795,102 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
   opacity: 0.5;
   cursor: not-allowed;
   transform: none !important;
+}
+
+/* ===== 搜尋欄設計 ===== */
+.search-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px !important;
+  margin-bottom: 12px;
+  background-color: #fff;
+}
+
+.search-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.search-icon {
+  font-size: 16px;
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text-dark);
+  outline: none;
+  padding: 2px 0;
+}
+
+.search-input::placeholder {
+  color: var(--color-text-muted);
+  font-weight: 600;
+  opacity: 0.65;
+}
+
+.btn-clear {
+  padding: 4px !important;
+  background-color: var(--color-bg-warm) !important;
+  border-radius: 50% !important;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none !important;
+  border-width: 1.5px !important;
+  flex-shrink: 0;
+}
+
+.btn-clear:active {
+  transform: scale(0.9);
+}
+
+.search-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1.5px dashed var(--color-border);
+  padding-top: 10px;
+  margin-top: 4px;
+}
+
+.search-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 4px 10px !important;
+  background-color: var(--color-bg-warm) !important;
+  border-radius: 20px !important;
+  border-width: 1.5px !important;
+  box-shadow: var(--shadow-jelly-sm) !important;
+}
+
+.search-toggle input {
+  cursor: pointer;
+  accent-color: var(--color-transfer);
+  width: 13px;
+  height: 13px;
+  margin: 0;
+}
+
+.results-count {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--color-text-muted);
+  background-color: var(--color-bg-warm);
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1.5px solid var(--color-border);
 }
 </style>
