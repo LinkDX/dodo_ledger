@@ -60,3 +60,24 @@ jobs:
         with:
           name: dodo-ledger-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Publish Latest APK to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 複製並重命名 APK 檔名
+          cp android/app/build/outputs/apk/debug/app-debug.apk dodo-ledger-debug.apk
+          
+          # 刪除舊的 latest release（如果存在），確保覆蓋上傳
+          gh release delete latest --yes || true
+          
+          # 刪除舊的 latest tag（如果存在），避免 tag 衝突
+          git tag -d latest || true
+          git push origin :refs/tags/latest || true
+          
+          # 建立新的 latest pre-release 並上傳 APK
+          gh release create latest dodo-ledger-debug.apk \
+            --title "Dodo Ledger 最新 Android 測試版 (Latest Debug APK) 🐱" \
+            --notes "🐱 這是由 GitHub Actions 自動建置的最新 Android 測試版 APK。免解壓，下載即可直接在手機上安裝！更新時間：$(date +'%Y-%m-%d %H:%M:%S' -u) UTC" \
+            --prerelease \
+            --target master
