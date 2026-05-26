@@ -61,7 +61,7 @@ async function main() {
 
   console.log(`${colors.blue}☁️ 正在連線至 Firebase [${projectId}] 獲取最新帳務異動稽核紀錄...${colors.reset}`);
 
-  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/ledgers/dodo_shared_ledger`;
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/ledgers/dodo_shared_ledger/logs`;
 
   try {
     const response = await fetch(url);
@@ -75,10 +75,20 @@ async function main() {
     }
 
     const data = await response.json();
-    const fields = data.fields || {};
+    const documents = data.documents || [];
     
-    // 解析 logs
-    const logs = fields.logs ? parseFirestoreValue(fields.logs) : [];
+    // 解析 logs (因改為子集合架構，故需由 documents 陣列中解析出各個日誌 document)
+    const logs = documents.map(doc => {
+      const fields = doc.fields || {};
+      const log = {};
+      for (const key in fields) {
+        log[key] = parseFirestoreValue(fields[key]);
+      }
+      return log;
+    });
+
+    // 依據時間戳記由新到舊排序
+    logs.sort((a, b) => b.date - a.date);
 
     if (!logs || logs.length === 0) {
       console.log(`\n${colors.pink}🐱 雲端目前尚無稽核日誌喵！${colors.reset}\n`);
