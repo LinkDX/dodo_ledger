@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useAuth } from './composables/useAuth'
 import { useAppLock } from './composables/useAppLock'
 import { useLedger } from './composables/useLedger'
+import { useLiveUpdates } from './composables/useLiveUpdates'
 import UserSelection from './components/UserSelection.vue'
 import Dashboard from './components/Dashboard.vue'
 import AccountManager from './components/AccountManager.vue'
@@ -25,6 +26,7 @@ import {
 const { isLoggedIn } = useAuth()
 const { isLocked } = useAppLock()
 const { loadLedgerData } = useLedger()
+const { checkForUpdates } = useLiveUpdates()
 
 // 目前選取的 Tab 頁面
 const activeTab = ref('dashboard')
@@ -40,6 +42,11 @@ watch(isLoggedIn, (loggedIn) => {
     loadLedgerData()
   }
 }, { immediate: true })
+
+onMounted(() => {
+  // 啟動 App 時非同步在背景檢查熱更新 (離線優先，失敗時自動優雅降級)
+  checkForUpdates()
+})
 </script>
 
 <template>

@@ -536,6 +536,32 @@ export function useLedger() {
       await syncTransactions()
       await syncRecurring()
       
+      // 📱 原生系統本地通知 (手機 App 環境專用，動態導入以兼顧 Web 端相容性)
+      if (typeof window !== 'undefined' && triggeredReports.value.length > 0) {
+        import('@capacitor/core').then(({ Capacitor }) => {
+          if (Capacitor.isNativePlatform()) {
+            import('@capacitor/local-notifications').then(({ LocalNotifications }) => {
+              LocalNotifications.requestPermissions().then((permission) => {
+                if (permission.display === 'granted') {
+                  const reportSummary = triggeredReports.value.join('、')
+                  LocalNotifications.schedule({
+                    notifications: [
+                      {
+                        title: '🐱 逗逗貓理財報告',
+                        body: `喵～主人！剛剛我趁您不在，幫您付了 ${reportSummary} 喔！`,
+                        id: Math.floor(Math.random() * 1000000),
+                        schedule: { at: new Date(Date.now() + 500) },
+                        sound: 'beep.wav'
+                      }
+                    ]
+                  })
+                }
+              })
+            })
+          }
+        })
+      }
+      
       setTimeout(() => {
         triggeredReports.value = []
       }, 8000)
