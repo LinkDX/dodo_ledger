@@ -560,6 +560,51 @@ export function useLedger() {
     }
   }
 
+  // editTransaction：支援修改 note/date/category/subCategory/amount 等欄位
+  // 若金額或帳戶發生變動，自動回退舊餘額並套用新值
+  const editTransaction = async (txId: string, updated: Partial<Pick<Transaction, 'amount' | 'note' | 'date' | 'category' | 'subCategory' | 'fromAccountId' | 'toAccountId'>>) => {
+    const operatorName = currentProfile.value?.name || '系統自動'
+    const operatorAvatar = currentProfile.value?.avatar || '⚙️'
+    const idx = transactions.value.findIndex(tx => tx.id === txId)
+    if (idx === -1) return
+
+    const old = transactions.value[idx]
+
+    // 回退舊的餘額影響
+    const oldFrom = accounts.value.find(a => a.id === old.fromAccountId)
+    const oldTo   = accounts.value.find(a => a.id === old.toAccountId)
+    if (old.type === 'expense' && oldFrom) oldFrom.balance += old.amount
+    else if (old.type === 'income' && oldTo) oldTo.balance -= old.amount
+    else if (old.type === 'transfer') {
+      if (oldFrom) oldFrom.balance += old.amount
+      if (oldTo)   oldTo.balance   -= old.amount
+    }
+
+    // 合併更新欄位
+    const merged: Transaction = { ...old, ...updated }
+    transactions.value[idx] = merged
+
+    // 套用新的餘額影響
+    const newFrom = accounts.value.find(a => a.id === merged.fromAccountId)
+    const newTo   = accounts.value.find(a => a.id === merged.toAccountId)
+    if (merged.type === 'expense' && newFrom) newFrom.balance -= merged.amount
+    else if (merged.type === 'income' && newTo) newTo.balance += merged.amount
+    else if (merged.type === 'transfer') {
+      if (newFrom) newFrom.balance -= merged.amount
+      if (newTo)   newTo.balance   += merged.amount
+    }
+
+    await syncAccounts()
+    await syncTransactions()
+
+    await addSystemLog(
+      operatorName,
+      operatorAvatar,
+      'edit_transaction',
+      `編輯${merged.type === 'expense' ? '支出' : merged.type === 'income' ? '收入' : '轉帳'}：${merged.category}/${merged.subCategory || '未分類'} ${merged.amount} 元`
+    )
+  }
+
   // 11. 週期性記帳設定管理
   const addRecurring = async (recData: Omit<RecurringTransaction, 'id' | 'isActive'>) => {
     const newRec: RecurringTransaction = {
@@ -698,6 +743,7 @@ export function useLedger() {
     
     addTransaction,
     deleteTransaction,
+    editTransaction,
     payCreditCardBill,
     
     addAccount,

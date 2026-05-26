@@ -6,14 +6,18 @@ import {
   PlusCircle,
   ArrowLeftRight,
   Sparkles,
-  ChevronDown
+  Pencil,
+  Check,
+  X
 } from 'lucide-vue-next'
+import MonthYearPicker from './MonthYearPicker.vue'
+import DatePicker from './DatePicker.vue'
 
 const emit = defineEmits<{
   (e: 'change-tab', tab: string): void
 }>()
 
-const { transactions, accounts, deleteTransaction } = useLedger()
+const { transactions, accounts, categories: allCategories, deleteTransaction, editTransaction } = useLedger()
 
 // 篩選類型
 type FilterType = 'all' | 'expense' | 'income' | 'transfer'
@@ -23,7 +27,7 @@ const activeFilter = ref<FilterType>('all')
 const now = new Date()
 const selectedMonth = ref(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
 
-// 自動產生可用月份列表 (最近 12 個月)
+// 自動產生可用月份列表 (最近 12 個月 + 交易中出現的月份)
 const availableMonths = computed(() => {
   const set = new Set<string>()
   for (let i = 0; i < 12; i++) {
@@ -31,7 +35,6 @@ const availableMonths = computed(() => {
     d.setMonth(now.getMonth() - i)
     set.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
   }
-  // 也補上交易資料中有的月份
   transactions.value.forEach(tx => {
     const d = new Date(tx.date)
     set.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
@@ -43,11 +46,9 @@ const availableMonths = computed(() => {
 const filteredTransactions = computed(() => {
   return [...transactions.value]
     .filter(tx => {
-      // 月份篩選
       const d = new Date(tx.date)
       const txMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
       if (txMonth !== selectedMonth.value) return false
-      // 類型篩選
       if (activeFilter.value !== 'all' && tx.type !== activeFilter.value) return false
       return true
     })
@@ -82,6 +83,66 @@ const handleDelete = async (txId: string) => {
     await deleteTransaction(txId)
   }
 }
+
+// ===== 編輯交易功能 =====
+const showEditModal = ref(false)
+const editingTxId = ref('')
+const editNote = ref('')
+const editDateStr = ref('')
+const editCategory = ref('')
+const editSubCategory = ref('')
+const editAmount = ref(0)
+const editFromAccountId = ref('')
+const editToAccountId = ref('')
+const editType = ref<'expense' | 'income' | 'transfer'>('expense')
+
+const openEditModal = (tx: any) => {
+  editingTxId.value = tx.id
+  editNote.value = tx.note
+  editDateStr.value = new Date(tx.date).toISOString().split('T')[0]
+  editCategory.value = tx.category
+  editSubCategory.value = tx.subCategory || ''
+  editAmount.value = tx.amount
+  editFromAccountId.value = tx.fromAccountId || ''
+  editToAccountId.value = tx.toAccountId || ''
+  editType.value = tx.type
+  showEditModal.value = true
+}
+
+const closeEditModal = () => {
+  showEditModal.value = false
+  editingTxId.value = ''
+}
+
+const handleEditSave = async () => {
+  if (!editingTxId.value) return
+  if (editAmount.value <= 0) return
+
+  await editTransaction(editingTxId.value, {
+    note: editNote.value,
+    date: new Date(editDateStr.value).getTime(),
+    category: editCategory.value,
+    subCategory: editSubCategory.value || undefined,
+    amount: editAmount.value,
+    fromAccountId: editFromAccountId.value || undefined,
+    toAccountId: editToAccountId.value || undefined
+  })
+  closeEditModal()
+}
+
+// 分類選項 (根據交易類型)
+const categoryOptions = computed(() =>
+  allCategories.value.filter(c => c.type === editType.value)
+)
+
+const subCategoryOptions = computed(() => {
+  const cat = allCategories.value.find(c => c.name === editCategory.value)
+  return cat?.subCategories || []
+})
+
+// 可選帳戶
+const expenseAccounts = computed(() => accounts.value)
+const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'credit_card'))
 </script>
 
 <template>
@@ -91,13 +152,12 @@ const handleDelete = async (txId: string) => {
       <h2 class="page-title"><Sparkles class="icon-inline" /> 收支明細</h2>
     </div>
 
-    <!-- 月份選取 -->
-    <div class="month-selector-wrap card-jelly">
-      <ChevronDown :size="14" class="select-chevron" />
-      <select v-model="selectedMonth" class="month-select input-jelly">
-        <option v-for="m in availableMonths" :key="m" :value="m">{{ m }} 帳單</option>
-      </select>
-    </div>
+    <!-- 月份選取 (MonthYearPicker) -->
+    <MonthYearPicker
+      v-model="selectedMonth"
+      :available-months="availableMonths"
+      class="mb-picker"
+    />
 
     <!-- 本月小計卡 -->
     <div class="summary-strip card-jelly">
@@ -184,7 +244,7 @@ const handleDelete = async (txId: string) => {
           </div>
         </div>
 
-        <!-- 右側：金額 + 日期 + 刪除 -->
+        <!-- 右側：金額 + 日期 + 操作 -->
         <div class="tx-right">
           <span class="tx-amount" :style="{ color: getTxStyle(tx).color }">
             {{ getTxStyle(tx).prefix }}${{ formatCurrency(tx.amount) }}
@@ -192,8 +252,103 @@ const handleDelete = async (txId: string) => {
           <span class="tx-date">
             {{ new Date(tx.date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }) }}
           </span>
-          <button class="btn-delete btn-jelly" @click="handleDelete(tx.id)" title="刪除此筆">
-            <Trash2 :size="12" />
+          <div class="tx-actions">
+            <button class="btn-edit btn-jelly" @click="openEditModal(tx)" title="編輯此筆">
+              <Pencil :size="11" />
+            </button>
+            <button class="btn-delete btn-jelly" @click="handleDelete(tx.id)" title="刪除此筆">
+              <Trash2 :size="11" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 編輯交易彈窗 ===== -->
+    <div v-if="showEditModal" class="modal-overlay">
+      <div class="modal-card card-jelly pop-jelly">
+        <div class="modal-header">
+          <h3 class="modal-title">✏️ 編輯記帳明細</h3>
+          <button class="btn-jelly btn-close-modal" @click="closeEditModal">
+            <X :size="14" />
+          </button>
+        </div>
+
+        <!-- 金額 -->
+        <div class="form-group">
+          <label class="label-cute">金額</label>
+          <input v-model.number="editAmount" type="number" min="0" class="input-jelly" />
+        </div>
+
+        <!-- 備註 -->
+        <div class="form-group">
+          <label class="label-cute">備註</label>
+          <input v-model="editNote" type="text" class="input-jelly" maxlength="30" />
+        </div>
+
+        <!-- 日期 -->
+        <div class="form-group">
+          <label class="label-cute">日期</label>
+          <DatePicker v-model="editDateStr" />
+        </div>
+
+        <!-- 主分類 -->
+        <div class="form-group">
+          <label class="label-cute">主分類</label>
+          <div class="cat-chips">
+            <button
+              v-for="cat in categoryOptions"
+              :key="cat.id"
+              class="btn-jelly chip-btn"
+              :class="{ active: editCategory === cat.name }"
+              @click="editCategory = cat.name; editSubCategory = cat.subCategories[0] || ''"
+            >
+              {{ cat.name }}
+            </button>
+          </div>
+        </div>
+
+        <!-- 子分類 -->
+        <div v-if="subCategoryOptions.length" class="form-group">
+          <label class="label-cute">子分類</label>
+          <div class="cat-chips">
+            <button
+              v-for="sub in subCategoryOptions"
+              :key="sub"
+              class="btn-jelly chip-btn"
+              :class="{ active: editSubCategory === sub }"
+              @click="editSubCategory = sub"
+            >
+              {{ sub }}
+              <Check v-if="editSubCategory === sub" :size="10" stroke-width="4" />
+            </button>
+          </div>
+        </div>
+
+        <!-- 來源/目的帳戶 -->
+        <div v-if="editType === 'expense' || editType === 'transfer'" class="form-group">
+          <label class="label-cute">支付帳戶</label>
+          <select v-model="editFromAccountId" class="input-jelly">
+            <option value="">(不指定)</option>
+            <option v-for="a in expenseAccounts" :key="a.id" :value="a.id">{{ a.name }}</option>
+          </select>
+        </div>
+        <div v-if="editType === 'income' || editType === 'transfer'" class="form-group">
+          <label class="label-cute">存入帳戶</label>
+          <select v-model="editToAccountId" class="input-jelly">
+            <option value="">(不指定)</option>
+            <option v-for="a in incomeAccounts" :key="a.id" :value="a.id">{{ a.name }}</option>
+          </select>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn-jelly btn-cancel" @click="closeEditModal">取消</button>
+          <button
+            class="btn-jelly btn-confirm"
+            :disabled="editAmount <= 0"
+            @click="handleEditSave"
+          >
+            儲存變更 ✔
           </button>
         </div>
       </div>
@@ -216,35 +371,9 @@ const handleDelete = async (txId: string) => {
   font-weight: 800;
 }
 
-/* 月份選擇器 */
-.month-selector-wrap {
-  position: relative;
-  background-color: #fff;
-  padding: 0 !important;
+/* 月份選取器 */
+.mb-picker {
   margin-bottom: 12px;
-  overflow: hidden;
-}
-
-.select-chevron {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-  color: var(--color-text-muted);
-}
-
-.month-select {
-  width: 100%;
-  background-color: #fff;
-  border: none;
-  box-shadow: none;
-  appearance: none;
-  padding: 10px 36px 10px 14px;
-  font-weight: 800;
-  font-size: 13px;
-  cursor: pointer;
-  margin-bottom: 0;
 }
 
 /* 小計欄 */
@@ -429,8 +558,25 @@ const handleDelete = async (txId: string) => {
   color: var(--color-text-muted);
 }
 
-.btn-delete {
+.tx-actions {
+  display: flex;
+  gap: 4px;
   margin-top: 4px;
+}
+
+.btn-edit {
+  width: 26px;
+  height: 26px;
+  padding: 0 !important;
+  background-color: #EEF4FF !important;
+  color: #4A7FE0;
+  border-color: #A9C9FF !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-delete {
   width: 26px;
   height: 26px;
   padding: 0 !important;
@@ -447,5 +593,107 @@ const handleDelete = async (txId: string) => {
   height: 18px;
   vertical-align: -3px;
   margin-right: 4px;
+}
+
+/* ===== 編輯彈窗 ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(44, 30, 27, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 200;
+  padding: 0;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 480px;
+  max-height: 88vh;
+  overflow-y: auto;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  padding: 20px !important;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.modal-title {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.btn-close-modal {
+  width: 30px;
+  height: 30px;
+  padding: 0 !important;
+  background-color: var(--color-bg-warm) !important;
+  border-radius: 50% !important;
+}
+
+.form-group {
+  margin-bottom: 14px;
+}
+
+.label-cute {
+  font-size: 12px;
+  font-weight: 800;
+  display: block;
+  margin-bottom: 6px;
+  padding-left: 2px;
+}
+
+.cat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip-btn {
+  padding: 4px 10px !important;
+  font-size: 11px;
+  background-color: var(--color-bg-warm) !important;
+  border-radius: 20px !important;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chip-btn.active {
+  background-color: var(--color-income) !important;
+  border-width: 2.5px;
+  font-weight: 800;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.btn-cancel {
+  flex: 1;
+  background-color: var(--color-bg-warm) !important;
+  padding: 12px !important;
+}
+
+.btn-confirm {
+  flex: 2;
+  background-color: var(--color-income) !important;
+  padding: 12px !important;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.btn-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
 }
 </style>

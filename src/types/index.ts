@@ -46,6 +46,7 @@ export interface Account {
   balance: number;              // 現金、銀行、電子票證為正餘額；信用卡為負之已消費金額
   icon: string;
   color: string;                // 馬卡龍配色 CSS 類別或 Hex
+  avatar?: string;              // 可選 Emoji 頭像，方便辨識帳戶
   currency: string;
   createdAt: number;
   cardDetails?: CreditCardDetails;

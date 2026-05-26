@@ -6,8 +6,11 @@ import {
   Check, 
   Tag, 
   Sparkles,
-  Calculator
+  Calculator,
+  Delete
 } from 'lucide-vue-next'
+import DatePicker from './DatePicker.vue'
+import AccountPicker from './AccountPicker.vue'
 
 const { accounts, addTransaction, categories: allCategories } = useLedger()
 
@@ -81,6 +84,19 @@ const handleKeyPress = (key: string) => {
     displayFormula.value = '0'
     displayResult.value = 0
     isNewInput.value = true
+    return
+  }
+
+  if (key === '⌫') {
+    // 回退刪除最後一個字元
+    if (displayFormula.value.length <= 1 || isNewInput.value) {
+      displayFormula.value = '0'
+      displayResult.value = 0
+      isNewInput.value = true
+    } else {
+      displayFormula.value = displayFormula.value.slice(0, -1)
+      instantCalculate()
+    }
     return
   }
 
@@ -257,22 +273,16 @@ const handleSubmit = async () => {
 
     <!-- 2. 收支參數設定區 (帳戶、日期、備註) -->
     <div class="form-core-details card-jelly">
-      <div class="fields-grid">
-        <!-- 帳戶選取 -->
-        <div class="form-group">
-          <label class="label-cute">選擇支付/收款帳戶</label>
-          <select v-model="selectedAccountId" class="input-jelly select-cute">
-            <option v-for="a in availableAccounts" :key="a.id" :value="a.id">
-              {{ a.name }} (餘額: ${{ a.balance }})
-            </option>
-          </select>
-        </div>
+      <!-- 帳戶選取 -->
+      <div class="form-group">
+        <label class="label-cute">選擇支付 / 收款帳戶</label>
+        <AccountPicker v-model="selectedAccountId" :accounts="availableAccounts" />
+      </div>
 
-        <!-- 日期選擇 -->
-        <div class="form-group">
-          <label class="label-cute">記帳日期</label>
-          <input v-model="dateStr" type="date" class="input-jelly" />
-        </div>
+      <!-- 日期選擇 -->
+      <div class="form-group">
+        <label class="label-cute">記帳日期</label>
+        <DatePicker v-model="dateStr" />
       </div>
 
       <!-- 備註輸入 -->
@@ -386,6 +396,9 @@ const handleSubmit = async () => {
         <button class="btn-jelly key-btn key-clear" @click="handleKeyPress('C')">C</button>
 
         <!-- 第四橫列 -->
+        <button class="btn-jelly key-btn key-backspace" @click="handleKeyPress('⌫')">
+          <Delete :size="18" />
+        </button>
         <button class="btn-jelly key-btn" @click="handleKeyPress('0')">0</button>
         <button class="btn-jelly key-btn" @click="handleKeyPress('.')">.</button>
         <button 
@@ -450,11 +463,6 @@ const handleSubmit = async () => {
 /* 表單設定區 */
 .form-core-details {
   padding: 16px !important;
-}
-
-.fields-grid {
-  display: flex;
-  gap: 12px;
 }
 
 .form-group {
@@ -688,8 +696,11 @@ const handleSubmit = async () => {
   background-color: var(--color-expense) !important;
 }
 
+.key-backspace {
+  background-color: var(--color-accent-gold) !important;
+}
+
 .key-confirm {
-  grid-column: span 2; /* 佔據兩格 */
   background-color: var(--color-income) !important;
   font-size: 15px;
 }

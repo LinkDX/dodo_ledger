@@ -12,14 +12,18 @@ import {
   Check,
   Sparkles,
   Calendar,
-  CheckCircle
+  CheckCircle,
+  Pencil,
+  X
 } from 'lucide-vue-next'
+import MonthYearPicker from './MonthYearPicker.vue'
 
 const { 
   accounts,
   transactions,
-  addAccount, 
+  addAccount,
   deleteAccount,
+  editAccount,
   addTransaction,
   payCreditCardBill
 } = useLedger()
@@ -44,14 +48,19 @@ const cardColors = [
   { class: 'card-coral',  value: '#FFBBA8', name: '珊瑚橘' },
 ]
 
+// 帳戶可選 Emoji Avatar
+const avatarOptions = ['🏦','💳','💰','🪙','💵','💴','🏧','💼','🛍️','🌟','🐱','🎯','🚀','🎁','🍵','🏠','📦','🎪','🌈','⭐']
+
 // 狀態控制
 const showAddModal = ref(false)
 const showTransferModal = ref(false)
+const showEditModal = ref(false)
 
 // 新增帳戶表單狀態
 const newName = ref('')
 const newType = ref<AccountType>('cash')
 const newBalance = ref<number | ''>('')
+const newAvatar = ref('')
 const selectedColorIdx = ref(0)
 // 信用卡專屬表單
 const creditLimit = ref<number>(50000)
@@ -65,12 +74,19 @@ const transferAmount = ref<number | ''>('')
 const transferFee = ref<number>(0)
 const transferNote = ref('')
 
+// 編輯帳戶表單狀態
+const editingAcctId = ref('')
+const editName = ref('')
+const editAvatar = ref('')
+const editColorIdx = ref(0)
+
 const toggleAddModal = () => {
   showAddModal.value = !showAddModal.value
   if (showAddModal.value) {
     newName.value = ''
     newType.value = 'cash'
     newBalance.value = ''
+    newAvatar.value = ''
     selectedColorIdx.value = 0
     creditLimit.value = 50000
     billingCycleDate.value = 10
@@ -89,6 +105,30 @@ const toggleTransferModal = () => {
   }
 }
 
+const openEditModal = (acct: Account) => {
+  editingAcctId.value = acct.id
+  editName.value = acct.name
+  editAvatar.value = acct.avatar || ''
+  editColorIdx.value = cardColors.findIndex(c => c.class === acct.color)
+  if (editColorIdx.value < 0) editColorIdx.value = 0
+  showEditModal.value = true
+}
+
+const closeEditModal = () => {
+  showEditModal.value = false
+  editingAcctId.value = ''
+}
+
+const handleSaveEdit = async () => {
+  if (!editingAcctId.value || !editName.value.trim()) return
+  await editAccount(editingAcctId.value, {
+    name: editName.value.trim(),
+    avatar: editAvatar.value || undefined,
+    color: cardColors[editColorIdx.value].class
+  })
+  closeEditModal()
+}
+
 const handleAddAccount = async () => {
   if (!newName.value.trim()) return
   
@@ -97,13 +137,13 @@ const handleAddAccount = async () => {
   const acctData: any = {
     name: newName.value.trim(),
     type: newType.value,
-    balance: newType.value === 'credit_card' ? -balanceVal : balanceVal, // 信用卡餘額初始為負值 (已消費金額)
+    balance: newType.value === 'credit_card' ? -balanceVal : balanceVal,
     icon: newType.value === 'cash' ? 'Wallet' : newType.value === 'bank' ? 'Landmark' : newType.value === 'credit_card' ? 'CreditCard' : 'Compass',
     color: cardColors[selectedColorIdx.value].class,
+    avatar: newAvatar.value || undefined,
     currency: 'TWD'
   }
 
-  // 信用卡專屬規格
   if (newType.value === 'credit_card') {
     acctData.cardDetails = {
       creditLimit: Number(creditLimit.value) || 50000,
@@ -152,14 +192,11 @@ const getCreditAvailableRatio = (acct: Account) => {
 
 // ========== 信用卡帳單區塊邏輯 ==========
 
-// 篩選信用卡帳戶
 const creditCards = computed(() => accounts.value.filter(a => a.type === 'credit_card'))
 
-// 選定的信用卡與月份
 const selectedCardId = ref('')
 const selectedPeriod = ref('')
 
-// 初始化預設選項
 const initCreditDefaults = () => {
   if (creditCards.value.length > 0) {
     if (!selectedCardId.value) selectedCardId.value = creditCards.value[0].id
@@ -172,7 +209,6 @@ const initCreditDefaults = () => {
 
 const activeCard = computed(() => creditCards.value.find(a => a.id === selectedCardId.value))
 
-// 最近 6 個月帳單週期
 const billPeriods = computed(() => {
   const list: string[] = []
   const d = new Date()
@@ -184,7 +220,6 @@ const billPeriods = computed(() => {
   return list
 })
 
-// 本期帳單交易
 const billedTransactions = computed(() => {
   if (!selectedCardId.value || !selectedPeriod.value) return []
   return transactions.value.filter(tx =>
@@ -197,10 +232,8 @@ const billTotalAmount = computed(() =>
   billedTransactions.value.reduce((sum, tx) => sum + tx.amount, 0)
 )
 
-// 可扣款的銀行/現金帳戶
 const bankAccounts = computed(() => accounts.value.filter(a => a.type === 'bank' || a.type === 'cash'))
 
-// 還款彈窗
 const showPayModal = ref(false)
 const linkedBankId = ref('')
 
@@ -216,7 +249,6 @@ const handlePayBill = async () => {
   showPayModal.value = false
 }
 
-// 切換至信用卡帳單時初始化
 const switchToCredit = () => {
   activeSection.value = 'credit'
   initCreditDefaults()
@@ -276,17 +308,26 @@ const switchToCredit = () => {
       >
         <div class="card-top-row">
           <div class="card-badge">
-            <Wallet v-if="acct.type === 'cash'" :size="16" />
-            <Landmark v-else-if="acct.type === 'bank'" :size="16" />
-            <CreditCard v-else-if="acct.type === 'credit_card'" :size="16" />
-            <Compass v-else :size="16" />
+            <!-- Avatar 優先，否則退回 Lucide 圖示 -->
+            <span v-if="acct.avatar" class="card-avatar-emoji">{{ acct.avatar }}</span>
+            <template v-else>
+              <Wallet v-if="acct.type === 'cash'" :size="16" />
+              <Landmark v-else-if="acct.type === 'bank'" :size="16" />
+              <CreditCard v-else-if="acct.type === 'credit_card'" :size="16" />
+              <Compass v-else :size="16" />
+            </template>
             <span class="type-text">
               {{ acct.type === 'cash' ? '現金' : acct.type === 'bank' ? '銀行存款' : acct.type === 'credit_card' ? '信用卡' : '電子票證' }}
             </span>
           </div>
-          <button class="btn-delete-card" @click="deleteAccount(acct.id)">
-            ×
-          </button>
+          <div class="card-top-actions">
+            <button class="btn-edit-card" @click="openEditModal(acct)" title="編輯帳戶">
+              <Pencil :size="11" />
+            </button>
+            <button class="btn-delete-card" @click="deleteAccount(acct.id)">
+              ×
+            </button>
+          </div>
         </div>
 
         <h3 class="card-name">{{ acct.name }}</h3>
@@ -348,9 +389,7 @@ const switchToCredit = () => {
           </div>
           <div class="select-group">
             <label class="label-cute">帳單月份</label>
-            <select v-model="selectedPeriod" class="input-jelly select-cute">
-              <option v-for="p in billPeriods" :key="p" :value="p">{{ p }} 帳單</option>
-            </select>
+            <MonthYearPicker v-model="selectedPeriod" :available-months="billPeriods" />
           </div>
         </div>
 
@@ -514,6 +553,28 @@ const switchToCredit = () => {
         </Transition>
 
         <div class="form-group">
+          <label class="label-cute">帳戶 Emoji 頭像（可選）</label>
+          <div class="avatar-picker-grid">
+            <button
+              class="btn-jelly avatar-option"
+              :class="{ active: newAvatar === '' }"
+              @click="newAvatar = ''"
+            >
+              —
+            </button>
+            <button
+              v-for="em in avatarOptions"
+              :key="em"
+              class="btn-jelly avatar-option"
+              :class="{ active: newAvatar === em }"
+              @click="newAvatar = em"
+            >
+              {{ em }}
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
           <label class="label-cute">卡片配色</label>
           <div class="color-picker-grid">
             <div 
@@ -579,6 +640,66 @@ const switchToCredit = () => {
           >
             確認轉帳 ➜
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. 編輯帳戶彈窗 -->
+    <div v-if="showEditModal" class="modal-overlay">
+      <div class="modal-card card-jelly pop-jelly">
+        <div class="modal-header-row">
+          <h3 class="modal-title">✏️ 編輯帳戶</h3>
+          <button class="btn-jelly btn-close-edit" @click="closeEditModal">
+            <X :size="14" />
+          </button>
+        </div>
+
+        <div class="form-group">
+          <label class="label-cute">帳戶名稱</label>
+          <input v-model="editName" type="text" class="input-jelly" maxlength="15" />
+        </div>
+
+        <div class="form-group">
+          <label class="label-cute">Emoji 頭像</label>
+          <div class="avatar-picker-grid">
+            <button
+              class="btn-jelly avatar-option"
+              :class="{ active: editAvatar === '' }"
+              @click="editAvatar = ''"
+            >
+              —
+            </button>
+            <button
+              v-for="em in avatarOptions"
+              :key="em"
+              class="btn-jelly avatar-option"
+              :class="{ active: editAvatar === em }"
+              @click="editAvatar = em"
+            >
+              {{ em }}
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="label-cute">卡片配色</label>
+          <div class="color-picker-grid">
+            <div
+              v-for="(col, idx) in cardColors"
+              :key="idx"
+              class="color-dot btn-jelly"
+              :class="{ active: editColorIdx === idx }"
+              :style="{ backgroundColor: col.value }"
+              @click="editColorIdx = idx"
+            >
+              <Check v-if="editColorIdx === idx" :size="14" stroke-width="4" stroke="#2C1E1B" />
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn-jelly btn-cancel" @click="closeEditModal">取消</button>
+          <button class="btn-jelly btn-confirm" :disabled="!editName.trim()" @click="handleSaveEdit">儲存 ✔</button>
         </div>
       </div>
     </div>
@@ -986,6 +1107,72 @@ const switchToCredit = () => {
 
 .btn-delete-card:active {
   transform: scale(0.9);
+}
+
+.btn-edit-card {
+  width: 22px;
+  height: 22px;
+  background-color: #EEF4FF;
+  border: var(--border-width) solid #A9C9FF;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--shadow-jelly-sm);
+  color: #4A7FE0;
+  transition: all 0.1s ease;
+}
+
+.btn-edit-card:active {
+  transform: scale(0.9);
+}
+
+.card-top-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.card-avatar-emoji {
+  font-size: 16px;
+}
+
+/* Avatar picker */
+.avatar-picker-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.avatar-option {
+  width: 34px;
+  height: 34px;
+  padding: 0 !important;
+  font-size: 16px;
+  background-color: var(--color-bg-warm) !important;
+  border-radius: var(--border-radius-sm) !important;
+}
+
+.avatar-option.active {
+  background-color: var(--color-income) !important;
+  border-width: 2.5px;
+}
+
+/* Edit modal header row */
+.modal-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.btn-close-edit {
+  width: 28px;
+  height: 28px;
+  padding: 0 !important;
+  background-color: var(--color-bg-warm) !important;
+  border-radius: 50% !important;
 }
 
 .card-name {
