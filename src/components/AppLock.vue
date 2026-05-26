@@ -12,6 +12,15 @@ const isVerifying = ref(false)
 const isError = ref(false)
 const errorCount = ref(0)
 
+const hiddenInputRef = ref<HTMLInputElement | null>(null)
+
+// 喚醒手機虛擬鍵盤
+const focusHiddenInput = () => {
+  if (hiddenInputRef.value) {
+    hiddenInputRef.value.focus()
+  }
+}
+
 // 貓咪當前的表情狀態與話語
 const catMood = ref<CatMood>('sleeping')
 const catSpeech = ref('')
@@ -110,22 +119,33 @@ const handleSubmit = async () => {
 const handleKeyDown = (e: KeyboardEvent) => {
   if (isVerifying.value || isError.value) return
   
-  if (e.key >= '0' && e.key <= '9') {
-    handleKeyClick(e.key)
-  } else if (e.key === 'Backspace') {
-    handleBackspace()
-  } else if (e.key === 'Enter') {
+  // 如果當前焦點已在隱藏 input 上，瀏覽器原生會完美處理一般字元輸入與 Backspace 退格，
+  // 全域監聽器只需處理 Enter 與 Escape，以防止重複輸入（雙重事件觸發）！
+  const isInputFocused = document.activeElement === hiddenInputRef.value
+  
+  if (e.key === 'Enter') {
+    e.preventDefault()
     handleSubmit()
   } else if (e.key === 'Escape') {
+    e.preventDefault()
     handleClear()
-  } else if (isGlobalLockEnabled.value && e.key.length === 1 && /^[a-zA-Z!@#$%^&*]$/.test(e.key)) {
-    // 若為全域鎖定，因可能有英數密碼，故額外允許英文與一般字元輸入
-    handleKeyClick(e.key)
+  } else if (!isInputFocused) {
+    if (e.key >= '0' && e.key <= '9') {
+      handleKeyClick(e.key)
+    } else if (e.key === 'Backspace') {
+      handleBackspace()
+    } else if (isGlobalLockEnabled.value && e.key.length === 1 && /^[a-zA-Z!@#$%^&*]$/.test(e.key)) {
+      handleKeyClick(e.key)
+    }
   }
 }
 
 onMounted(() => {
   window.addEventListener('keydown', handleKeyDown)
+  // 延遲聚焦喚醒手機軟鍵盤
+  setTimeout(() => {
+    focusHiddenInput()
+  }, 500)
 })
 
 onUnmounted(() => {
@@ -134,7 +154,19 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="lock-screen-container" :class="{ 'shake-active': isError }">
+  <div class="lock-screen-container" :class="{ 'shake-active': isError }" @click="focusHiddenInput">
+    <!-- 隱藏的實際輸入框，專供手機端喚醒鍵盤 -->
+    <input 
+      ref="hiddenInputRef"
+      v-model="passwordInput"
+      type="text"
+      class="hidden-input"
+      autocomplete="off"
+      autocorrect="off"
+      autocapitalize="off"
+      spellcheck="false"
+      @input="updateCatResponse"
+    />
     <div class="lock-card pop-jelly">
       <!-- 鎖頭 Icon 與安全提示 -->
       <div class="lock-header">
@@ -232,6 +264,21 @@ onUnmounted(() => {
   background-color: var(--color-bg-warm);
   padding: 20px;
   box-sizing: border-box;
+  cursor: pointer;
+}
+
+/* 隱藏但保持可聚焦的真實輸入框 */
+.hidden-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  border: none;
+  outline: none;
+  z-index: -1;
+  pointer-events: none;
 }
 
 .lock-card {

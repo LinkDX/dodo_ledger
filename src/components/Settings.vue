@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useAuth } from '../composables/useAuth'
-import { useLedger } from '../composables/useLedger'
-import { getDatabaseService, switchDatabaseService, FirestoreDatabaseService } from '../services/db'
-import { FIREBASE_CONFIG } from '../config/firebase'
+import { getDatabaseService, FirestoreDatabaseService } from '../services/db'
 import type { Category } from '../types'
 import { 
   Settings as SettingsIcon, 
@@ -19,7 +17,6 @@ import {
 } from 'lucide-vue-next'
 
 const { currentProfile, updateProfileSettings } = useAuth()
-const { loadLedgerData } = useLedger()
 
 // 🔒 Dodo Gatekeeper - 密碼鎖防護邏輯
 import { useAppLock } from '../composables/useAppLock'
@@ -94,42 +91,8 @@ const handleSaveBudget = () => {
   }, 3000)
 }
 
-// 2. Firebase 雲端同步設定狀態 (直接讀取專案內置 config)
-const isCloudConnected = ref(false)
-// 檢查目前是否為 Firebase 連線狀態
+// 2. Firebase 雲端同步狀態
 const isCurrentlyCloudMode = ref(getDatabaseService() instanceof FirestoreDatabaseService)
-
-const handleConnectCloud = async () => {
-  // 直接讀取專案內置的設定檔進行初始化
-  const cloudService = new FirestoreDatabaseService(FIREBASE_CONFIG)
-  
-  // 切換全域的 active service 到雲端服務層
-  switchDatabaseService(cloudService)
-  
-  // 觸發資料重載與同步
-  if (currentProfile.value) {
-    await loadLedgerData()
-  }
-
-  isCloudConnected.value = true
-  isCurrentlyCloudMode.value = true
-  alert('🐱 喵！成功連接 Firebase 雲端資料庫！資料已同步備份上雲囉！')
-}
-
-// 斷開雲端，切回本地
-const handleDisconnectCloud = async () => {
-  // 切回預設的本地 Mock 服務
-  const { switchDatabaseService, MockDatabaseService } = await import('../services/db')
-  switchDatabaseService(new MockDatabaseService())
-  
-  if (currentProfile.value) {
-    await loadLedgerData()
-  }
-
-  isCurrentlyCloudMode.value = false
-  isCloudConnected.value = false
-  alert('🐱 喵嗚！已中斷 Firebase 雲端連線，資料切回 LocalStorage 本地儲存模式。')
-}
 
 // 3. 🐾 記帳分類手動管理狀態與方法
 const activeCatType = ref<'expense' | 'income'>('expense')
@@ -289,10 +252,10 @@ const formatCurrency = (val: number) => {
       </div>
     </div>
 
-    <!-- 2. Firebase 雲端同步綁定 (雙模式無縫切換核心，直接讀取內置配置) -->
+    <!-- 2. Firebase 雲端同步狀態 -->
     <div class="settings-box card-jelly">
       <h3 class="box-title">
-        <CloudLightning class="icon-inline" /> Firebase 雲端同步控制台
+        <CloudLightning class="icon-inline" /> Firebase 雲端備份防護
       </h3>
 
       <!-- 雲端狀態橫條 -->
@@ -307,45 +270,29 @@ const formatCurrency = (val: number) => {
             儲存狀態: {{ isCurrentlyCloudMode ? '☁️ Firebase 雲端同步模式' : '📟 LocalStorage 本地儲存模式' }}
           </span>
         </div>
-        <div class="status-indicator"></div>
       </div>
 
-      <!-- 2.1 目前已連接 Firebase 狀態 -->
+      <!-- 雲端狀態說明 -->
       <div v-if="isCurrentlyCloudMode" class="cloud-connected-info pop-jelly">
         <div class="shield-success-card card-jelly">
           <ShieldCheck :size="32" class="icon-shield" />
-          <h4>雲端防護已啟動！</h4>
+          <h4>雲端防護已自動啟動！</h4>
           <p class="shield-desc">
-            您的記帳資料目前正在 Firebase 雲端安全備份保護中。<br>
-            未來的 **Android App** 將能無縫載入此雲端帳本，共同記帳留名紀錄！
+            偵測到專案內置的 Firebase 金鑰設定。您的記帳資料已自動在 Firebase Firestore 進行安全的雲端即時同步備份與多人共同記帳保護，未來的 Android App 也將能無縫共享資料喔喵！🐾
           </p>
         </div>
-        <button class="btn-jelly btn-disconnect" @click="handleDisconnectCloud">
-          斷開 Firebase 雲端，切回本地 🔌
-        </button>
       </div>
 
-      <!-- 2.2 未連接狀態：顯示專案內置設定，一鍵備份 -->
-      <div v-else class="cloud-form pop-jelly">
-        <div class="inner-config-card card-jelly">
-          <div class="config-icon">⚙️</div>
+      <div v-else class="cloud-connected-info pop-jelly">
+        <div class="inner-config-card card-jelly" style="background-color: #FFF0ED !important; border-color: #FFAAAA !important; text-align: left;">
+          <div class="config-icon">📟</div>
           <div class="config-details">
-            <h4 class="config-title">偵測到專案內置 Firebase 設定</h4>
-            <p class="config-sub">
-              專案 ID: <code class="config-code">{{ FIREBASE_CONFIG.projectId }}</code>
-            </p>
-            <p class="config-sub-hint">
-              * 此設定已安全地預置於專案中，主人免在網頁上填寫繁複的欄位，即可一鍵上雲同步喵！
+            <h4 class="config-title" style="color: #B4463E;">本地離線記帳中</h4>
+            <p class="shield-desc" style="margin-top: 4px; color: var(--color-text-muted);">
+              目前未使用雲端。您的所有記帳與資產紀錄皆安全地儲存在您本機瀏覽器的 LocalStorage 裡。若要開啟多人雲端共同記帳，請在發布時配置 Firebase 金鑰，系統即會自動上雲同步喵！
             </p>
           </div>
         </div>
-
-        <button 
-          class="btn-jelly btn-connect-cloud"
-          @click="handleConnectCloud"
-        >
-          測試連線並一鍵同步上雲 🚀
-        </button>
       </div>
     </div>
 

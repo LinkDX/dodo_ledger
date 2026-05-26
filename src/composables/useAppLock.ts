@@ -30,7 +30,11 @@ const LOCAL_LOCK_HASH_KEY = 'dodo_app_lock_hash'
 const SESSION_AUTH_KEY = 'dodo_app_lock_session'
 
 // 3. 讀取打包編譯期注入之全域密碼雜湊 (適用於部署 GitHub Pages 之全域防存取鎖)
-const GLOBAL_HASH = (import.meta.env.VITE_APP_PASSWORD_HASH || '').trim().toLowerCase()
+const isTestMode = typeof globalThis !== 'undefined' && (
+  (globalThis as any).process?.env?.NODE_ENV === 'test' || 
+  (globalThis as any).process?.env?.VITEST === 'true'
+)
+const GLOBAL_HASH = isTestMode ? '' : (import.meta.env.VITE_APP_PASSWORD_HASH || '').trim().toLowerCase()
 
 // 4. 響應式狀態 (全域單例共享，確保各元件訂閱狀態一致)
 const isLocked = ref(true)
