@@ -9,6 +9,7 @@ on:
       - 'android/**'
       - 'capacitor.config.ts'
       - 'package.json'
+      - 'package-lock.json'
       - 'src/**'
       - 'public/**'
 
