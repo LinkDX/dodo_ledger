@@ -29,10 +29,19 @@ const activeSection = ref<'accounts' | 'credit'>('accounts')
 
 // 帳戶專屬馬卡龍漸層配色選項
 const cardColors = [
-  { class: 'card-gold', value: '#FFDAC1', name: '奶油黃' },
-  { class: 'card-pink', value: '#FFB4B4', name: '櫻桃粉' },
-  { class: 'card-blue', value: '#A9C9FF', name: '天空藍' },
-  { class: 'card-purple', value: '#E2C6FF', name: '薰衣草紫' }
+  { class: 'card-gold',   value: '#FFDAC1', name: '卡士達金' },
+  { class: 'card-pink',   value: '#FFB4B4', name: '櫻桃粉' },
+  { class: 'card-blue',   value: '#A9C9FF', name: '天空藍' },
+  { class: 'card-purple', value: '#E2C6FF', name: '薰衣草紫' },
+  { class: 'card-mint',   value: '#C7F2E6', name: '薄荷綠' },
+  { class: 'card-peach',  value: '#FFCBA4', name: '蜜桃橘' },
+  { class: 'card-lemon',  value: '#FFF3B0', name: '檸檬黃' },
+  { class: 'card-rose',   value: '#FFADC7', name: '玫瑰紅' },
+  { class: 'card-sky',    value: '#C1E1FF', name: '粉霧藍' },
+  { class: 'card-lilac',  value: '#D4BAFF', name: '丁香紫' },
+  { class: 'card-sage',   value: '#D6EAC0', name: '鼠尾草綠' },
+  { class: 'card-cocoa',  value: '#E8D5C4', name: '可可奶茶' },
+  { class: 'card-coral',  value: '#FFBBA8', name: '珊瑚橘' },
 ]
 
 // 狀態控制
@@ -1051,10 +1060,19 @@ const switchToCredit = () => {
 }
 
 /* 馬卡龍卡片背景色配色系統 */
-.card-gold { background-color: var(--color-accent-gold) !important; }
-.card-pink { background-color: var(--color-expense) !important; }
-.card-blue { background-color: var(--color-transfer) !important; }
-.card-purple { background-color: var(--color-accent-purple) !important; }
+.card-gold   { background-color: var(--color-accent-gold)   !important; }
+.card-pink   { background-color: var(--color-expense)        !important; }
+.card-blue   { background-color: var(--color-transfer)       !important; }
+.card-purple { background-color: var(--color-accent-purple)  !important; }
+.card-mint   { background-color: var(--color-accent-mint)    !important; }
+.card-peach  { background-color: var(--color-accent-peach)   !important; }
+.card-lemon  { background-color: var(--color-accent-lemon)   !important; }
+.card-rose   { background-color: var(--color-accent-rose)    !important; }
+.card-sky    { background-color: var(--color-accent-sky)     !important; }
+.card-lilac  { background-color: var(--color-accent-lilac)   !important; }
+.card-sage   { background-color: var(--color-accent-sage)    !important; }
+.card-cocoa  { background-color: var(--color-accent-cocoa)   !important; }
+.card-coral  { background-color: var(--color-accent-coral)   !important; }
 
 /* 彈窗樣式 */
 .modal-overlay {
@@ -1174,6 +1192,7 @@ const switchToCredit = () => {
 /* 卡片配色選擇 */
 .color-picker-grid {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
 }
 

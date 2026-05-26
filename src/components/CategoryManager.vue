@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
-import { useAuth } from '../composables/useAuth'
 import { useLedger } from '../composables/useLedger'
 import { 
   FolderPlus, 
@@ -8,7 +7,6 @@ import {
   X 
 } from 'lucide-vue-next'
 
-const { currentProfile } = useAuth()
 const { categories, addCategory, deleteCategory, addSubCategory, deleteSubCategory } = useLedger()
 
 // 🐾 記帳分類手動管理狀態與方法

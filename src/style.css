@@ -15,6 +15,15 @@
   --color-transfer: #A9C9FF;     /* 轉帳/還款：天空藍 */
   --color-accent-gold: #FFDAC1;  /* 輔助/金額：卡士達金 */
   --color-accent-purple: #E2C6FF;/* 輔助/電子票證：薰衣草紫 */
+  --color-accent-mint: #C7F2E6;  /* 薄荷綠（收入系） */
+  --color-accent-peach: #FFCBA4; /* 蜜桃橘 */
+  --color-accent-lemon: #FFF3B0; /* 檸檬黃 */
+  --color-accent-rose: #FFADC7;  /* 玫瑰紅 */
+  --color-accent-sky: #C1E1FF;   /* 粉霧藍 */
+  --color-accent-lilac: #D4BAFF; /* 丁香紫 */
+  --color-accent-sage: #D6EAC0;  /* 鼠尾草綠 */
+  --color-accent-cocoa: #E8D5C4; /* 可可奶茶 */
+  --color-accent-coral: #FFBBA8; /* 珊瑚橘 */
   
   /* 繪本插畫風幾何圓角 */
   --border-radius-lg: 24px;

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { useAuth } from '../composables/useAuth'
 import { useLedger } from '../composables/useLedger'
 import type { TransactionType } from '../types'
 import { 
@@ -10,7 +9,6 @@ import {
   Calculator
 } from 'lucide-vue-next'
 
-const { currentProfile } = useAuth()
 const { accounts, addTransaction, categories: allCategories } = useLedger()
 
 // 1. 交易類型：支出 / 收入
