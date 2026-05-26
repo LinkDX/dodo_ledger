@@ -2,6 +2,27 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [1.2.0] - 2026-05-26
+
+### 🔒 Dodo Gatekeeper 雙層安全認證解鎖防護系統上線！
+
+在本次版本中，我們為專案導入了專為 GitHub Pages 靜態環境設計的防護門禁，防止未授權訪客存取：
+
+#### 🔑 雙層安全認證
+- **全域訪問金鑰鎖 (VITE_APP_PASSWORD_HASH)**：針對 GitHub Pages 靜態託管環境，採用單向 SHA-256 雜湊技術。建置時僅注入密碼雜湊，前端單向比對，即使 JS 程式碼被公開下載，也絕對無法反推明文密碼，高安全性。
+- **本地私有密碼鎖 (Local Passcode)**：免配置環境變數，使用者可在「設定」中自行啟用 4~8 位數字密碼，雜湊安全加密儲存於 `localStorage`。
+- **Session 暫存機制**：解鎖狀態儲存於 `sessionStorage`，同分頁重整時免重打密碼，兼顧便利。
+
+#### 🎨 萌系解鎖畫面與設定卡片
+- **DodoCat 守門表情氣泡**：全新製作 `AppLock.vue` 畫面，貓咪依據輸入狀態（輸入中、輸入正確、密碼錯誤）表現 `sleeping`、`happy`、`scared`、`crying` 表情與逗趣語氣。
+- **果凍物理鍵盤**：提供點擊具物理回彈的果凍數字鍵盤，且支援實體鍵盤英數輸入與 Enter 送出。
+- **安全防護設定面板**：在 `Settings.vue` 整合卡片，提供本地密碼設定、修改、停用與「立即測試鎖定」按鈕。
+
+#### 🛠️ 自動化部署準備腳本
+- **`npm run prepare-deploy` CLI 工具**：新增 `scripts/prepare-deploy.js` 互動式命令行工具。自動計算密碼雜湊、生成本地 `.env.local` 檔案，並以精美 Terminal 表格引導使用者設定 GitHub Secrets，實現無痛安全發布。
+
+---
+
 ## [1.1.0] - 2026-05-26
 
 ### 🐾 逗逗貓互動系統與分類管理大師上線！

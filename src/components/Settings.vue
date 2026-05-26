@@ -21,6 +21,65 @@ import {
 const { currentProfile, updateProfileSettings } = useAuth()
 const { loadLedgerData } = useLedger()
 
+// 🔒 Dodo Gatekeeper - 密碼鎖防護邏輯
+import { useAppLock } from '../composables/useAppLock'
+const { 
+  hasLocalPassword, 
+  isGlobalLockEnabled, 
+  setupLocalPassword, 
+  disableLocalPassword,
+  lockApp 
+} = useAppLock()
+
+const showLockModal = ref(false)
+const lockActionType = ref<'enable' | 'disable' | 'change'>('enable')
+const lockInputPwd = ref('')
+const lockInputConfirm = ref('')
+const lockModalError = ref('')
+
+const openLockModal = (action: 'enable' | 'disable' | 'change') => {
+  lockActionType.value = action
+  lockInputPwd.value = ''
+  lockInputConfirm.value = ''
+  lockModalError.value = ''
+  showLockModal.value = true
+}
+
+const handleLockSubmit = async () => {
+  lockModalError.value = ''
+  
+  if (lockActionType.value === 'enable' || lockActionType.value === 'change') {
+    if (lockInputPwd.value.length < 4 || lockInputPwd.value.length > 8) {
+      lockModalError.value = '密碼長度必須介於 4 到 8 位數之間喵！'
+      return
+    }
+    if (!/^\d+$/.test(lockInputPwd.value)) {
+      lockModalError.value = '密碼只能包含數字喔喵！'
+      return
+    }
+    if (lockInputPwd.value !== lockInputConfirm.value) {
+      lockModalError.value = '兩次輸入的密碼不一致，請再確認一下喵！'
+      return
+    }
+    
+    await setupLocalPassword(lockInputPwd.value)
+    showLockModal.value = false
+    alert('🔒 密碼設定成功！從現在起每次開啟本網頁，都會被安全保護囉！')
+  } else if (lockActionType.value === 'disable') {
+    const success = await disableLocalPassword(lockInputPwd.value)
+    if (success) {
+      showLockModal.value = false
+      alert('🔓 本地密碼保護已成功停用，金庫已解鎖。')
+    } else {
+      lockModalError.value = '密碼不正確，無法解鎖金庫喵！'
+    }
+  }
+}
+
+const handleImmediateLock = () => {
+  lockApp()
+}
+
 // 1. 預算設定狀態
 const budgetVal = ref<number>(currentProfile.value?.settings.monthlyBudget || 20000)
 const isSavedSuccess = ref(false)
@@ -289,6 +348,143 @@ const formatCurrency = (val: number) => {
         </button>
       </div>
     </div>
+
+    <!-- 🔒 3. Dodo Gatekeeper 安全防護與密碼鎖 -->
+    <div class="settings-box card-jelly">
+      <h3 class="box-title">
+        <ShieldCheck class="icon-inline" /> 🔒 應用安全防護門禁
+      </h3>
+      
+      <p class="categories-preview-hint">
+        為您的記帳本加上一道鎖，防止別人在同台電腦或透過網址直接進入您的私密金庫。
+      </p>
+
+      <div class="lock-status-card card-jelly" :class="{ 'lock-active-border': hasLocalPassword || isGlobalLockEnabled }">
+        <div class="status-left-lock">
+          <span class="status-icon">
+            <ShieldCheck v-if="hasLocalPassword || isGlobalLockEnabled" :size="20" style="color: #2EB086" />
+            <BadgeAlert v-else :size="20" style="color: #FF5A5A" />
+          </span>
+          <div class="status-info">
+            <h4 class="status-title-text">
+              防護狀態：{{ isGlobalLockEnabled ? '全域金鑰保護中' : hasLocalPassword ? '本地密碼鎖啟用中' : '無密碼保護 (不安全)' }}
+            </h4>
+            <p class="status-desc-text">
+              {{ isGlobalLockEnabled ? '此系統已被全域環境變數鎖定，未授權者無法存取。' : hasLocalPassword ? '每次開啟本網頁時，都必須輸入您設定的專屬數字密碼。' : '目前任何人只要知道此網址即可直接進入並檢視您的資料，建議立刻開啟密碼鎖。' }}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="lock-actions-row">
+        <!-- 情況 A: 全域鎖定中 -->
+        <div v-if="isGlobalLockEnabled" class="global-lock-notice">
+          🛡️ 系統已受全域打包金鑰防護，無法於此處修改密碼。
+        </div>
+        
+        <!-- 情況 B: 本地密碼操作 -->
+        <div v-else class="local-actions-flex">
+          <button 
+            v-if="!hasLocalPassword" 
+            class="btn-jelly btn-lock-primary"
+            @click="openLockModal('enable')"
+          >
+            🔑 開啟本地密碼鎖
+          </button>
+          
+          <template v-else>
+            <button 
+              class="btn-jelly btn-lock-secondary"
+              @click="openLockModal('change')"
+            >
+              🔄 修改密碼
+            </button>
+            <button 
+              class="btn-jelly btn-lock-danger"
+              @click="openLockModal('disable')"
+            >
+              🔓 關閉密碼鎖
+            </button>
+            <button 
+              class="btn-jelly btn-lock-test"
+              @click="handleImmediateLock"
+            >
+              🐱 立即測試鎖定
+            </button>
+          </template>
+        </div>
+      </div>
+    </div>
+
+    <!-- 🔒 密碼設定/驗證彈窗 Modal (Jelly Style) -->
+    <Transition name="bubble-fade">
+      <div v-if="showLockModal" class="lock-modal-overlay">
+        <div class="lock-modal-card pop-jelly">
+          <div class="modal-header">
+            <h4>
+              {{ lockActionType === 'enable' ? '🔑 開啟密碼保護' : lockActionType === 'change' ? '🔄 修改防護密碼' : '🔓 關閉密碼保護' }}
+            </h4>
+            <button class="btn-close-modal" @click="showLockModal = false">
+              <X :size="18" />
+            </button>
+          </div>
+          
+          <div class="modal-body">
+            <p class="modal-body-tip">
+              {{ lockActionType === 'enable' ? '請設定一個 4 到 8 位數的「數字解鎖密碼」，此密碼將以安全雜湊儲存在您的瀏覽器中。' : lockActionType === 'change' ? '請輸入您的新數字密碼，並再次確認。' : '請輸入您當前的密碼以確認關閉安全鎖。' }}
+            </p>
+            
+            <div class="form-group margin-top-sm">
+              <label class="label-cute">
+                {{ lockActionType === 'disable' ? '請輸入當前密碼' : '輸入新密碼 (4~8位數字)' }}
+              </label>
+              <input 
+                v-model="lockInputPwd"
+                type="password" 
+                pattern="[0-9]*"
+                inputmode="numeric"
+                placeholder="••••" 
+                class="input-jelly text-center" 
+                maxlength="8"
+                @keyup.enter="handleLockSubmit"
+              />
+            </div>
+            
+            <div v-if="lockActionType !== 'disable'" class="form-group">
+              <label class="label-cute">再次確認新密碼</label>
+              <input 
+                v-model="lockInputConfirm"
+                type="password" 
+                pattern="[0-9]*"
+                inputmode="numeric"
+                placeholder="••••" 
+                class="input-jelly text-center" 
+                maxlength="8"
+                @keyup.enter="handleLockSubmit"
+              />
+            </div>
+
+            <div v-if="lockModalError" class="modal-error-msg pop-jelly">
+              ⚠️ {{ lockModalError }}
+            </div>
+          </div>
+          
+          <div class="modal-footer">
+            <button class="btn-jelly btn-cancel-cat" @click="showLockModal = false">
+              取消 🐾
+            </button>
+            <button 
+              class="btn-jelly btn-save-cat"
+              :disabled="!lockInputPwd || (lockActionType !== 'disable' && !lockInputConfirm)" 
+              @click="handleLockSubmit"
+            >
+              {{ lockActionType === 'disable' ? '確認關閉' : '儲存設定' }} 🐾
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
 
     <!-- 3. 自訂分類手動管理面板 (🐾 記帳分類管理大師) -->
     <div class="settings-box card-jelly">
@@ -886,4 +1082,182 @@ const formatCurrency = (val: number) => {
 .fade-success-leave-to {
   opacity: 0;
 }
+
+/* 🔒 Dodo Gatekeeper 鎖定設定區塊與 Modal 樣式 */
+.lock-status-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px !important;
+  background-color: var(--color-bg-warm) !important;
+  margin-bottom: 16px !important;
+  text-align: left;
+}
+
+.lock-active-border {
+  background-color: rgba(46, 176, 134, 0.08) !important;
+  border-color: #2EB086 !important;
+}
+
+.status-left-lock {
+  display: flex;
+  align-items: flex-start;
+}
+
+.status-info {
+  margin-left: 10px;
+}
+
+.status-title-text {
+  font-size: 15px;
+  font-weight: 800;
+  margin-bottom: 2px;
+}
+
+.status-desc-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.lock-actions-row {
+  width: 100%;
+}
+
+.global-lock-notice {
+  background-color: #F0F4F8;
+  border: 1.5px solid var(--color-border);
+  color: #556B83;
+  padding: 10px;
+  border-radius: var(--border-radius-md);
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.local-actions-flex {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.local-actions-flex button {
+  flex: 1;
+  min-width: 100px;
+  font-size: 12px;
+}
+
+.btn-lock-primary {
+  background-color: var(--color-accent-gold) !important;
+}
+
+.btn-lock-secondary {
+  background-color: #FFFFFF !important;
+}
+
+.btn-lock-danger {
+  background-color: #FFF0ED !important;
+  color: #FF5A5A !important;
+}
+
+.btn-lock-test {
+  background-color: #EEF8F3 !important;
+  color: #2EB086 !important;
+}
+
+/* Modal Overlay */
+.lock-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(44, 30, 27, 0.4);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.lock-modal-card {
+  width: 100%;
+  max-width: 360px;
+  background-color: #FFFFFF;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-large);
+  padding: 20px;
+  box-shadow: var(--shadow-jelly-lg);
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: var(--border-width) dashed var(--color-border);
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+}
+
+.modal-header h4 {
+  font-size: 16px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.btn-close-modal {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+}
+
+.btn-close-modal:hover {
+  background-color: var(--color-bg-warm);
+}
+
+.modal-body {
+  text-align: left;
+}
+
+.modal-body-tip {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+  margin-bottom: 14px;
+}
+
+.text-center {
+  text-align: center;
+  letter-spacing: 4px;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.modal-error-msg {
+  background-color: #FFF0ED;
+  color: #FF5A5A;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  padding: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  margin-top: 10px;
+  text-align: center;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
 </style>
+

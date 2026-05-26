@@ -2,10 +2,9 @@
 import { ref, computed, watch } from 'vue'
 import { useAuth } from '../composables/useAuth'
 import { useLedger } from '../composables/useLedger'
-import type { Category, Account, TransactionType } from '../types'
+import type { TransactionType } from '../types'
 import { 
   Check, 
-  Calendar as CalendarIcon, 
   Tag, 
   Sparkles,
   Calculator

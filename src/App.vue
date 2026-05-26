@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useAuth } from './composables/useAuth'
+import { useAppLock } from './composables/useAppLock'
 import UserSelection from './components/UserSelection.vue'
 import Dashboard from './components/Dashboard.vue'
 import AccountManager from './components/AccountManager.vue'
@@ -8,6 +9,7 @@ import CreditCardCenter from './components/CreditCardCenter.vue'
 import TransactionForm from './components/TransactionForm.vue'
 import Analytics from './components/Analytics.vue'
 import Settings from './components/Settings.vue'
+import AppLock from './components/AppLock.vue'
 import { 
   Home, 
   Wallet, 
@@ -18,6 +20,7 @@ import {
 } from 'lucide-vue-next'
 
 const { isLoggedIn } = useAuth()
+const { isLocked } = useAppLock()
 
 // 目前選取的 Tab 頁面
 const activeTab = ref('dashboard')
@@ -28,8 +31,13 @@ const setTab = (tab: string) => {
 </script>
 
 <template>
-  <!-- 1. 若未選擇身分登入，呈現超萌身分牆 -->
-  <div v-if="!isLoggedIn" class="app-viewport">
+  <!-- 0. 安全防護鎖，未解鎖前攔截所有人 -->
+  <div v-if="isLocked">
+    <AppLock />
+  </div>
+
+  <!-- 1. 若已解鎖，且未選擇身分登入，呈現超萌身分牆 -->
+  <div v-else-if="!isLoggedIn" class="app-viewport">
     <UserSelection />
   </div>
 
