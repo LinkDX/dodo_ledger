@@ -2,6 +2,27 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [1.9.0] - 2026-05-26
+
+### 📱 Android 行動端移植與自建雙緩衝熱更新系統
+
+#### 🌟 Capacitor 行動端原生整合 (Phase 1)
+- **環境初始化**：成功引進並設定 Capacitor。生成全套 Android 原生 Gradle 專案，指定套件 Package ID 為 `com.luke.dodoleddger`。
+- **IndexedDB 離線安全快取**：重構資料層 `src/services/db.ts`。在未連網時，自動啟用 Firebase Firestore 的離線快取，支援手機離線記帳，連網後雙向同步，保障極致的資料安全性與 Last-Write-Wins 衝突自癒。
+- **SharedPreferences 解鎖持久化**：重構 `useAppLock.ts` 安全鎖模組。解鎖狀態支援透過原生儲存機制進行 SharedPreferences 等級持久化。App 關閉重開無須重複輸入解鎖密碼，唯有手動鎖定或變更密碼時才重設，大幅提升操作順暢度。
+- **一鍵自動化自癒打包腳本**：新增 `build-apk.sh`，具備環境偵測與 Java 17 JDK 自動化建置、自癒安裝與修復能力。產出的 APK 會自動重命名並安全輸出至 `build-artifacts/dodo-ledger-debug.apk`。
+
+#### 🔄 自建靜默熱更新與本地通知系統 (Phase 2)
+- **自建 Live Updates 引擎**：於 `useLiveUpdates.ts` 實作雙緩衝背景熱更新下載。每次啟動時自動背景比對 `version.json`，若有新版便靜默下載 `app-update.zip` 至沙盒，並在下次啟動時加載，具備斷網離線優雅降級機制。
+- **貓咪原生本地通知**：整合 `@capacitor/local-notifications`。當 App 重啟或於背景補記週期自動扣款成功時，會發送系統層的原生本地通知（🐱 逗逗貓理財報告），增添溫馨療癒互動感。
+- **Android CI/CD 工作流**：新增專屬 `.github/workflows/android.yml` 自動化 APK 建置管線，於 master 提交時自動驗證與編譯原生 APK。
+
+#### 🛠️ GitHub Actions 與 npm 官方註冊表修復
+- **鎖定檔 Registry 修正**：將 `package-lock.json` 中被鎖定的私有註冊表 `npm.synology.inc` 全面修復為 npm 官方的 `registry.npmjs.org`，徹底排除 GitHub Actions 於編譯下載時報錯 `ENOTFOUND` 的連網問題。
+- **工作流 paths 觸發條件優化**：在 `deploy.yml` 與 `android.yml` 的路徑過濾器中，加入 `package-lock.json`，以確保日後相依性鎖定檔更新時，CI/CD 管線能自動靈敏地執行最新測試與建置。
+
+---
+
 ## [1.8.0] - 2026-05-26
 
 ### 🔍 全新收支明細搜尋功能與跨月份智慧檢索

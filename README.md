@@ -86,8 +86,51 @@
 
 ---
 
-## 📱 未來 Android 移植展望
+## 📱 Android 原生打包與熱更新系統 🚀
 
-本專案在架構上將 **資料處理 (`useLedger.ts`)** 與 **UI 元件** 徹底解耦：
-- **方案 A (快速包殼)**：您可直接使用 Capacitor 將本 React/Vue SPA 專案封裝打包成 `.apk` 部署。
-- **方案 B (原生 Compose)**：因為本專案的 Reactive 狀態設計與 **Kotlin Jetpack Compose** 極度契合，您可以參考 `GEMINI.md` 的 AI 提示詞引導，讓 AI 自動將 TypeScript 邏輯轉譯成 Android 原生 ViewModel 與 Canvas 動畫！
+本專案已正式整合 **Capacitor 混合式一鍵打包與原生整合架構**。不只是一般的網頁包殼，我們更深度實作了以下行動端專屬的核心特色：
+
+1. **📲 一鍵自動化 APK 建置**：
+   專案根目錄內置了自癒式建置腳本 `./build-apk.sh`。此腳本具備環境自動偵測與自癒修復能力，會自動安裝與配置 JDK 17 編譯環境，完成 Web 專案打包、同步至 Android 專案，並自動產出發布用的測試版 APK 到 `build-artifacts/dodo-ledger-debug.apk`。
+2. **🔄 雙緩衝自建熱更新 (Live Updates) 引擎**：
+   在不依賴第三方付費服務（如 Appflow）的前提下，獨立設計並實作了靜默式熱更新機制。App 在啟動時會於背景比對 GitHub Pages 上的 `version.json`，自動下載並解壓縮 `app-update.zip` 至沙盒目錄，並在使用者下一次啟動時無感套用，且具備斷網時的優雅降級保護。
+3. **🔏 SharedPreferences 安全鎖持久化**：
+   基於行動裝置操作體驗，利用 `Capacitor` 提供的持久化機制，實現了 SharedPreferences 等級的 App 密碼解鎖狀態儲存。App 滑掉重開免重複輸入密碼；手動鎖定或於設定頁變更密碼時立即安全重設。
+4. **🔔 逗逗貓本地通知系統**：
+   整合原生 `@capacitor/local-notifications` 機制。當 App 於背景或重啟後，補記自動扣款週期帳務成功時，會發送系統層的原生本地通知（🐱 逗逗貓理財報告），兼顧行動端的使用者互動。
+
+### 🤖 如何在本地建置 APK？
+您只需在專案根目錄下執行：
+```bash
+# 自動化安裝環境、同步並建置 APK
+./build-apk.sh
+```
+建置完成後，產出的 APK 會自動命名並存放在：
+👉 **`build-artifacts/dodo-ledger-debug.apk`**
+
+---
+
+## 📂 目錄結構
+
+```text
+├── .github/workflows/   # GitHub Actions CI/CD 設定 (含自動化 Web 與 Android APK 管線)
+├── android/             # Capacitor 生成之 Android 原生 Gradle 專案
+├── build-artifacts/     # APK 建置產物輸出目錄
+├── src/
+│   ├── assets/          # 靜態資源 (馬卡龍配色插畫等)
+│   ├── components/      # UI 元件 (DodoCat, Dashboard, CreditCardCenter)
+│   ├── composables/     # 全域狀態管理與業務邏輯 (含 useLiveUpdates.ts 熱更新模組)
+│   ├── services/        # 資料存取層 (db.ts，LocalStorage 與 Firebase 雙核心)
+│   ├── types/           # TypeScript 類型定義
+│   ├── App.vue          # 主頁面與 Tab 導航
+│   ├── index.css        # 設計系統與 QQ 果凍動畫樣式
+│   └── main.ts          # 專案入口
+├── tests/               # Vitest 自動化測試檔案 (100% 通過)
+├── build-apk.sh         # Android APK 一鍵打包自癒建置腳本
+├── run.sh               # 一鍵啟動/重啟腳本
+├── deploy.sh            # 一鍵打包部署腳本
+├── SPEC.md              # 系統規格與演算法定義文件
+├── SPEC_ANDROID.md      # Android 行動端專屬規格與熱更新機制文件
+├── GEMINI.md            # AI 協同開發手冊
+└── CHANGELOG.md         # 版本變更日誌
+```
