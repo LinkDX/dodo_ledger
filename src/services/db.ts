@@ -1,6 +1,6 @@
 import type { Account, Transaction, RecurringTransaction, UserProfile, SystemLog, Category } from '../types'
 import { initializeApp } from 'firebase/app'
-import { getFirestore, doc, collection, getDocs, writeBatch } from 'firebase/firestore'
+import { doc, collection, getDocs, writeBatch, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore'
 import { FIREBASE_CONFIG } from '../config/firebase'
 
 // 1. 抽象資料庫服務介面 (多人共同記帳模型，維護同一個資產紀錄)
@@ -89,8 +89,15 @@ export class FirestoreDatabaseService implements DatabaseService {
 
   constructor(firebaseConfig: any) {
     const app = initializeApp(firebaseConfig)
-    this.db = getFirestore(app)
-    console.log('[Dodo Ledger] 🐱 成功建立且自動初始化 Firestore 雲端連線服務層！');
+    
+    // 啟用具有 IndexedDB 的離線持久化本地快取，支援多分頁/多 WebView 快取安全鎖
+    this.db = initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+      })
+    })
+    
+    console.log('[Dodo Ledger] 🐱 成功啟用離線快取 (IndexedDB) 並初始化 Firestore 雲端服務層！');
   }
 
   /** 取得子集合參考 */

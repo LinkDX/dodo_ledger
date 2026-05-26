@@ -5,6 +5,13 @@ on:
     branches:
       - main
       - master
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'package.json'
+      - 'vite.config.ts'
+      - 'tsconfig*.json'
 
 permissions:
   contents: read

@@ -212,7 +212,7 @@ export function useLedger() {
     // a. 轉帳手續費處理 (手續費支出同樣記名)
     if (txData.type === 'transfer' && txData.fee && txData.fee > 0) {
       const feeTx: Transaction = {
-        id: 'tx_fee_' + Date.now(),
+        id: 'tx_fee_' + Date.now() + Math.random().toString(36).substr(2, 4),
         type: 'expense',
         amount: txData.fee,
         category: '居住生活',
@@ -222,7 +222,8 @@ export function useLedger() {
         note: `轉帳手續費 (轉至 ${accounts.value.find(a => a.id === txData.toAccountId)?.name || '未知帳戶'})`,
         tags: ['手續費'],
         createdBy: '系統自動',
-        createdByAvatar: '⚙️'
+        createdByAvatar: '⚙️',
+        updatedAt: Date.now()
       }
       transactions.value.push(feeTx)
       
@@ -268,7 +269,8 @@ export function useLedger() {
               installmentTerm: T,
               currentInstallment: i,
               billPeriod: currentBillPeriod
-            }
+            },
+            updatedAt: Date.now()
           }
           transactions.value.push(installmentTx)
         }
@@ -291,7 +293,8 @@ export function useLedger() {
       ...txData, 
       id: txId,
       createdBy: creatorName,
-      createdByAvatar: creatorAvatar
+      createdByAvatar: creatorAvatar,
+      updatedAt: Date.now()
     }
     transactions.value.push(newTx)
 
@@ -430,10 +433,12 @@ export function useLedger() {
     if (billAmount <= 0) return
 
     bankAcct.balance -= billAmount
+    bankAcct.updatedAt = Date.now()
     cardAcct.balance += billAmount
+    cardAcct.updatedAt = Date.now()
 
     const payTx: Transaction = {
-      id: 'tx_pay_' + Date.now(),
+      id: 'tx_pay_' + Date.now() + Math.random().toString(36).substr(2, 4),
       type: 'transfer',
       amount: billAmount,
       category: '轉帳',
@@ -443,7 +448,8 @@ export function useLedger() {
       note: `繳納信用卡 ${billPeriod} 帳單`,
       tags: ['信用卡繳款'],
       createdBy: currentProfile.value?.name || '系統自動',
-      createdByAvatar: currentProfile.value?.avatar || '🐱'
+      createdByAvatar: currentProfile.value?.avatar || '🐱',
+      updatedAt: Date.now()
     }
     transactions.value.push(payTx)
 
@@ -488,13 +494,15 @@ export function useLedger() {
           isRecurring: true,
           recurringId: rec.id,
           createdBy: '逗逗貓', // 🐱 逗逗貓貼心大廚親自記帳！
-          createdByAvatar: '🐱'
+          createdByAvatar: '🐱',
+          updatedAt: Date.now()
         }
         transactions.value.push(autoTx)
 
         const acct = accounts.value.find(a => a.id === rec.fromAccountId)
         if (acct) {
           acct.balance -= rec.amount
+          acct.updatedAt = Date.now()
         }
 
         const date = new Date(nextRun)
@@ -530,7 +538,7 @@ export function useLedger() {
       
       setTimeout(() => {
         triggeredReports.value = []
-      }, 6000)
+      }, 8000)
     }
   }
 

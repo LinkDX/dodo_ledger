@@ -28,6 +28,7 @@ export async function sha256(message: string): Promise<string> {
 // 2. 本地儲存與 Session 暫存之常數鍵名
 const LOCAL_LOCK_HASH_KEY = 'dodo_app_lock_hash'
 const SESSION_AUTH_KEY = 'dodo_app_lock_session'
+const APP_PERSISTENT_LOCK_KEY = 'dodo_app_lock_persistent_session'
 
 // 3. 讀取打包編譯期注入之全域密碼雜湊 (適用於部署 GitHub Pages 之全域防存取鎖)
 const isTestMode = typeof globalThis !== 'undefined' && (
@@ -47,9 +48,10 @@ const initLockState = () => {
     return
   }
 
-  // a. 優先檢查此分頁是否在 Session 中已通過驗證
+  // a. 優先檢查此分頁是否在 Session 中已通過驗證，或是否存有持久化免解鎖標記 (手機 App 環境專用)
   const sessionAuth = sessionStorage.getItem(SESSION_AUTH_KEY)
-  if (sessionAuth === 'unlocked') {
+  const persistentAuth = localStorage.getItem(APP_PERSISTENT_LOCK_KEY)
+  if (sessionAuth === 'unlocked' || persistentAuth === 'unlocked_authorized') {
     isLocked.value = false
     hasLocalPassword.value = !!localStorage.getItem(LOCAL_LOCK_HASH_KEY)
     return
@@ -93,6 +95,7 @@ export function useAppLock() {
       if (inputHash === GLOBAL_HASH) {
         isLocked.value = false
         sessionStorage.setItem(SESSION_AUTH_KEY, 'unlocked')
+        localStorage.setItem(APP_PERSISTENT_LOCK_KEY, 'unlocked_authorized')
         return true
       }
       return false
@@ -103,6 +106,7 @@ export function useAppLock() {
     if (localHash && inputHash === localHash) {
       isLocked.value = false
       sessionStorage.setItem(SESSION_AUTH_KEY, 'unlocked')
+      localStorage.setItem(APP_PERSISTENT_LOCK_KEY, 'unlocked_authorized')
       return true
     }
     
@@ -120,9 +124,10 @@ export function useAppLock() {
     localStorage.setItem(LOCAL_LOCK_HASH_KEY, inputHash)
     hasLocalPassword.value = true
     
-    // 設定成功後，直接讓當前 Session 處於已解鎖狀態
+    // 設定成功後，直接讓當前 Session 與本地持久化處於已解鎖狀態
     isLocked.value = false
     sessionStorage.setItem(SESSION_AUTH_KEY, 'unlocked')
+    localStorage.setItem(APP_PERSISTENT_LOCK_KEY, 'unlocked_authorized')
   }
 
   /**
@@ -138,9 +143,10 @@ export function useAppLock() {
     
     if (localHash && inputHash === localHash) {
       localStorage.removeItem(LOCAL_LOCK_HASH_KEY)
+      localStorage.removeItem(APP_PERSISTENT_LOCK_KEY)
       hasLocalPassword.value = false
       isLocked.value = false
-      // 同步清除解鎖 Session
+      // 同步清除解鎖 Session 與持久化標籤
       sessionStorage.removeItem(SESSION_AUTH_KEY)
       return true
     }
@@ -152,9 +158,10 @@ export function useAppLock() {
    * 手動重新鎖定應用 (例如登出或手動鎖定)
    */
   const lockApp = () => {
-    if (typeof sessionStorage === 'undefined') return
+    if (typeof sessionStorage === 'undefined' || typeof localStorage === 'undefined') return
     isLocked.value = true
     sessionStorage.removeItem(SESSION_AUTH_KEY)
+    localStorage.removeItem(APP_PERSISTENT_LOCK_KEY)
   }
 
   return {

@@ -50,6 +50,7 @@ export interface Account {
   currency: string;
   createdAt: number;
   cardDetails?: CreditCardDetails;
+  updatedAt?: number;           // 最後更新時間戳記 (離線優先防衝突)
 }
 
 // 交易類型
@@ -81,6 +82,7 @@ export interface Transaction {
   createdBy?: string;           // 記帳人暱稱/ID (共同記帳追蹤)
   createdByAvatar?: string;     // 記帳人頭像 (共同記帳追蹤)
   creditCardDetails?: CreditCardTxDetails;
+  updatedAt?: number;           // 最後更新時間戳記 (離線優先防衝突)
 }
 
 // 週期自動記帳設定
