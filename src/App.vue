@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useAuth } from './composables/useAuth'
 import { useAppLock } from './composables/useAppLock'
+import { useLedger } from './composables/useLedger'
 import UserSelection from './components/UserSelection.vue'
 import Dashboard from './components/Dashboard.vue'
 import AccountManager from './components/AccountManager.vue'
 import CreditCardCenter from './components/CreditCardCenter.vue'
 import TransactionForm from './components/TransactionForm.vue'
+import CategoryManager from './components/CategoryManager.vue'
 import Analytics from './components/Analytics.vue'
 import Settings from './components/Settings.vue'
 import AppLock from './components/AppLock.vue'
@@ -16,11 +18,13 @@ import {
   CreditCard, 
   PlusCircle, 
   TrendingUp, 
-  Settings as SettingsIcon 
+  Settings as SettingsIcon,
+  FolderPlus
 } from 'lucide-vue-next'
 
 const { isLoggedIn } = useAuth()
 const { isLocked } = useAppLock()
+const { loadLedgerData } = useLedger()
 
 // 目前選取的 Tab 頁面
 const activeTab = ref('dashboard')
@@ -28,6 +32,14 @@ const activeTab = ref('dashboard')
 const setTab = (tab: string) => {
   activeTab.value = tab
 }
+
+// 解決「DB 有資料，但網頁上卻沒看到」之重大載入 Bug
+// 一旦 isLoggedIn 變為 true，全自動觸發 loadLedgerData()
+watch(isLoggedIn, (loggedIn) => {
+  if (loggedIn) {
+    loadLedgerData()
+  }
+}, { immediate: true })
 </script>
 
 <template>
@@ -65,6 +77,11 @@ const setTab = (tab: string) => {
         <TransactionForm />
       </div>
 
+      <!-- 記帳分類手動管理 -->
+      <div v-show="activeTab === 'categories'">
+        <CategoryManager />
+      </div>
+
       <!-- 統計分析 -->
       <div v-show="activeTab === 'analytics'">
         <Analytics />
@@ -76,8 +93,9 @@ const setTab = (tab: string) => {
       </div>
     </div>
 
-    <!-- 🌸 可愛巧克力粗框底欄 Tab 導航列 🌸 -->
+    <!-- 🌸 可愛巧克力粗框底欄 Tab 導航列 (7鍵黃金配置，維持「記帳」在最正中央) 🌸 -->
     <nav class="nav-tab-bar">
+      <!-- 1. 首頁 -->
       <button 
         class="nav-tab-item btn-tab-reset" 
         :class="{ active: activeTab === 'dashboard' }"
@@ -87,6 +105,7 @@ const setTab = (tab: string) => {
         <span>首頁</span>
       </button>
 
+      <!-- 2. 資產 -->
       <button 
         class="nav-tab-item btn-tab-reset" 
         :class="{ active: activeTab === 'accounts' }"
@@ -96,6 +115,17 @@ const setTab = (tab: string) => {
         <span>資產</span>
       </button>
 
+      <!-- 3. 卡片 -->
+      <button 
+        class="nav-tab-item btn-tab-reset" 
+        :class="{ active: activeTab === 'credit' }"
+        @click="setTab('credit')"
+      >
+        <CreditCard :size="20" class="tab-icon" />
+        <span>卡片</span>
+      </button>
+
+      <!-- 4. 記帳 (黃金正中央) -->
       <button 
         class="nav-tab-item btn-tab-reset btn-add-center" 
         :class="{ active: activeTab === 'add' }"
@@ -107,15 +137,17 @@ const setTab = (tab: string) => {
         <span class="text-add">記帳</span>
       </button>
 
+      <!-- 5. 分類 -->
       <button 
         class="nav-tab-item btn-tab-reset" 
-        :class="{ active: activeTab === 'credit' }"
-        @click="setTab('credit')"
+        :class="{ active: activeTab === 'categories' }"
+        @click="setTab('categories')"
       >
-        <CreditCard :size="20" class="tab-icon" />
-        <span>卡片</span>
+        <FolderPlus :size="20" class="tab-icon" />
+        <span>分類</span>
       </button>
 
+      <!-- 6. 統計 -->
       <button 
         class="nav-tab-item btn-tab-reset" 
         :class="{ active: activeTab === 'analytics' }"
@@ -125,6 +157,7 @@ const setTab = (tab: string) => {
         <span>統計</span>
       </button>
 
+      <!-- 7. 設定 -->
       <button 
         class="nav-tab-item btn-tab-reset" 
         :class="{ active: activeTab === 'settings' }"

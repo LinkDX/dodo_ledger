@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 import { useAuth } from '../composables/useAuth'
 import { getDatabaseService, FirestoreDatabaseService } from '../services/db'
-import type { Category } from '../types'
 import { 
   Settings as SettingsIcon, 
   Sparkles, 
@@ -11,8 +10,6 @@ import {
   CheckCircle,
   ShieldCheck,
   BadgeAlert,
-  Trash2,
-  FolderPlus,
   X
 } from 'lucide-vue-next'
 
@@ -93,116 +90,6 @@ const handleSaveBudget = () => {
 
 // 2. Firebase 雲端同步狀態
 const isCurrentlyCloudMode = ref(getDatabaseService() instanceof FirestoreDatabaseService)
-
-// 3. 🐾 記帳分類手動管理狀態與方法
-const activeCatType = ref<'expense' | 'income'>('expense')
-const expandedCatId = ref<string>('')
-
-// 設置預設展開第一個主分類
-if (currentProfile.value?.settings.categories && currentProfile.value.settings.categories.length > 0) {
-  const initialCat = currentProfile.value.settings.categories.find(c => c.type === activeCatType.value)
-  if (initialCat) expandedCatId.value = initialCat.id
-}
-
-// 監聽類型切換，自動展開該類型的第一個主分類
-watch(activeCatType, (newType) => {
-  if (currentProfile.value) {
-    const found = currentProfile.value.settings.categories.find(c => c.type === newType)
-    expandedCatId.value = found ? found.id : ''
-  }
-})
-
-const toggleExpandCat = (catId: string) => {
-  expandedCatId.value = expandedCatId.value === catId ? '' : catId
-}
-
-// 新增主分類狀態
-const showAddCatForm = ref(false)
-const newCatName = ref('')
-const newCatIcon = ref('Sparkles')
-const cuteIconsList = ['Sparkles', 'Utensils', 'Car', 'ShoppingBag', 'Home', 'DollarSign', 'TrendingUp', 'Gift', 'Briefcase', 'Heart', 'Smile', 'Activity']
-
-const handleAddMainCategory = () => {
-  if (!newCatName.value.trim() || !currentProfile.value) return
-  
-  const cats = [...currentProfile.value.settings.categories]
-  const newId = 'cat_custom_' + Date.now()
-  const newCat: Category = {
-    id: newId,
-    name: newCatName.value.trim(),
-    type: activeCatType.value,
-    icon: newCatIcon.value,
-    subCategories: []
-  }
-  
-  cats.push(newCat)
-  updateProfileSettings({ categories: cats })
-  
-  newCatName.value = ''
-  showAddCatForm.value = false
-  expandedCatId.value = newId // 自動展開新建立的分類
-  alert(`🐱 成功新增主分類「${newCat.name}」主機！`)
-}
-
-const handleDeleteMainCategory = (catId: string) => {
-  if (!currentProfile.value) return
-  const cat = currentProfile.value.settings.categories.find(c => c.id === catId)
-  if (!cat) return
-  
-  if (!confirm(`確定要刪除「${cat.name}」主分類及其底下所有子分類嗎喵？（已記帳交易不受影響）`)) {
-    return
-  }
-  
-  const cats = currentProfile.value.settings.categories.filter(c => c.id !== catId)
-  updateProfileSettings({ categories: cats })
-  
-  if (expandedCatId.value === catId) {
-    const nextCat = cats.find(c => c.type === activeCatType.value)
-    expandedCatId.value = nextCat ? nextCat.id : ''
-  }
-  alert(`🐱 主分類「${cat.name}」已被刪除。`)
-}
-
-// 子分類狀態與方法
-const newSubCatName = ref<Record<string, string>>({})
-
-const handleAddSubCategory = (catId: string) => {
-  const subName = (newSubCatName.value[catId] || '').trim()
-  if (!subName || !currentProfile.value) return
-  
-  const cats = currentProfile.value.settings.categories.map(c => {
-    if (c.id === catId) {
-      if (c.subCategories.includes(subName)) {
-        alert('🐱 這個子分類已經存在囉喵！')
-        return c
-      }
-      return {
-        ...c,
-        subCategories: [...c.subCategories, subName]
-      }
-    }
-    return c
-  })
-  
-  updateProfileSettings({ categories: cats })
-  newSubCatName.value[catId] = ''
-}
-
-const handleDeleteSubCategory = (catId: string, subName: string) => {
-  if (!currentProfile.value) return
-  
-  const cats = currentProfile.value.settings.categories.map(c => {
-    if (c.id === catId) {
-      return {
-        ...c,
-        subCategories: c.subCategories.filter(s => s !== subName)
-      }
-    }
-    return c
-  })
-  
-  updateProfileSettings({ categories: cats })
-}
 
 // 格式化千分位金額
 const formatCurrency = (val: number) => {
@@ -431,149 +318,6 @@ const formatCurrency = (val: number) => {
         </div>
       </div>
     </Transition>
-
-
-    <!-- 3. 自訂分類手動管理面板 (🐾 記帳分類管理大師) -->
-    <div class="settings-box card-jelly">
-      <h3 class="box-title"><FolderPlus :size="16" class="icon-inline" /> 🐾 記帳分類管理大師</h3>
-      <p class="categories-preview-hint">
-        在這裡您可以自由管理您的雙層記帳主子分類，所有變更將在記帳時立即生效喔喵！
-      </p>
-      
-      <!-- 支出/收入分類切換 Tab -->
-      <div class="category-tabs-row">
-        <button 
-          class="btn-jelly btn-cat-tab"
-          :class="{ active: activeCatType === 'expense' }"
-          @click="activeCatType = 'expense'"
-        >
-          🔴 支出分類
-        </button>
-        <button 
-          class="btn-jelly btn-cat-tab"
-          :class="{ active: activeCatType === 'income' }"
-          @click="activeCatType = 'income'"
-        >
-          🟢 收入分類
-        </button>
-      </div>
-      
-      <!-- 主分類摺疊卡片清單 -->
-      <div class="cat-accordion-list">
-        <div 
-          v-for="cat in currentProfile?.settings.categories.filter(c => c.type === activeCatType)"
-          :key="cat.id"
-          class="cat-accordion-item card-jelly"
-          :class="{ 'expanded': expandedCatId === cat.id }"
-        >
-          <!-- 卡片 Header：點擊展開子分類 -->
-          <div class="accordion-header" @click="toggleExpandCat(cat.id)">
-            <div class="header-left">
-              <span class="cat-icon-emoji">
-                {{ cat.icon === 'Utensils' ? '🍔' : cat.icon === 'Car' ? '🚗' : cat.icon === 'ShoppingBag' ? '🛍️' : cat.icon === 'Home' ? '🏠' : cat.icon === 'DollarSign' ? '💵' : cat.icon === 'TrendingUp' ? '📈' : cat.icon === 'Gift' ? '🎁' : cat.icon === 'Briefcase' ? '💼' : cat.icon === 'Heart' ? '❤️' : cat.icon === 'Smile' ? '😊' : cat.icon === 'Activity' ? '🏥' : '✨' }}
-              </span>
-              <span class="cat-name-bold">{{ cat.name }}</span>
-              <span class="sub-count-tag tag-jelly">{{ cat.subCategories.length }} 個子類</span>
-            </div>
-            <div class="header-right">
-              <button 
-                class="btn-delete-cat" 
-                title="刪除此主分類" 
-                @click.stop="handleDeleteMainCategory(cat.id)"
-              >
-                <Trash2 :size="14" />
-              </button>
-            </div>
-          </div>
-          
-          <!-- 卡片 Body：展開顯示子分類列表與新增 -->
-          <div v-if="expandedCatId === cat.id" class="accordion-body pop-jelly">
-            <div class="sub-categories-wrapper">
-              <div v-if="cat.subCategories.length === 0" class="empty-sub-hint">
-                目前尚未有任何子分類喵，請在下方輸入新增🐾
-              </div>
-              <div v-else class="sub-pills-list">
-                <span 
-                  v-for="sub in cat.subCategories" 
-                  :key="sub"
-                  class="tag-jelly sub-cute-pill"
-                >
-                  {{ sub }}
-                  <button class="btn-remove-sub" @click="handleDeleteSubCategory(cat.id, sub)">
-                    <X :size="10" />
-                  </button>
-                </span>
-              </div>
-              
-              <!-- 新增子分類小輸入框 -->
-              <div class="add-sub-row">
-                <input 
-                  v-model="newSubCatName[cat.id]"
-                  type="text" 
-                  placeholder="新增子分類..." 
-                  class="input-jelly input-sub-cute"
-                  @keyup.enter="handleAddSubCategory(cat.id)"
-                />
-                <button class="btn-jelly btn-add-sub" @click="handleAddSubCategory(cat.id)">
-                  ➕
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <!-- 新增主分類控制列 -->
-      <div v-if="!showAddCatForm" class="add-main-cat-trigger">
-        <button class="btn-jelly btn-add-main-trigger" @click="showAddCatForm = true">
-          ➕ 新增自訂主分類 🐾
-        </button>
-      </div>
-      
-      <div v-else class="add-main-cat-form card-jelly pop-jelly">
-        <h4>➕ 新增 {{ activeCatType === 'expense' ? '支出' : '收入' }} 主分類</h4>
-        
-        <div class="form-group margin-top-sm">
-          <label class="label-cute">主分類名稱</label>
-          <input 
-            v-model="newCatName" 
-            type="text" 
-            placeholder="例如：寵物開銷、人情紅包" 
-            class="input-jelly" 
-            @keyup.enter="handleAddMainCategory"
-          />
-        </div>
-        
-        <!-- 可選的可愛圖示列表 -->
-        <div class="form-group">
-          <label class="label-cute">選擇主分類圖示</label>
-          <div class="icon-selector-grid">
-            <button 
-              v-for="ico in cuteIconsList" 
-              :key="ico"
-              class="btn-jelly btn-icon-select"
-              :class="{ active: newCatIcon === ico }"
-              @click="newCatIcon = ico"
-            >
-              {{ ico === 'Utensils' ? '🍔' : ico === 'Car' ? '🚗' : ico === 'ShoppingBag' ? '🛍️' : ico === 'Home' ? '🏠' : ico === 'DollarSign' ? '💵' : ico === 'TrendingUp' ? '📈' : ico === 'Gift' ? '🎁' : ico === 'Briefcase' ? '💼' : ico === 'Heart' ? '❤️' : ico === 'Smile' ? '😊' : ico === 'Activity' ? '🏥' : '✨' }}
-            </button>
-          </div>
-        </div>
-        
-        <div class="add-main-actions">
-          <button class="btn-jelly btn-cancel-cat" @click="showAddCatForm = false">
-            取消 🐾
-          </button>
-          <button 
-            class="btn-jelly btn-save-cat"
-            :disabled="!newCatName.trim()" 
-            @click="handleAddMainCategory"
-          >
-            新增主分類 🐾
-          </button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
