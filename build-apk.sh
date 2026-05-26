@@ -130,15 +130,23 @@ echo -e "\n${YELLOW}[Step 3/4] 正在呼叫 Gradle 編譯 Release 正式版 APK.
 chmod +x android/gradlew
 ./android/gradlew -p ./android assembleRelease
 
-# 5. 提取 APK 並放置於方便拿取的根目錄
+# 讀取 Android 獨立版號
+ANDROID_VERSION=$(node -e "const v=require('./android-version.json'); console.log(v.version)" 2>/dev/null || echo "unknown")
+echo -e "${GREEN}✨ 偵測到 Android 版本：${ANDROID_VERSION}${NC}"
+
+# 5. 提取 APK 並放置於方便拿取的根目錄（帶版號命名 + latest 軟連結）
 echo -e "\n${YELLOW}[Step 4/4] 正在整理 APK 檔案...${NC}"
 mkdir -p build-artifacts
-cp android/app/build/outputs/apk/release/app-release.apk build-artifacts/dodo-ledger-release.apk
+APK_VERSIONED="build-artifacts/dodo-ledger-v${ANDROID_VERSION}.apk"
+APK_LATEST="build-artifacts/dodo-ledger-latest.apk"
+cp android/app/build/outputs/apk/release/app-release.apk "${APK_VERSIONED}"
+cp "${APK_VERSIONED}" "${APK_LATEST}"
 
 echo -e "\n${GREEN}======================================================${NC}"
 echo -e "${GREEN}✨ 打包完成！Dodo 貓理財助理已打包成功喵！${NC}"
 echo -e "${GREEN}======================================================${NC}"
-echo -e "🎉 您的 Android Release 版 APK 已安全放置於："
-echo -e "   👉 ${YELLOW}build-artifacts/dodo-ledger-release.apk${NC}"
+echo -e "🎉 您的 Android v${ANDROID_VERSION} Release APK 已安全放置於："
+echo -e "   👉 帶版號：${YELLOW}${APK_VERSIONED}${NC}"
+echo -e "   👉 最新版：${YELLOW}${APK_LATEST}${NC}"
 echo -e "💡 您可以隨時將此 APK 傳送至手機中直接安裝測試囉！"
 echo -e "${GREEN}======================================================${NC}"

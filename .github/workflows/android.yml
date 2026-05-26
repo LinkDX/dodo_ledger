@@ -6,12 +6,11 @@ on:
       - main
       - master
     paths:
-      - 'android/**'
-      - 'capacitor.config.ts'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'src/**'
-      - 'public/**'
+      - 'android-version.json'    # 更新 Android 版號時觸發
+      - 'android/**'              # 原生 Android 代碼變更時觸發
+      - 'build-apk.sh'            # 打包腳本變更時觸發
+      - 'capacitor.config.ts'     # Capacitor 設定變更時觸發
+      - '.github/workflows/android.yml'  # CI 流程變更時觸發
 
 permissions:
   contents: write
@@ -50,34 +49,69 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
+      - name: Read Android version
+        id: android_version
+        run: |
+          VERSION=$(node -e "const v=require('./android-version.json'); console.log(v.version)")
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
       - name: Build Release APK with Gradle
         run: |
           chmod +x android/gradlew
           ./android/gradlew -p ./android assembleRelease
 
+      - name: Rename APK with version tag
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk \
+             dodo-ledger-v${{ steps.android_version.outputs.version }}.apk
+
       - name: Upload Release APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dodo-ledger-release-apk
-          path: android/app/build/outputs/apk/release/app-release.apk
+          name: dodo-ledger-v${{ steps.android_version.outputs.version }}
+          path: dodo-ledger-v${{ steps.android_version.outputs.version }}.apk
 
-      - name: Publish Latest APK to GitHub Release
+      - name: Publish versioned GitHub Release (android-vX.Y.Z)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 複製並重命名 APK 檔名
-          cp android/app/build/outputs/apk/release/app-release.apk dodo-ledger-release.apk
-          
-          # 刪除舊的 latest release（如果存在），確保覆蓋上傳
+          VERSION=${{ steps.android_version.outputs.version }}
+          TAG="android-v${VERSION}"
+          APK="dodo-ledger-v${VERSION}.apk"
+
+          # 若同版號的 Release 已存在，先刪除再重建（允許同版號重新建置）
+          gh release delete "${TAG}" --yes || true
+          git push origin ":refs/tags/${TAG}" || true
+
+          gh release create "${TAG}" "${APK}" \
+            --title "Dodo Ledger Android v${VERSION} 🐱" \
+            --notes "🐱 **Dodo Ledger Android v${VERSION}**
+
+  此版本由 GitHub Actions 自動建置。免解壓，下載 APK 即可直接安裝至手機！
+
+  📋 下載檔案：\`${APK}\`
+  🕐 建置時間：$(date +'%Y-%m-%d %H:%M:%S') UTC" \
+            --target master
+
+      - name: Update latest GitHub Release (always latest)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=${{ steps.android_version.outputs.version }}
+          APK="dodo-ledger-v${VERSION}.apk"
+
+          # 刪除舊的 latest release（確保覆蓋上傳到最新版本）
           gh release delete latest --yes || true
-          
-          # 刪除舊的 latest tag（如果存在），避免 tag 衝突
           git tag -d latest || true
           git push origin :refs/tags/latest || true
-          
-          # 建立新的 latest pre-release 並上傳 APK
-          gh release create latest dodo-ledger-release.apk \
-            --title "Dodo Ledger 最新 Android 正式版 (Latest Release APK) 🐱" \
-            --notes "🐱 這是由 GitHub Actions 自動建置的最新 Android Release 版 APK。免解壓，下載即可直接在手機上安裝！更新時間：$(date +'%Y-%m-%d %H:%M:%S' -u) UTC" \
+
+          gh release create latest "${APK}" \
+            --title "Dodo Ledger 最新 Android 正式版 (Latest) 🐱" \
+            --notes "🐱 這是由 GitHub Actions 自動建置的最新 Android Release APK（v${VERSION}）。
+
+  此 Release 永遠指向最新版本。若需查看特定版本，請至 [Releases 頁面](https://github.com/${{ github.repository }}/releases) 尋找對應的 \`android-vX.Y.Z\` 標籤。
+
+  📋 下載檔案：\`${APK}\`
+  🕐 更新時間：$(date +'%Y-%m-%d %H:%M:%S') UTC" \
             --prerelease \
             --target master

@@ -2,6 +2,20 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Android 1.0.0 / Web 1.9.2] - 2026-05-26
+
+### 🏷️ Android 版號獨立化與帶版號 Release Tag 系統
+
+- **版本脫鉤**：新增 `android-version.json` 作為 Android 行動端的唯一版本定義來源（Single Source of Truth），與網頁版的 `package.json` 徹底脫鉤。日後升級 Android 版本只需修改此檔案，完全不影響網頁版本發布流程。
+- **Gradle 動態版號**：`android/app/build.gradle` 改為在編譯時動態解析 `android-version.json`，確保 APK 內部的 `versionName` / `versionCode` 與定義檔 100% 同步，告別硬編碼。
+- **雙重 GitHub Release 策略**：
+  - **帶版號 Release**：每次建置成功，自動發布 `android-vX.Y.Z` 的獨立 Release，APK 檔名為 `dodo-ledger-vX.Y.Z.apk`，完整保留歷史版本下載記錄。
+  - **`latest` Release 保留**：同時覆蓋更新 `latest` Release，永遠指向最新版本，讓使用者可透過固定連結一鍵下載最新版，無需手動翻找版號。
+- **CI/CD 觸發條件分流**：重構 `android.yml` 的 `paths`，Android 編譯管線完全與 `src/**` 等網頁端的變動脫鉤，改為僅在 `android-version.json`、`android/**`、`build-apk.sh`、`capacitor.config.ts` 或 CI 設定本身有更動時才自動觸發，大幅節省 GitHub Actions Runner 資源。
+- **本地腳本帶版號命名**：更新 `build-apk.sh`，本地建置同樣動態讀取版號，自動輸出 `dodo-ledger-v{版號}.apk` 與 `dodo-ledger-latest.apk` 兩份至 `build-artifacts/`，方便同時辨識版本與快速測試。
+
+---
+
 ## [1.9.1] - 2026-05-26
 
 ### 🤖 Android 建置全面升級為 Release 版本
