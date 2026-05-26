@@ -134,8 +134,7 @@ const createProfile = async (name: string, avatar: string): Promise<UserProfile>
     settings: {
       currency: 'TWD',
       theme: 'warm-light',
-      monthlyBudget: 20000,
-      categories: JSON.parse(JSON.stringify(DEFAULT_CATEGORIES))
+      monthlyBudget: 20000
     }
   }
   
@@ -175,13 +174,12 @@ const logout = () => {
   }
 }
 
-// 更新設定 (支援預算變更與分類變更日誌)
+// 更新設定 (支援預算變更日誌)
 const updateProfileSettings = async (newSettings: Partial<UserSettings>) => {
   if (!currentProfile.value) return
   
   const oldBudget = currentProfile.value.settings.monthlyBudget
   const isBudgetChanged = newSettings.monthlyBudget !== undefined && newSettings.monthlyBudget !== oldBudget
-  const isCategoriesChanged = newSettings.categories !== undefined
   
   currentProfile.value.settings = {
     ...currentProfile.value.settings,
@@ -193,21 +191,12 @@ const updateProfileSettings = async (newSettings: Partial<UserSettings>) => {
     profiles.value[idx] = currentProfile.value
     await saveProfiles()
     
-    // 寫入系統日誌
     if (isBudgetChanged) {
       await addSystemLog(
         currentProfile.value.name,
         currentProfile.value.avatar,
         'update_budget',
         `將每月預算從 ${oldBudget} 元調整為 ${newSettings.monthlyBudget} 元`
-      )
-    }
-    if (isCategoriesChanged) {
-      await addSystemLog(
-        currentProfile.value.name,
-        currentProfile.value.avatar,
-        'update_categories',
-        `變更了記帳分類與子分類設定`
       )
     }
   }

@@ -25,53 +25,51 @@
 
 ## 2. 資料庫 Schema 規格 (Firestore)
 
-### 2.1 使用者設定檔 (`/users/{userId}`)
-儲存使用者基本資訊、全域設定、以及自訂的主子分類列表。
+> **正規化架構說明**：所有實體以子集合（subcollection）形式儲存於 `ledgers/dodo_shared_ledger/` 路徑下，避免單一文件超過 Firestore 1MB 限制，並支援未來的即時監聽（`onSnapshot`）與分頁查詢。
+
+```
+ledgers/
+  dodo_shared_ledger/
+    accounts/      {accountId}     ← Account 文件
+    transactions/  {transactionId} ← Transaction 文件
+    recurring/     {recurringId}   ← RecurringTransaction 文件
+    categories/    {categoryId}    ← Category 文件（共享，不隨身分複製）
+    profiles/      {profileId}     ← UserProfile 文件（不含 categories）
+    logs/          {logId}         ← SystemLog 文件
+```
+
+### 2.1 使用者設定檔 (`/profiles/{profileId}`)
+儲存使用者基本資訊與全域設定。
 
 | 欄位名稱 | 型態 | 說明 |
 | :--- | :--- | :--- |
-| `uid` | string | Firebase Auth 的使用者唯一識別碼 |
-| `email` | string | 使用者電子信箱 |
-| `displayName`| string | 使用者顯示名稱 |
-| `createdAt` | timestamp | 註冊時間 |
-| `settings` | object | 使用者全域配置（包含月預算、預設貨幣等） |
+| `id` | string | 使用者唯一識別碼 |
+| `name` | string | 使用者顯示名稱 |
+| `avatar` | string | 逗逗貓可愛頭像編號或 CSS 漸層色 |
+| `createdAt` | number | 建立時間戳記 |
+| `settings` | object | 使用者全域配置（貨幣、主題、月預算） |
 
-#### `settings.categories` 結構：
-為支援「嚴謹雙層分類」，分類陣列包含主分類，每個主分類內含一個子分類陣列。
+#### `settings` 結構：
 ```json
-[
-  {
-    "id": "cat_food",
-    "name": "餐飲",
-    "type": "expense",
-    "icon": "Utensils",
-    "subCategories": ["早餐", "午餐", "晚餐", "飲料", "點心", "食材"]
-  },
-  {
-    "id": "cat_trans",
-    "name": "交通",
-    "type": "expense",
-    "icon": "Car",
-    "subCategories": ["捷運", "公車", "計程車", "加油", "高鐵", "停車費"]
-  },
-  {
-    "id": "cat_shopping",
-    "name": "購物",
-    "type": "expense",
-    "icon": "ShoppingBag",
-    "subCategories": ["服飾", "日用品", "化妝品", "電子產品"]
-  },
-  {
-    "id": "cat_salary",
-    "name": "薪資",
-    "type": "income",
-    "icon": "DollarSign",
-    "subCategories": ["正職", "兼職", "獎金"]
-  }
-]
+{
+  "currency": "TWD",
+  "theme": "warm-light",
+  "monthlyBudget": 20000
+}
 ```
 
-### 2.2 帳戶檔案 (`/users/{userId}/accounts/{accountId}`)
+### 2.2 收支分類 (`/categories/{categoryId}`)
+共享的雙層記帳分類，所有成員共用同一份分類列表，首次載入時自動以預設分類填充。
+
+| 欄位名稱 | 型態 | 說明 |
+| :--- | :--- | :--- |
+| `id` | string | 分類唯一識別碼 |
+| `name` | string | 主分類名稱，如「餐飲」 |
+| `type` | string | `expense` (支出) 或 `income` (收入) |
+| `icon` | string | Lucide 圖示名稱 |
+| `subCategories` | string[] | 子分類名稱陣列，如 `["早餐", "午餐", "晚餐"]` |
+
+### 2.3 帳戶檔案 (`/accounts/{accountId}`)
 記錄現金、銀行、信用卡、電子票證之帳戶參數。
 
 | 欄位名稱 | 型態 | 說明 |
@@ -96,7 +94,7 @@
 }
 ```
 
-### 2.3 交易明細 (`/users/{userId}/transactions/{transactionId}`)
+### 2.4 交易明細 (`/transactions/{transactionId}`)
 記錄每一筆收支、轉帳、信用卡分期的明細。
 
 | 欄位名稱 | 型態 | 說明 |
@@ -126,7 +124,7 @@
 }
 ```
 
-### 2.4 週期性自動記帳設定 (`/users/{userId}/recurring/{recurringId}`)
+### 2.5 週期性自動記帳設定 (`/recurring/{recurringId}`)
 排程紀錄，用於定期執行扣款。
 
 | 欄位名稱 | 型態 | 說明 |

@@ -7,7 +7,6 @@ export interface UserSettings {
   currency: string;
   theme: string;
   monthlyBudget: number;
-  categories: Category[];
 }
 
 // 本地使用者身分 Profile

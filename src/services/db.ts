@@ -1,6 +1,6 @@
-import type { Account, Transaction, RecurringTransaction, UserProfile, SystemLog } from '../types'
+import type { Account, Transaction, RecurringTransaction, UserProfile, SystemLog, Category } from '../types'
 import { initializeApp } from 'firebase/app'
-import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore'
+import { getFirestore, doc, collection, getDocs, writeBatch } from 'firebase/firestore'
 import { FIREBASE_CONFIG } from '../config/firebase'
 
 // 1. 抽象資料庫服務介面 (多人共同記帳模型，維護同一個資產紀錄)
@@ -13,6 +13,9 @@ export interface DatabaseService {
   
   getRecurring(): Promise<RecurringTransaction[]>;
   saveRecurring(recurring: RecurringTransaction[]): Promise<void>;
+
+  getCategories(): Promise<Category[]>;
+  saveCategories(categories: Category[]): Promise<void>;
 
   getProfiles(): Promise<UserProfile[]>;
   saveProfiles(profiles: UserProfile[]): Promise<void>;
@@ -27,89 +30,39 @@ export class MockDatabaseService implements DatabaseService {
   private ACCOUNTS_KEY = 'dodo_ledger_shared_accounts'
   private TRANSACTIONS_KEY = 'dodo_ledger_shared_transactions'
   private RECURRING_KEY = 'dodo_ledger_shared_recurring'
-
-  async getAccounts(): Promise<Account[]> {
-    if (typeof localStorage === 'undefined') return []
-    const data = localStorage.getItem(this.ACCOUNTS_KEY)
-    if (!data) return []
-    try {
-      return JSON.parse(data)
-    } catch (e) {
-      return []
-    }
-  }
-
-  async saveAccounts(accounts: Account[]): Promise<void> {
-    if (typeof localStorage === 'undefined') return
-    localStorage.setItem(this.ACCOUNTS_KEY, JSON.stringify(accounts))
-  }
-
-  async getTransactions(): Promise<Transaction[]> {
-    if (typeof localStorage === 'undefined') return []
-    const data = localStorage.getItem(this.TRANSACTIONS_KEY)
-    if (!data) return []
-    try {
-      return JSON.parse(data)
-    } catch (e) {
-      return []
-    }
-  }
-
-  async saveTransactions(transactions: Transaction[]): Promise<void> {
-    if (typeof localStorage === 'undefined') return
-    localStorage.setItem(this.TRANSACTIONS_KEY, JSON.stringify(transactions))
-  }
-
-  async getRecurring(): Promise<RecurringTransaction[]> {
-    if (typeof localStorage === 'undefined') return []
-    const data = localStorage.getItem(this.RECURRING_KEY)
-    if (!data) return []
-    try {
-      return JSON.parse(data)
-    } catch (e) {
-      return []
-    }
-  }
-
-  async saveRecurring(recurring: RecurringTransaction[]): Promise<void> {
-    if (typeof localStorage === 'undefined') return
-    localStorage.setItem(this.RECURRING_KEY, JSON.stringify(recurring))
-  }
-
+  private CATEGORIES_KEY = 'dodo_ledger_shared_categories'
   private PROFILES_KEY = 'dodo_ledger_shared_profiles'
   private LOGS_KEY = 'dodo_ledger_shared_logs'
 
-  async getProfiles(): Promise<UserProfile[]> {
+  private readKey<T>(key: string): T[] {
     if (typeof localStorage === 'undefined') return []
-    const data = localStorage.getItem(this.PROFILES_KEY)
+    const data = localStorage.getItem(key)
     if (!data) return []
-    try {
-      return JSON.parse(data)
-    } catch (e) {
-      return []
-    }
+    try { return JSON.parse(data) } catch { return [] }
   }
 
-  async saveProfiles(profiles: UserProfile[]): Promise<void> {
+  private writeKey<T>(key: string, value: T[]): void {
     if (typeof localStorage === 'undefined') return
-    localStorage.setItem(this.PROFILES_KEY, JSON.stringify(profiles))
+    localStorage.setItem(key, JSON.stringify(value))
   }
 
-  async getLogs(): Promise<SystemLog[]> {
-    if (typeof localStorage === 'undefined') return []
-    const data = localStorage.getItem(this.LOGS_KEY)
-    if (!data) return []
-    try {
-      return JSON.parse(data)
-    } catch (e) {
-      return []
-    }
-  }
+  async getAccounts(): Promise<Account[]> { return this.readKey(this.ACCOUNTS_KEY) }
+  async saveAccounts(accounts: Account[]): Promise<void> { this.writeKey(this.ACCOUNTS_KEY, accounts) }
 
-  async saveLogs(logs: SystemLog[]): Promise<void> {
-    if (typeof localStorage === 'undefined') return
-    localStorage.setItem(this.LOGS_KEY, JSON.stringify(logs))
-  }
+  async getTransactions(): Promise<Transaction[]> { return this.readKey(this.TRANSACTIONS_KEY) }
+  async saveTransactions(transactions: Transaction[]): Promise<void> { this.writeKey(this.TRANSACTIONS_KEY, transactions) }
+
+  async getRecurring(): Promise<RecurringTransaction[]> { return this.readKey(this.RECURRING_KEY) }
+  async saveRecurring(recurring: RecurringTransaction[]): Promise<void> { this.writeKey(this.RECURRING_KEY, recurring) }
+
+  async getCategories(): Promise<Category[]> { return this.readKey(this.CATEGORIES_KEY) }
+  async saveCategories(categories: Category[]): Promise<void> { this.writeKey(this.CATEGORIES_KEY, categories) }
+
+  async getProfiles(): Promise<UserProfile[]> { return this.readKey(this.PROFILES_KEY) }
+  async saveProfiles(profiles: UserProfile[]): Promise<void> { this.writeKey(this.PROFILES_KEY, profiles) }
+
+  async getLogs(): Promise<SystemLog[]> { return this.readKey(this.LOGS_KEY) }
+  async saveLogs(logs: SystemLog[]): Promise<void> { this.writeKey(this.LOGS_KEY, logs) }
 }
 
 // 工具函式：遞迴移除所有 undefined 欄位，避免 Firestore 拒絕寫入
@@ -127,128 +80,89 @@ function stripUndefined<T>(obj: T): T {
   return obj
 }
 
-// 3. 雲端 Firebase 同步模式實作 (多人共同記帳 Firestore 實作)
-// 為了提供多人共同記帳的即時備份與無縫連動，我們讀寫 Firestore 中 "ledgers/dodo_shared_ledger" 全域文檔
+// 3. 雲端 Firebase 同步模式實作 (多人共同記帳 Firestore 正規化子集合架構)
+// 每種實體各自儲存於 ledgers/dodo_shared_ledger/{collectionName}/{id} 的子集合，
+// 避免單一文件超過 Firestore 1MB 上限，並支援未來擴充即時監聽與分頁查詢。
 export class FirestoreDatabaseService implements DatabaseService {
   private db: any
-  private docRef: any
+  private ledgerId = 'dodo_shared_ledger'
 
   constructor(firebaseConfig: any) {
     const app = initializeApp(firebaseConfig)
     this.db = getFirestore(app)
-    this.docRef = doc(this.db, 'ledgers', 'dodo_shared_ledger')
     console.log('[Dodo Ledger] 🐱 成功建立且自動初始化 Firestore 雲端連線服務層！');
   }
 
-  async getAccounts(): Promise<Account[]> {
+  /** 取得子集合參考 */
+  private col(name: string) {
+    return collection(this.db, 'ledgers', this.ledgerId, name)
+  }
+
+  /** 通用：讀取子集合全量文件 */
+  private async readCollection<T>(colName: string): Promise<T[]> {
     try {
-      const snap = await getDoc(this.docRef)
-      if (snap.exists()) {
-        const data = snap.data() as any
-        return data.accounts || []
+      const snap = await getDocs(this.col(colName))
+      return snap.docs.map(d => d.data() as T)
+    } catch (e) {
+      console.error(`[Dodo Ledger] 讀取子集合 ${colName} 失敗：`, e)
+      return []
+    }
+  }
+
+  /**
+   * 通用：以 writeBatch 取代子集合全量文件。
+   * 先刪除舊 ID 不在新陣列中的文件，再寫入所有新文件。
+   * 每批次最多 500 次操作以符合 Firestore 限制。
+   */
+  private async writeCollection<T extends { id: string }>(colName: string, items: T[]): Promise<void> {
+    try {
+      const colRef = this.col(colName)
+      const snap = await getDocs(colRef)
+
+      const newIdSet = new Set(items.map(i => i.id))
+      const toDelete = snap.docs.filter(d => !newIdSet.has(d.id))
+
+      // 合併刪除 + 寫入操作，每 500 個一批
+      type Op = { op: 'delete'; ref: any } | { op: 'set'; ref: any; data: any }
+      const ops: Op[] = [
+        ...toDelete.map(d => ({ op: 'delete' as const, ref: d.ref })),
+        ...items.map(item => ({
+          op: 'set' as const,
+          ref: doc(colRef, item.id),
+          data: stripUndefined(item)
+        }))
+      ]
+
+      for (let i = 0; i < ops.length; i += 500) {
+        const batch = writeBatch(this.db)
+        for (const entry of ops.slice(i, i + 500)) {
+          if (entry.op === 'delete') batch.delete(entry.ref)
+          else batch.set(entry.ref, entry.data)
+        }
+        await batch.commit()
       }
-      return []
     } catch (e) {
-      console.error('[Dodo Ledger] 獲取雲端帳戶失敗：', e)
-      return []
+      console.error(`[Dodo Ledger] 寫入子集合 ${colName} 失敗：`, e)
     }
   }
 
-  async saveAccounts(accounts: Account[]): Promise<void> {
-    try {
-      await setDoc(this.docRef, { accounts: stripUndefined(accounts) }, { merge: true })
-    } catch (e) {
-      console.error('[Dodo Ledger] 儲存雲端帳戶失敗：', e)
-    }
-  }
+  async getAccounts(): Promise<Account[]> { return this.readCollection('accounts') }
+  async saveAccounts(accounts: Account[]): Promise<void> { await this.writeCollection('accounts', accounts) }
 
-  async getTransactions(): Promise<Transaction[]> {
-    try {
-      const snap = await getDoc(this.docRef)
-      if (snap.exists()) {
-        const data = snap.data() as any
-        return data.transactions || []
-      }
-      return []
-    } catch (e) {
-      console.error('[Dodo Ledger] 獲取雲端交易紀錄失敗：', e)
-      return []
-    }
-  }
+  async getTransactions(): Promise<Transaction[]> { return this.readCollection('transactions') }
+  async saveTransactions(transactions: Transaction[]): Promise<void> { await this.writeCollection('transactions', transactions) }
 
-  async saveTransactions(transactions: Transaction[]): Promise<void> {
-    try {
-      await setDoc(this.docRef, { transactions: stripUndefined(transactions) }, { merge: true })
-    } catch (e) {
-      console.error('[Dodo Ledger] 儲存雲端交易紀錄失敗：', e)
-    }
-  }
+  async getRecurring(): Promise<RecurringTransaction[]> { return this.readCollection('recurring') }
+  async saveRecurring(recurring: RecurringTransaction[]): Promise<void> { await this.writeCollection('recurring', recurring) }
 
-  async getRecurring(): Promise<RecurringTransaction[]> {
-    try {
-      const snap = await getDoc(this.docRef)
-      if (snap.exists()) {
-        const data = snap.data() as any
-        return data.recurring || []
-      }
-      return []
-    } catch (e) {
-      console.error('[Dodo Ledger] 獲取雲端自動記帳設定失敗：', e)
-      return []
-    }
-  }
+  async getCategories(): Promise<Category[]> { return this.readCollection('categories') }
+  async saveCategories(categories: Category[]): Promise<void> { await this.writeCollection('categories', categories) }
 
-  async saveRecurring(recurring: RecurringTransaction[]): Promise<void> {
-    try {
-      await setDoc(this.docRef, { recurring: stripUndefined(recurring) }, { merge: true })
-    } catch (e) {
-      console.error('[Dodo Ledger] 儲存雲端自動記帳設定失敗：', e)
-    }
-  }
+  async getProfiles(): Promise<UserProfile[]> { return this.readCollection('profiles') }
+  async saveProfiles(profiles: UserProfile[]): Promise<void> { await this.writeCollection('profiles', profiles) }
 
-  async getProfiles(): Promise<UserProfile[]> {
-    try {
-      const snap = await getDoc(this.docRef)
-      if (snap.exists()) {
-        const data = snap.data() as any
-        return data.profiles || []
-      }
-      return []
-    } catch (e) {
-      console.error('[Dodo Ledger] 獲取雲端身分列表失敗：', e)
-      return []
-    }
-  }
-
-  async saveProfiles(profiles: UserProfile[]): Promise<void> {
-    try {
-      await setDoc(this.docRef, { profiles: stripUndefined(profiles) }, { merge: true })
-    } catch (e) {
-      console.error('[Dodo Ledger] 儲存雲端身分列表失敗：', e)
-    }
-  }
-
-  async getLogs(): Promise<SystemLog[]> {
-    try {
-      const snap = await getDoc(this.docRef)
-      if (snap.exists()) {
-        const data = snap.data() as any
-        return data.logs || []
-      }
-      return []
-    } catch (e) {
-      console.error('[Dodo Ledger] 獲取雲端操作日誌失敗：', e)
-      return []
-    }
-  }
-
-  async saveLogs(logs: SystemLog[]): Promise<void> {
-    try {
-      await setDoc(this.docRef, { logs: stripUndefined(logs) }, { merge: true })
-    } catch (e) {
-      console.error('[Dodo Ledger] 儲存雲端操作日誌失敗：', e)
-    }
-  }
+  async getLogs(): Promise<SystemLog[]> { return this.readCollection('logs') }
+  async saveLogs(logs: SystemLog[]): Promise<void> { await this.writeCollection('logs', logs) }
 }
 
 // 4. 自動連線與資料庫選擇核心

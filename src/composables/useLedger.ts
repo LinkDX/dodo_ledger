@@ -1,12 +1,14 @@
 import { ref, computed } from 'vue'
-import type { Account, Transaction, RecurringTransaction, CatMood } from '../types'
+import type { Account, Transaction, RecurringTransaction, CatMood, Category } from '../types'
 import { useAuth } from './useAuth'
 import { getDatabaseService, addSystemLog } from '../services/db'
+import { DEFAULT_CATEGORIES } from './useAuth'
 
 // 核心響應式狀態 (Singleton 全域共享，維護同一個資產紀錄)
 const accounts = ref<Account[]>([])
 const transactions = ref<Transaction[]>([])
 const recurringTransactions = ref<RecurringTransaction[]>([])
+const categories = ref<Category[]>([])
 const triggeredReports = ref<string[]>([]) // 逗逗貓待報告的週期記帳清單
 const isDataLoaded = ref(false)
 
@@ -23,15 +25,25 @@ export function useLedger() {
   const loadLedgerData = async () => {
     isDataLoaded.value = false
     
-    const [accts, txs, recs] = await Promise.all([
+    const [accts, txs, recs, cats] = await Promise.all([
       db.getAccounts(),
       db.getTransactions(),
-      db.getRecurring()
+      db.getRecurring(),
+      db.getCategories()
     ])
 
     accounts.value = accts
     transactions.value = txs
     recurringTransactions.value = recs
+
+    // 首次載入時自動以預設分類填充
+    if (cats.length === 0) {
+      categories.value = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES))
+      await db.saveCategories(categories.value)
+    } else {
+      categories.value = cats
+    }
+
     isDataLoaded.value = true
     
     // 觸發週期性自動記帳的 Lazy-check
@@ -43,6 +55,7 @@ export function useLedger() {
     accounts.value = []
     transactions.value = []
     recurringTransactions.value = []
+    categories.value = []
     triggeredReports.value = []
     isDataLoaded.value = false
   }
@@ -58,6 +71,10 @@ export function useLedger() {
 
   const syncRecurring = async () => {
     await db.saveRecurring(recurringTransactions.value)
+  }
+
+  const syncCategories = async () => {
+    await db.saveCategories(categories.value)
   }
 
   // 4. 核心運算看板欄位 (Computed)
@@ -568,7 +585,50 @@ export function useLedger() {
     await syncRecurring()
   }
 
-  // 12. 🐱 逗逗貓療癒生活看板趣味互動
+  // 12. 🐾 分類管理方法 (新增 / 刪除主分類 / 子分類)
+  const addCategory = async (catData: Omit<Category, 'id'>) => {
+    const operatorName = currentProfile.value?.name || '系統自動'
+    const operatorAvatar = currentProfile.value?.avatar || '⚙️'
+    const newCat: Category = {
+      ...catData,
+      id: 'cat_custom_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4)
+    }
+    categories.value.push(newCat)
+    await syncCategories()
+    await addSystemLog(operatorName, operatorAvatar, 'update_categories', `新增主分類「${newCat.name}」`)
+  }
+
+  const deleteCategory = async (catId: string) => {
+    const operatorName = currentProfile.value?.name || '系統自動'
+    const operatorAvatar = currentProfile.value?.avatar || '⚙️'
+    const cat = categories.value.find(c => c.id === catId)
+    if (!cat) return
+    categories.value = categories.value.filter(c => c.id !== catId)
+    await syncCategories()
+    await addSystemLog(operatorName, operatorAvatar, 'update_categories', `刪除主分類「${cat.name}」及其所有子分類`)
+  }
+
+  const addSubCategory = async (catId: string, subName: string) => {
+    const operatorName = currentProfile.value?.name || '系統自動'
+    const operatorAvatar = currentProfile.value?.avatar || '⚙️'
+    const cat = categories.value.find(c => c.id === catId)
+    if (!cat || cat.subCategories.includes(subName)) return
+    cat.subCategories.push(subName)
+    await syncCategories()
+    await addSystemLog(operatorName, operatorAvatar, 'update_categories', `在「${cat.name}」下新增子分類「${subName}」`)
+  }
+
+  const deleteSubCategory = async (catId: string, subName: string) => {
+    const operatorName = currentProfile.value?.name || '系統自動'
+    const operatorAvatar = currentProfile.value?.avatar || '⚙️'
+    const cat = categories.value.find(c => c.id === catId)
+    if (!cat) return
+    cat.subCategories = cat.subCategories.filter(s => s !== subName)
+    await syncCategories()
+    await addSystemLog(operatorName, operatorAvatar, 'update_categories', `從「${cat.name}」刪除子分類「${subName}」`)
+  }
+
+  // 13. 🐱 逗逗貓療癒生活看板趣味互動
   const interactWithCat = (action: string) => {
     if (interactionTimeoutId) {
       clearTimeout(interactionTimeoutId)
@@ -617,6 +677,7 @@ export function useLedger() {
     accounts: computed(() => accounts.value),
     transactions: computed(() => transactions.value),
     recurringTransactions: computed(() => recurringTransactions.value),
+    categories: computed(() => categories.value),
     triggeredReports: computed(() => triggeredReports.value),
     isDataLoaded: computed(() => isDataLoaded.value),
     
@@ -647,6 +708,12 @@ export function useLedger() {
     toggleRecurringActive,
     deleteRecurring,
     checkAndTriggerRecurring,
+
+    addCategory,
+    deleteCategory,
+    addSubCategory,
+    deleteSubCategory,
+
     interactWithCat
   }
 }

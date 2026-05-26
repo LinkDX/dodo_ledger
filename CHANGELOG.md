@@ -2,6 +2,28 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [1.5.0] - 2026-05-26
+
+### 🗄️ 資料庫架構正規化：分類獨立化 + Firestore 子集合重構
+
+#### 🔧 正規化前後對照
+
+| 項目 | 舊架構 | 新架構 |
+|---|---|---|
+| Firestore 儲存方式 | 全部資料壓縮在單一文件 `ledgers/dodo_shared_ledger` | 每種實體各自儲存於子集合 `accounts/`, `transactions/`, `categories/`, `profiles/`, `logs/` |
+| 分類管理 | 嵌入 `UserProfile.settings.categories`，隨每個 Profile 複製一份 | 獨立子集合 `categories/`，全帳本共享一份 |
+| 1MB 文件限制 | 面臨超限風險（帳目一多即爆） | 每個文件獨立，無限制 |
+| 未來擴充 | 無法分頁、無法即時監聽 | 可直接加入 `onSnapshot` 即時監聽、支援分頁 |
+
+#### 📦 變更明細
+- **`DatabaseService` 介面**：新增 `getCategories()` / `saveCategories()` 方法。
+- **`FirestoreDatabaseService`**：重構為子集合架構，每次 `saveX()` 使用 `writeBatch` 進行差異刪除與全量寫入，並支援超過 500 筆的批次分割。
+- **`MockDatabaseService`**（LocalStorage）：新增 `dodo_ledger_shared_categories` 鍵，同步支援分類的本地讀寫。
+- **`UserProfile.settings`**：移除 `categories` 欄位，分類不再與 Profile 耦合。
+- **`useLedger.ts`**：新增 `categories` 響應式狀態；`loadLedgerData` 首次載入時若分類為空則自動以預設分類填充；新增 `addCategory`, `deleteCategory`, `addSubCategory`, `deleteSubCategory` 四個管理方法。
+- **`CategoryManager.vue`**：改由 `useLedger` 讀寫分類，移除對 `useAuth.updateProfileSettings` 的依賴。
+- **`TransactionForm.vue`**：分類來源改為 `useLedger.categories`，不再讀取 `currentProfile.settings.categories`。
+
 ## [1.4.0] - 2026-05-26
 
 ### ☁️ 雲端身分與稽核日誌同步、終端彩色 CLI 稽核工具與獨立分類 Tab 上線！

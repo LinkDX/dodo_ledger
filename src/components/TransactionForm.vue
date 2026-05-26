@@ -11,7 +11,7 @@ import {
 } from 'lucide-vue-next'
 
 const { currentProfile } = useAuth()
-const { accounts, addTransaction } = useLedger()
+const { accounts, addTransaction, categories: allCategories } = useLedger()
 
 // 1. 交易類型：支出 / 收入
 const txType = ref<TransactionType>('expense')
@@ -45,8 +45,7 @@ const activeAccount = computed(() => {
 
 // 3. 嚴謹雙層分類選擇
 const categories = computed(() => {
-  const allCats = currentProfile.value?.settings.categories || []
-  return allCats.filter(c => c.type === txType.value)
+  return allCategories.value.filter(c => c.type === txType.value)
 })
 
 const selectedCatId = ref('')

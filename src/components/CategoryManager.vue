@@ -1,32 +1,30 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useAuth } from '../composables/useAuth'
-import type { Category } from '../types'
+import { useLedger } from '../composables/useLedger'
 import { 
   FolderPlus, 
   Trash2, 
   X 
 } from 'lucide-vue-next'
 
-const { currentProfile, updateProfileSettings } = useAuth()
+const { currentProfile } = useAuth()
+const { categories, addCategory, deleteCategory, addSubCategory, deleteSubCategory } = useLedger()
 
 // 🐾 記帳分類手動管理狀態與方法
 const activeCatType = ref<'expense' | 'income'>('expense')
 const expandedCatId = ref<string>('')
 
 // 設置預設展開第一個主分類
-if (currentProfile.value?.settings.categories && currentProfile.value.settings.categories.length > 0) {
-  const initialCat = currentProfile.value.settings.categories.find(c => c.type === activeCatType.value)
-  if (initialCat) expandedCatId.value = initialCat.id
-}
+const filteredCategories = computed(() =>
+  categories.value.filter(c => c.type === activeCatType.value)
+)
 
-// 監聽類型切換，自動展開該類型的第一個主分類
-watch(activeCatType, (newType) => {
-  if (currentProfile.value) {
-    const found = currentProfile.value.settings.categories.find(c => c.type === newType)
-    expandedCatId.value = found ? found.id : ''
+watch(filteredCategories, (cats) => {
+  if (cats.length > 0 && !cats.find(c => c.id === expandedCatId.value)) {
+    expandedCatId.value = cats[0].id
   }
-})
+}, { immediate: true })
 
 const toggleExpandCat = (catId: string) => {
   expandedCatId.value = expandedCatId.value === catId ? '' : catId
@@ -38,86 +36,55 @@ const newCatName = ref('')
 const newCatIcon = ref('Sparkles')
 const cuteIconsList = ['Sparkles', 'Utensils', 'Car', 'ShoppingBag', 'Home', 'DollarSign', 'TrendingUp', 'Gift', 'Briefcase', 'Heart', 'Smile', 'Activity']
 
-const handleAddMainCategory = () => {
-  if (!newCatName.value.trim() || !currentProfile.value) return
+const handleAddMainCategory = async () => {
+  if (!newCatName.value.trim()) return
   
-  const cats = [...currentProfile.value.settings.categories]
-  const newId = 'cat_custom_' + Date.now()
-  const newCat: Category = {
-    id: newId,
+  await addCategory({
     name: newCatName.value.trim(),
     type: activeCatType.value,
     icon: newCatIcon.value,
     subCategories: []
-  }
-  
-  cats.push(newCat)
-  updateProfileSettings({ categories: cats })
+  })
   
   newCatName.value = ''
   showAddCatForm.value = false
-  expandedCatId.value = newId // 自動展開新建立的分類
-  alert(`🐱 成功新增主分類「${newCat.name}」！`)
+  alert(`🐱 成功新增主分類！`)
 }
 
-const handleDeleteMainCategory = (catId: string) => {
-  if (!currentProfile.value) return
-  const cat = currentProfile.value.settings.categories.find(c => c.id === catId)
+const handleDeleteMainCategory = async (catId: string) => {
+  const cat = categories.value.find(c => c.id === catId)
   if (!cat) return
   
   if (!confirm(`確定要刪除「${cat.name}」主分類及其底下所有子分類嗎喵？（已記帳交易不受影響）`)) {
     return
   }
   
-  const cats = currentProfile.value.settings.categories.filter(c => c.id !== catId)
-  updateProfileSettings({ categories: cats })
+  await deleteCategory(catId)
   
-  if (expandedCatId.value === catId) {
-    const nextCat = cats.find(c => c.type === activeCatType.value)
-    expandedCatId.value = nextCat ? nextCat.id : ''
-  }
+  const nextCat = filteredCategories.value.find(c => c.id !== catId)
+  expandedCatId.value = nextCat ? nextCat.id : ''
   alert(`🐱 主分類「${cat.name}」已被刪除。`)
 }
 
 // 子分類狀態與方法
 const newSubCatName = ref<Record<string, string>>({})
 
-const handleAddSubCategory = (catId: string) => {
+const handleAddSubCategory = async (catId: string) => {
   const subName = (newSubCatName.value[catId] || '').trim()
-  if (!subName || !currentProfile.value) return
+  if (!subName) return
   
-  const cats = currentProfile.value.settings.categories.map(c => {
-    if (c.id === catId) {
-      if (c.subCategories.includes(subName)) {
-        alert('🐱 這個子分類已經存在囉喵！')
-        return c
-      }
-      return {
-        ...c,
-        subCategories: [...c.subCategories, subName]
-      }
-    }
-    return c
-  })
+  const cat = categories.value.find(c => c.id === catId)
+  if (cat?.subCategories.includes(subName)) {
+    alert('🐱 這個子分類已經存在囉喵！')
+    return
+  }
   
-  updateProfileSettings({ categories: cats })
+  await addSubCategory(catId, subName)
   newSubCatName.value[catId] = ''
 }
 
-const handleDeleteSubCategory = (catId: string, subName: string) => {
-  if (!currentProfile.value) return
-  
-  const cats = currentProfile.value.settings.categories.map(c => {
-    if (c.id === catId) {
-      return {
-        ...c,
-        subCategories: c.subCategories.filter(s => s !== subName)
-      }
-    }
-    return c
-  })
-  
-  updateProfileSettings({ categories: cats })
+const handleDeleteSubCategory = async (catId: string, subName: string) => {
+  await deleteSubCategory(catId, subName)
 }
 </script>
 
@@ -156,7 +123,7 @@ const handleDeleteSubCategory = (catId: string, subName: string) => {
       <!-- 主分類摺疊卡片清單 -->
       <div class="cat-accordion-list">
         <div 
-          v-for="cat in currentProfile?.settings.categories.filter(c => c.type === activeCatType)"
+          v-for="cat in filteredCategories"
           :key="cat.id"
           class="cat-accordion-item card-jelly"
           :class="{ 'expanded': expandedCatId === cat.id }"
