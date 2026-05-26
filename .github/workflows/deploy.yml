@@ -21,16 +21,20 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-level: '20'
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Fix npm exit handler bug by installing stable npm v9
+        run: npm install -g npm@9.8.1
 
       - name: Install Dependencies
-        run: yarn install
+        run: npm install --no-audit --no-fund --legacy-peer-deps
 
       - name: Verify TypeScript compilation
         run: npx vue-tsc --noEmit
 
       - name: Run Vitest Automation Tests
-        run: yarn test:run
+        run: npm run test:run
 
       - name: Build production bundle
         env:
@@ -41,7 +45,7 @@ jobs:
           VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
-        run: yarn build
+        run: npm run build
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
