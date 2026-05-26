@@ -1,0 +1,269 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700&family=Nunito:wght@400;600;800&display=swap');
+
+/* 🌸 Dodo Ledger 溫馨插畫繪本風設計系統 🌸 */
+
+:root {
+  /* 馬卡龍配色系統 */
+  --color-bg-warm: #FCF8F2;      /* 溫暖奶油黃底色 */
+  --color-card-bg: #FFFFFF;      /* 純白卡片 */
+  --color-border: #2C1E1B;       /* 溫馨深朱古力手繪線框 */
+  --color-text-dark: #2C1E1B;    /* 核心文字深朱古力 */
+  --color-text-muted: #7E6E6A;   /* 淡灰褐說明文字 */
+  
+  --color-expense: #FFB4B4;      /* 支出：粉桃紅 */
+  --color-income: #B5EAD7;       /* 收入：薄荷綠 */
+  --color-transfer: #A9C9FF;     /* 轉帳/還款：天空藍 */
+  --color-accent-gold: #FFDAC1;  /* 輔助/金額：卡士達金 */
+  --color-accent-purple: #E2C6FF;/* 輔助/電子票證：薰衣草紫 */
+  
+  /* 繪本插畫風幾何圓角 */
+  --border-radius-lg: 24px;
+  --border-radius-md: 14px;
+  --border-radius-sm: 8px;
+  --border-width: 2.5px;
+  
+  /* 軟萌硬邊陰影 (Neo-brutalism Cute Style) */
+  --shadow-jelly: 4px 4px 0px 0px #2C1E1B;
+  --shadow-jelly-sm: 2px 2px 0px 0px #2C1E1B;
+  --shadow-jelly-active: 1px 1px 0px 0px #2C1E1B;
+}
+
+/* 全域重設與字型設定 */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Outfit', 'Nunito', 'System-UI', -apple-system, sans-serif;
+  color: var(--color-text-dark);
+}
+
+body {
+  background-color: var(--color-bg-warm);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* 行動端與網頁置中容器 */
+#app {
+  width: 100%;
+  max-width: 480px; /* 完美模擬手機 App 尺寸 */
+  min-height: 100vh;
+  background-color: var(--color-bg-warm);
+  border-left: var(--border-width) solid var(--color-border);
+  border-right: var(--border-width) solid var(--color-border);
+  box-shadow: 0 0 30px rgba(44, 30, 27, 0.1);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+@media (max-width: 480px) {
+  #app {
+    border-left: none;
+    border-right: none;
+  }
+}
+
+/* 繪本插畫風格基本卡片 */
+.card-jelly {
+  background-color: var(--color-card-bg);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-jelly);
+  padding: 20px;
+  margin-bottom: 20px;
+  position: relative;
+  transition: all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* 果凍彈性按鈕反饋 */
+.btn-jelly {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-jelly-sm);
+  padding: 10px 18px;
+  font-weight: 700;
+  cursor: pointer;
+  background-color: #FFFFFF;
+  transition: all 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  user-select: none;
+}
+
+.btn-jelly:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-jelly);
+}
+
+.btn-jelly:active {
+  transform: translateY(2px) translateX(2px);
+  box-shadow: var(--shadow-jelly-active);
+}
+
+/* 輸入框設計 */
+.input-jelly {
+  width: 100%;
+  padding: 12px 16px;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  font-size: 16px;
+  font-weight: 600;
+  background-color: #FFFFFF;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.input-jelly:focus {
+  border-color: var(--color-transfer);
+  background-color: #FFFDF9;
+}
+
+/* 可愛插畫圓角標籤 */
+.tag-jelly {
+  display: inline-block;
+  padding: 4px 10px;
+  border: 1.5px solid var(--color-border);
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  background-color: var(--color-bg-warm);
+}
+
+/* ─── 🐱 逗逗貓與趣味動畫 ─── */
+
+/* 逗逗貓呼吸擺尾微動畫 */
+@keyframes catBreath {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-2px) scale(1.02);
+  }
+}
+
+.cat-wiggle {
+  animation: catBreath 3s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+/* 果凍彈跳登場動畫 (用於對話泡泡或金額變動) */
+@keyframes popJelly {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.08);
+  }
+  80% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.pop-jelly {
+  animation: popJelly 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+/* 預算進度條容器 */
+.progress-bar-container {
+  width: 100%;
+  height: 16px;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: 20px;
+  background-color: var(--color-bg-warm);
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-right: 1.5px solid var(--color-border);
+  border-radius: 20px 0 0 20px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 網頁底欄 Tab 導航列 */
+.nav-tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  height: 72px;
+  background-color: var(--color-card-bg);
+  border-top: var(--border-width) solid var(--color-border);
+  border-left: var(--border-width) solid var(--color-border);
+  border-right: var(--border-width) solid var(--color-border);
+  border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  z-index: 100;
+  padding: 0 10px;
+  box-shadow: 0 -5px 20px rgba(44, 30, 27, 0.05);
+}
+
+.nav-tab-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: 1;
+  height: 100%;
+  transition: all 0.2s ease;
+  position: relative;
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.nav-tab-item .tab-icon {
+  margin-bottom: 2px;
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.nav-tab-item:active .tab-icon {
+  transform: scale(0.8) translateY(2px);
+}
+
+.nav-tab-item.active .tab-icon {
+  transform: scale(1.15) translateY(-2px);
+}
+
+.nav-tab-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  width: 12px;
+  height: 4px;
+  background-color: var(--color-border);
+  border-radius: 10px;
+}
+
+/* 微小細節：為所有滾動條加上可愛的外觀 */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg-warm);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-text-muted);
+  border: 2px solid var(--color-bg-warm);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border);
+}
