@@ -27,18 +27,53 @@ const activeFilter = ref<FilterType>('all')
 const now = new Date()
 const selectedMonth = ref(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
 
-// 自動產生可用月份列表 (最近 12 個月 + 交易中出現的月份)
+// 可選月份（從交易資料中動態收集，以最早有交易資料的月份為起點）
 const availableMonths = computed(() => {
   const set = new Set<string>()
-  for (let i = 0; i < 12; i++) {
-    const d = new Date()
-    d.setMonth(now.getMonth() - i)
-    set.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+  const now = new Date()
+
+  if (transactions.value.length === 0) {
+    // 若無資料，預設包含最近 12 個月
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      set.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+    }
+  } else {
+    // 找出最早與最晚的交易年月
+    let minYear = now.getFullYear()
+    let minMonth = now.getMonth()
+    let maxYear = now.getFullYear()
+    let maxMonth = now.getMonth()
+
+    transactions.value.forEach(tx => {
+      const d = new Date(tx.date)
+      if (!isNaN(d.getTime())) {
+        const y = d.getFullYear()
+        const m = d.getMonth()
+        if (y < minYear || (y === minYear && m < minMonth)) {
+          minYear = y
+          minMonth = m
+        }
+        if (y > maxYear || (y === maxYear && m > maxMonth)) {
+          maxYear = y
+          maxMonth = m
+        }
+      }
+    })
+
+    // 生成 min 到 max 區間內所有的月份
+    let currYear = minYear
+    let currMonth = minMonth
+    while (currYear < maxYear || (currYear === maxYear && currMonth <= maxMonth)) {
+      set.add(`${currYear}-${String(currMonth + 1).padStart(2, '0')}`)
+      currMonth++
+      if (currMonth > 11) {
+        currMonth = 0
+        currYear++
+      }
+    }
   }
-  transactions.value.forEach(tx => {
-    const d = new Date(tx.date)
-    set.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
-  })
+
   return [...set].sort().reverse()
 })
 

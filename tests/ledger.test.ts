@@ -297,4 +297,109 @@ describe('🐱 Dodo Ledger 多人共同記帳與演算法測試', () => {
     expect(payTx?.amount).toBe(3000)
     expect(payTx?.type).toBe('transfer')
   })
+
+  it('5. 支援「可用年月篩選清單動態生成」演算法', async () => {
+    const ledger = useLedger()
+    
+    // 初始化帳本
+    await ledger.loadLedgerData()
+    
+    // 建立一個現金帳戶
+    await ledger.addAccount({
+      name: '現金口袋',
+      type: 'cash',
+      balance: 10000,
+      icon: 'Wallet',
+      color: 'gold',
+      currency: 'TWD'
+    })
+    
+    const accountId = ledger.accounts.value[0].id
+    
+    // 動態生成 availableMonths 的純函數演算法
+    const getAvailableMonths = (txs: any[]) => {
+      const set = new Set<string>()
+      const now = new Date()
+      
+      if (txs.length === 0) {
+        for (let i = 0; i < 12; i++) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+          set.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+        }
+      } else {
+        let minYear = now.getFullYear()
+        let minMonth = now.getMonth()
+        let maxYear = now.getFullYear()
+        let maxMonth = now.getMonth()
+        
+        txs.forEach(tx => {
+          const d = new Date(tx.date)
+          if (!isNaN(d.getTime())) {
+            const y = d.getFullYear()
+            const m = d.getMonth()
+            if (y < minYear || (y === minYear && m < minMonth)) {
+              minYear = y
+              minMonth = m
+            }
+            if (y > maxYear || (y === maxYear && m > maxMonth)) {
+              maxYear = y
+              maxMonth = m
+            }
+          }
+        })
+        
+        let currYear = minYear
+        let currMonth = minMonth
+        while (currYear < maxYear || (currYear === maxYear && currMonth <= maxMonth)) {
+          set.add(`${currYear}-${String(currMonth + 1).padStart(2, '0')}`)
+          currMonth++
+          if (currMonth > 11) {
+            currMonth = 0
+            currYear++
+          }
+        }
+      }
+      return [...set].sort().reverse()
+    }
+    
+    // (a) 當完全沒有交易時，驗證是否降級為包含最近 12 個月
+    let months = getAvailableMonths(ledger.transactions.value)
+    expect(months.length).toBe(12)
+    const now = new Date()
+    const thisMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    expect(months[0]).toBe(thisMonthStr)
+    
+    // (b) 新增一筆較早的交易 (例如 2024-05)
+    await ledger.addTransaction({
+      type: 'expense',
+      amount: 100,
+      category: '餐飲',
+      fromAccountId: accountId,
+      date: new Date('2024-05-15').getTime(),
+      note: '買午餐',
+      tags: []
+    })
+    
+    // (c) 新增一筆較晚的預期交易 (例如 2026-08)
+    await ledger.addTransaction({
+      type: 'expense',
+      amount: 200,
+      category: '餐飲',
+      fromAccountId: accountId,
+      date: new Date('2026-08-20').getTime(),
+      note: '預購晚餐',
+      tags: []
+    })
+    
+    // (d) 驗證生成的月份區間是否完美涵蓋 2024-05 到 2026-08，並自動填補中間年份 (2025)
+    months = getAvailableMonths(ledger.transactions.value)
+    expect(months).toContain('2024-05')
+    expect(months).toContain('2026-08')
+    expect(months).toContain('2025-12')
+    
+    // 預期生成月數：
+    // 2024年 (12 - 5 + 1 = 8個月) + 2025年 (12個月) + 2026年 (8個月) = 28 個月
+    expect(months.length).toBe(28)
+  })
 })
+
