@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
-    "prepare-deploy": "node scripts/prepare-deploy.js"
+    "prepare-deploy": "node scripts/prepare-deploy.cjs"
   },
   "dependencies": {
     "lucide-vue-next": "^1.0.0",
