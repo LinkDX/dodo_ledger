@@ -393,6 +393,10 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
 
 <style scoped>
 .tx-list-page {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   padding: 16px;
   padding-bottom: 90px;
 }

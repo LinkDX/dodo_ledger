@@ -542,6 +542,10 @@ const formatCurrency = (val: number) =>
 
 <style scoped>
 .analytics-page-container {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   padding: 16px;
   padding-bottom: 90px;
 }
