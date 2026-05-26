@@ -1,0 +1,123 @@
+#!/usr/bin/env node
+
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const colors = {
+  reset: "\x1b[0m",
+  bold: "\x1b[1m",
+  dim: "\x1b[2m",
+  pink: "\x1b[38;5;211m",   // 馬卡桃紅
+  green: "\x1b[38;5;121m",  // 薄荷綠
+  blue: "\x1b[38;5;117m",   // 冰晶藍
+  gold: "\x1b[38;5;220m",   // 奶油黃
+  gray: "\x1b[38;5;246m",   // 溫暖灰褐
+  cyan: "\x1b[36m",
+  white: "\x1b[97m"
+}
+
+function parseFirestoreValue(val) {
+  if (!val) return null;
+  if (val.stringValue !== undefined) return val.stringValue;
+  if (val.integerValue !== undefined) return parseInt(val.integerValue, 10);
+  if (val.doubleValue !== undefined) return parseFloat(val.doubleValue);
+  if (val.booleanValue !== undefined) return val.booleanValue;
+  if (val.arrayValue !== undefined) {
+    return (val.arrayValue.values || []).map(v => parseFirestoreValue(v));
+  }
+  if (val.mapValue !== undefined) {
+    const obj = {};
+    const fields = val.mapValue.fields || {};
+    for (const key in fields) {
+      obj[key] = parseFirestoreValue(fields[key]);
+    }
+    return obj;
+  }
+  return null;
+}
+
+async function main() {
+  console.log(`\n${colors.gold}${colors.bold}🐱 Dodo Ledger —— 財務安全核心稽核工具 🐾${colors.reset}`);
+  console.log(`${colors.gray}--------------------------------------------------------------------------------${colors.reset}`);
+
+  // 1. 讀取環境變數獲取 Firebase Project ID
+  const envPath = path.join(process.cwd(), '.env.local');
+  let projectId = '';
+
+  if (fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, 'utf-8');
+    const projectMatch = envContent.match(/VITE_FIREBASE_PROJECT_ID\s*=\s*(.*)/);
+    if (projectMatch && projectMatch[1]) {
+      projectId = projectMatch[1].trim().replace(/['"']/g, ''); // 移除可能的引號
+    }
+  }
+
+  if (!projectId) {
+    console.log(`${colors.pink}⚠️ 偵測不到有效的雲端 Firebase Project ID 設定。${colors.reset}`);
+    console.log(`${colors.gray}請先確保本地已配置 .env.local 並成功開通雲端記帳模式喵！🐾${colors.reset}\n`);
+    process.exit(1);
+  }
+
+  console.log(`${colors.blue}☁️ 正在連線至 Firebase [${projectId}] 獲取最新帳務異動稽核紀錄...${colors.reset}`);
+
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/ledgers/dodo_shared_ledger`;
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.log(`\n${colors.pink}🐱 雲端目前尚未有任何同步資料或稽核日誌喔喵！${colors.reset}`);
+        console.log(`${colors.gray}請先在網頁中新增幾筆交易或身分變更後再試試看吧！🐾${colors.reset}\n`);
+        return;
+      }
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const fields = data.fields || {};
+    
+    // 解析 logs
+    const logs = fields.logs ? parseFirestoreValue(fields.logs) : [];
+
+    if (!logs || logs.length === 0) {
+      console.log(`\n${colors.pink}🐱 雲端目前尚無稽核日誌喵！${colors.reset}\n`);
+      return;
+    }
+
+    // 列印表格標題
+    console.log(`\n${colors.bold}${colors.white}【時間軸】             【執行成員】     【操作型態】        【變更詳情描述】${colors.reset}`);
+    console.log(`${colors.gray}--------------------------------------------------------------------------------${colors.reset}`);
+
+    // 列印日誌 (最新 40 筆)
+    logs.slice(0, 40).forEach(log => {
+      const d = new Date(log.date);
+      const timeStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+      
+      // 根據成員變換顏色
+      let operatorColor = colors.bold + colors.blue;
+      if (log.operator === '系統自動' || log.operator === '系統') {
+        operatorColor = colors.gray;
+      } else if (log.operator === '逗逗貓') {
+        operatorColor = colors.gold + colors.bold;
+      } else {
+        // 主人可以用桃色
+        operatorColor = colors.bold + colors.pink;
+      }
+
+      const operatorStr = `${log.operatorAvatar} ${log.operator}`.padEnd(12);
+      const actionStr = log.action.padEnd(18);
+
+      // 時間：灰色，成員：客製顏色，動作：綠色，描述：白色
+      console.log(`${colors.gray}${timeStr}${colors.reset}  ${operatorColor}${operatorStr}${colors.reset} ${colors.green}${actionStr}${colors.reset} ${colors.white}${log.description}${colors.reset}`);
+    });
+
+    console.log(`${colors.gray}--------------------------------------------------------------------------------${colors.reset}`);
+    console.log(`${colors.gold}🐾 喵嗚！共顯示 ${Math.min(logs.length, 40)} 筆近期核心財務與成員異動。系統排除趣味摸貓日誌。喵～ 🐾${colors.reset}\n`);
+
+  } catch (error) {
+    console.error(`\n${colors.pink}❌ 連線或拉取日誌失敗：${error.message}${colors.reset}\n`);
+  }
+}
+
+main();
