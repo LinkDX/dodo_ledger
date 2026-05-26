@@ -112,6 +112,21 @@ export class MockDatabaseService implements DatabaseService {
   }
 }
 
+// 工具函式：遞迴移除所有 undefined 欄位，避免 Firestore 拒絕寫入
+function stripUndefined<T>(obj: T): T {
+  if (Array.isArray(obj)) {
+    return obj.map(stripUndefined) as unknown as T
+  }
+  if (obj !== null && typeof obj === 'object') {
+    return Object.fromEntries(
+      Object.entries(obj as object)
+        .filter(([, v]) => v !== undefined)
+        .map(([k, v]) => [k, stripUndefined(v)])
+    ) as T
+  }
+  return obj
+}
+
 // 3. 雲端 Firebase 同步模式實作 (多人共同記帳 Firestore 實作)
 // 為了提供多人共同記帳的即時備份與無縫連動，我們讀寫 Firestore 中 "ledgers/dodo_shared_ledger" 全域文檔
 export class FirestoreDatabaseService implements DatabaseService {
@@ -141,7 +156,7 @@ export class FirestoreDatabaseService implements DatabaseService {
 
   async saveAccounts(accounts: Account[]): Promise<void> {
     try {
-      await setDoc(this.docRef, { accounts }, { merge: true })
+      await setDoc(this.docRef, { accounts: stripUndefined(accounts) }, { merge: true })
     } catch (e) {
       console.error('[Dodo Ledger] 儲存雲端帳戶失敗：', e)
     }
@@ -163,7 +178,7 @@ export class FirestoreDatabaseService implements DatabaseService {
 
   async saveTransactions(transactions: Transaction[]): Promise<void> {
     try {
-      await setDoc(this.docRef, { transactions }, { merge: true })
+      await setDoc(this.docRef, { transactions: stripUndefined(transactions) }, { merge: true })
     } catch (e) {
       console.error('[Dodo Ledger] 儲存雲端交易紀錄失敗：', e)
     }
@@ -185,7 +200,7 @@ export class FirestoreDatabaseService implements DatabaseService {
 
   async saveRecurring(recurring: RecurringTransaction[]): Promise<void> {
     try {
-      await setDoc(this.docRef, { recurring }, { merge: true })
+      await setDoc(this.docRef, { recurring: stripUndefined(recurring) }, { merge: true })
     } catch (e) {
       console.error('[Dodo Ledger] 儲存雲端自動記帳設定失敗：', e)
     }
@@ -207,7 +222,7 @@ export class FirestoreDatabaseService implements DatabaseService {
 
   async saveProfiles(profiles: UserProfile[]): Promise<void> {
     try {
-      await setDoc(this.docRef, { profiles }, { merge: true })
+      await setDoc(this.docRef, { profiles: stripUndefined(profiles) }, { merge: true })
     } catch (e) {
       console.error('[Dodo Ledger] 儲存雲端身分列表失敗：', e)
     }
@@ -229,7 +244,7 @@ export class FirestoreDatabaseService implements DatabaseService {
 
   async saveLogs(logs: SystemLog[]): Promise<void> {
     try {
-      await setDoc(this.docRef, { logs }, { merge: true })
+      await setDoc(this.docRef, { logs: stripUndefined(logs) }, { merge: true })
     } catch (e) {
       console.error('[Dodo Ledger] 儲存雲端操作日誌失敗：', e)
     }
