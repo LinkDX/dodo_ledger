@@ -98,3 +98,14 @@ export interface RecurringTransaction {
   nextExecutionDate: number;    // 下一次自動扣款時間戳記
   isActive: boolean;
 }
+
+// 系統全域操作日誌本體
+export interface SystemLog {
+  id: string;
+  operator: string;
+  operatorAvatar: string;
+  action: string;
+  description: string;
+  date: number;
+}
+

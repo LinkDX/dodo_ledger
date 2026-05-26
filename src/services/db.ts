@@ -1,4 +1,4 @@
-import type { Account, Transaction, RecurringTransaction } from '../types'
+import type { Account, Transaction, RecurringTransaction, UserProfile, SystemLog } from '../types'
 import { initializeApp } from 'firebase/app'
 import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore'
 import { FIREBASE_CONFIG } from '../config/firebase'
@@ -13,7 +13,14 @@ export interface DatabaseService {
   
   getRecurring(): Promise<RecurringTransaction[]>;
   saveRecurring(recurring: RecurringTransaction[]): Promise<void>;
+
+  getProfiles(): Promise<UserProfile[]>;
+  saveProfiles(profiles: UserProfile[]): Promise<void>;
+
+  getLogs(): Promise<SystemLog[]>;
+  saveLogs(logs: SystemLog[]): Promise<void>;
 }
+
 
 // 2. 本地體驗模式 (LocalStorage 實作，全域共享同一個資產與交易池)
 export class MockDatabaseService implements DatabaseService {
@@ -67,6 +74,41 @@ export class MockDatabaseService implements DatabaseService {
   async saveRecurring(recurring: RecurringTransaction[]): Promise<void> {
     if (typeof localStorage === 'undefined') return
     localStorage.setItem(this.RECURRING_KEY, JSON.stringify(recurring))
+  }
+
+  private PROFILES_KEY = 'dodo_ledger_shared_profiles'
+  private LOGS_KEY = 'dodo_ledger_shared_logs'
+
+  async getProfiles(): Promise<UserProfile[]> {
+    if (typeof localStorage === 'undefined') return []
+    const data = localStorage.getItem(this.PROFILES_KEY)
+    if (!data) return []
+    try {
+      return JSON.parse(data)
+    } catch (e) {
+      return []
+    }
+  }
+
+  async saveProfiles(profiles: UserProfile[]): Promise<void> {
+    if (typeof localStorage === 'undefined') return
+    localStorage.setItem(this.PROFILES_KEY, JSON.stringify(profiles))
+  }
+
+  async getLogs(): Promise<SystemLog[]> {
+    if (typeof localStorage === 'undefined') return []
+    const data = localStorage.getItem(this.LOGS_KEY)
+    if (!data) return []
+    try {
+      return JSON.parse(data)
+    } catch (e) {
+      return []
+    }
+  }
+
+  async saveLogs(logs: SystemLog[]): Promise<void> {
+    if (typeof localStorage === 'undefined') return
+    localStorage.setItem(this.LOGS_KEY, JSON.stringify(logs))
   }
 }
 
@@ -148,6 +190,50 @@ export class FirestoreDatabaseService implements DatabaseService {
       console.error('[Dodo Ledger] 儲存雲端自動記帳設定失敗：', e)
     }
   }
+
+  async getProfiles(): Promise<UserProfile[]> {
+    try {
+      const snap = await getDoc(this.docRef)
+      if (snap.exists()) {
+        const data = snap.data() as any
+        return data.profiles || []
+      }
+      return []
+    } catch (e) {
+      console.error('[Dodo Ledger] 獲取雲端身分列表失敗：', e)
+      return []
+    }
+  }
+
+  async saveProfiles(profiles: UserProfile[]): Promise<void> {
+    try {
+      await setDoc(this.docRef, { profiles }, { merge: true })
+    } catch (e) {
+      console.error('[Dodo Ledger] 儲存雲端身分列表失敗：', e)
+    }
+  }
+
+  async getLogs(): Promise<SystemLog[]> {
+    try {
+      const snap = await getDoc(this.docRef)
+      if (snap.exists()) {
+        const data = snap.data() as any
+        return data.logs || []
+      }
+      return []
+    } catch (e) {
+      console.error('[Dodo Ledger] 獲取雲端操作日誌失敗：', e)
+      return []
+    }
+  }
+
+  async saveLogs(logs: SystemLog[]): Promise<void> {
+    try {
+      await setDoc(this.docRef, { logs }, { merge: true })
+    } catch (e) {
+      console.error('[Dodo Ledger] 儲存雲端操作日誌失敗：', e)
+    }
+  }
 }
 
 // 4. 自動連線與資料庫選擇核心
@@ -183,3 +269,36 @@ export function getDatabaseService(): DatabaseService {
 export function switchDatabaseService(service: DatabaseService) {
   activeService = service;
 }
+
+export async function addSystemLog(
+  operator: string,
+  operatorAvatar: string,
+  action: string,
+  description: string
+): Promise<void> {
+  try {
+    const dbService = getDatabaseService();
+    const logs = await dbService.getLogs();
+    
+    // 生成唯一 ID
+    const logId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : 'log_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+
+    const newLog: SystemLog = {
+      id: logId,
+      operator,
+      operatorAvatar,
+      action,
+      description,
+      date: Date.now()
+    };
+    
+    // 僅保留最新 200 筆以避免過載
+    const updatedLogs = [newLog, ...logs].slice(0, 200);
+    await dbService.saveLogs(updatedLogs);
+  } catch (e) {
+    console.error('[Dodo Ledger] 寫入系統日誌失敗：', e);
+  }
+}
+
