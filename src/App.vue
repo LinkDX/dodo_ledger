@@ -6,7 +6,7 @@ import { useLedger } from './composables/useLedger'
 import UserSelection from './components/UserSelection.vue'
 import Dashboard from './components/Dashboard.vue'
 import AccountManager from './components/AccountManager.vue'
-import CreditCardCenter from './components/CreditCardCenter.vue'
+import TransactionList from './components/TransactionList.vue'
 import TransactionForm from './components/TransactionForm.vue'
 import CategoryManager from './components/CategoryManager.vue'
 import Analytics from './components/Analytics.vue'
@@ -15,7 +15,7 @@ import AppLock from './components/AppLock.vue'
 import { 
   Home, 
   Wallet, 
-  CreditCard, 
+  ScrollText,
   PlusCircle, 
   TrendingUp, 
   Settings as SettingsIcon,
@@ -62,14 +62,14 @@ watch(isLoggedIn, (loggedIn) => {
         <Dashboard @change-tab="setTab" />
       </div>
 
-      <!-- 帳戶管理與互轉 -->
+      <!-- 錢包：帳戶 + 信用卡帳單 -->
       <div v-show="activeTab === 'accounts'">
         <AccountManager />
       </div>
 
-      <!-- 信用卡理財中心 -->
-      <div v-show="activeTab === 'credit'">
-        <CreditCardCenter />
+      <!-- 收支明細 -->
+      <div v-show="activeTab === 'transactions'">
+        <TransactionList @change-tab="setTab" />
       </div>
 
       <!-- 記帳表單 -->
@@ -93,7 +93,7 @@ watch(isLoggedIn, (loggedIn) => {
       </div>
     </div>
 
-    <!-- 🌸 可愛巧克力粗框底欄 Tab 導航列 (7鍵黃金配置，維持「記帳」在最正中央) 🌸 -->
+    <!-- 🌸 底欄 Tab 導航列 (7鍵黃金配置) 🌸 -->
     <nav class="nav-tab-bar">
       <!-- 1. 首頁 -->
       <button 
@@ -105,24 +105,24 @@ watch(isLoggedIn, (loggedIn) => {
         <span>首頁</span>
       </button>
 
-      <!-- 2. 資產 -->
+      <!-- 2. 錢包 (帳戶 + 信用卡合併) -->
       <button 
         class="nav-tab-item btn-tab-reset" 
         :class="{ active: activeTab === 'accounts' }"
         @click="setTab('accounts')"
       >
         <Wallet :size="20" class="tab-icon" />
-        <span>資產</span>
+        <span>錢包</span>
       </button>
 
-      <!-- 3. 卡片 -->
+      <!-- 3. 明細 -->
       <button 
         class="nav-tab-item btn-tab-reset" 
-        :class="{ active: activeTab === 'credit' }"
-        @click="setTab('credit')"
+        :class="{ active: activeTab === 'transactions' }"
+        @click="setTab('transactions')"
       >
-        <CreditCard :size="20" class="tab-icon" />
-        <span>卡片</span>
+        <ScrollText :size="20" class="tab-icon" />
+        <span>明細</span>
       </button>
 
       <!-- 4. 記帳 (黃金正中央) -->
