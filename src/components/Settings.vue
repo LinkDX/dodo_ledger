@@ -10,10 +10,11 @@ import {
   CheckCircle,
   ShieldCheck,
   BadgeAlert,
-  X
+  X,
+  UserRound
 } from 'lucide-vue-next'
 
-const { currentProfile, updateProfileSettings } = useAuth()
+const { currentProfile, updateProfileSettings, updateProfileAvatar } = useAuth()
 
 // 🔒 Dodo Gatekeeper - 密碼鎖防護邏輯
 import { useAppLock } from '../composables/useAppLock'
@@ -74,6 +75,20 @@ const handleImmediateLock = () => {
   lockApp()
 }
 
+// 0. 頭像選擇狀態
+const AVATAR_OPTIONS = [
+  '🐱','🐯','🐻','🐼','🐸','🦊','🐧','🐰',
+  '🐹','🦝','🦉','🐮','🐷','🦁','🐺','🐨',
+  '🍑','🧊','🍇','🌸','⭐','🌈','🎃','🍀'
+]
+const avatarSaved = ref(false)
+
+const handleSelectAvatar = async (emoji: string) => {
+  await updateProfileAvatar(emoji)
+  avatarSaved.value = true
+  setTimeout(() => { avatarSaved.value = false }, 2000)
+}
+
 // 1. 預算設定狀態
 const budgetVal = ref<number>(currentProfile.value?.settings.monthlyBudget || 20000)
 const isSavedSuccess = ref(false)
@@ -102,6 +117,33 @@ const formatCurrency = (val: number) => {
     <div class="page-header">
       <h2 class="page-title"><SettingsIcon class="icon-inline" /> 設定與雲端備份</h2>
       <p class="page-subtitle">管理您的記帳預算，並一鍵備份同步至 Firebase 雲端</p>
+    </div>
+
+    <!-- 0. 頭像更換 -->
+    <div class="settings-box card-jelly">
+      <h3 class="box-title"><UserRound class="icon-inline" /> 更換我的頭像</h3>
+
+      <div class="avatar-current-row">
+        <span class="avatar-current-display">{{ currentProfile?.avatar }}</span>
+        <span class="avatar-current-name">{{ currentProfile?.name }}</span>
+        <Transition name="fade-success">
+          <span v-if="avatarSaved" class="save-success-badge pop-jelly">
+            <CheckCircle :size="12" /> 已更新！
+          </span>
+        </Transition>
+      </div>
+
+      <div class="avatar-picker-grid">
+        <button
+          v-for="emoji in AVATAR_OPTIONS"
+          :key="emoji"
+          class="avatar-option btn-jelly"
+          :class="{ 'avatar-active': currentProfile?.avatar === emoji }"
+          @click="handleSelectAvatar(emoji)"
+        >
+          {{ emoji }}
+        </button>
+      </div>
     </div>
 
     <!-- 1. 每月收支預算設定 -->
@@ -949,6 +991,48 @@ const formatCurrency = (val: number) => {
   display: flex;
   gap: 10px;
   margin-top: 18px;
+}
+
+/* 頭像更換 */
+.avatar-current-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.avatar-current-display {
+  font-size: 2.2rem;
+  line-height: 1;
+}
+
+.avatar-current-name {
+  font-weight: 700;
+  color: var(--color-text-dark);
+}
+
+.avatar-picker-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.avatar-option {
+  width: 44px;
+  height: 44px;
+  font-size: 1.5rem;
+  border-radius: 12px !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-warm);
+}
+
+.avatar-option.avatar-active {
+  background: var(--color-accent-gold) !important;
+  transform: scale(1.1);
+  border-width: 3px;
 }
 </style>
 

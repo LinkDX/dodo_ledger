@@ -202,6 +202,24 @@ const updateProfileSettings = async (newSettings: Partial<UserSettings>) => {
   }
 }
 
+// 更換頭像
+const updateProfileAvatar = async (newAvatar: string) => {
+  if (!currentProfile.value) return
+  const oldAvatar = currentProfile.value.avatar
+  currentProfile.value.avatar = newAvatar
+  const idx = profiles.value.findIndex(p => p.id === currentProfile.value?.id)
+  if (idx !== -1) {
+    profiles.value[idx] = currentProfile.value
+    await saveProfiles()
+    await addSystemLog(
+      currentProfile.value.name,
+      newAvatar,
+      'update_avatar',
+      `將頭像從 ${oldAvatar} 更換為 ${newAvatar}`
+    )
+  }
+}
+
 // 刪除身分
 const deleteProfile = async (userId: string) => {
   const idx = profiles.value.findIndex(p => p.id === userId)
@@ -247,6 +265,7 @@ export function useAuth() {
     switchProfile,
     logout,
     updateProfileSettings,
+    updateProfileAvatar,
     deleteProfile,
     reloadProfiles: loadProfiles
   }
