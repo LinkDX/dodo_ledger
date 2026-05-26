@@ -1,0 +1,25 @@
+rules_version = '2';
+
+// 🐱 Dodo Ledger — Firestore Security Rules
+//
+// 架構說明：
+//   所有資料儲存於 ledgers/dodo_shared_ledger 及其子集合：
+//   accounts/, transactions/, recurring/, categories/, profiles/, logs/
+//
+// 規則說明：
+//   使用 {document=**} 遞迴萬用字元，同時覆蓋父文件與所有子集合文件的存取權限。
+//   這是從單一文件架構遷移至子集合架構後的必要更新。
+//
+// 部署指令：
+//   firebase deploy --only firestore:rules
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 允許存取共同記帳帳本的父文件及其所有子集合
+    // （accounts, transactions, recurring, categories, profiles, logs）
+    match /ledgers/{ledgerId}/{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
