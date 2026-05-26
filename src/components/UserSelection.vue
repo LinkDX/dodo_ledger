@@ -2,9 +2,9 @@
 import { ref } from 'vue'
 import { useAuth } from '../composables/useAuth'
 import DodoCat from './DodoCat.vue'
-import { Sparkles, Plus, Check } from 'lucide-vue-next'
+import { Sparkles, Plus, Check, Trash2 } from 'lucide-vue-next'
 
-const { profiles, createProfile } = useAuth()
+const { profiles, createProfile, deleteProfile } = useAuth()
 
 // 可愛頭像候選清單 (以馬卡龍色貓咪背景為主)
 const avatars = [
@@ -33,6 +33,12 @@ const handleCreate = () => {
   )
   isCreating.value = false
   newName.value = ''
+}
+
+const handleDeleteProfile = async (id: string, name: string) => {
+  if (window.confirm(`🐱 您確定要刪除身分「${name}」嗎？\n這將會清除與該身分相關的本地快取喔喵！`)) {
+    await deleteProfile(id)
+  }
 }
 </script>
 
@@ -113,13 +119,24 @@ const handleCreate = () => {
           class="profile-card card-jelly btn-jelly"
           @click="useAuth().switchProfile(prof.id)"
         >
-          <div class="profile-avatar-circle">
-            <span class="profile-avatar-char">{{ prof.avatar }}</span>
+          <div class="profile-left">
+            <div class="profile-avatar-circle">
+              <span class="profile-avatar-char">{{ prof.avatar }}</span>
+            </div>
+            <div class="profile-info">
+              <h3 class="profile-name">{{ prof.name }}</h3>
+              <p class="profile-date">自 {{ new Date(prof.createdAt).toLocaleDateString() }} 陪伴</p>
+            </div>
           </div>
-          <div class="profile-info">
-            <h3 class="profile-name">{{ prof.name }}</h3>
-            <p class="profile-date">自 {{ new Date(prof.createdAt).toLocaleDateString() }} 陪伴</p>
-          </div>
+          
+          <button 
+            class="delete-profile-btn btn-jelly" 
+            @click.stop="handleDeleteProfile(prof.id, prof.name)"
+            title="刪除身分"
+            type="button"
+          >
+            <Trash2 :size="14" />
+          </button>
         </div>
 
         <!-- 建立新身分按鈕卡片 -->
@@ -208,10 +225,42 @@ const handleCreate = () => {
   display: flex !important;
   flex-direction: row !important;
   align-items: center;
+  justify-content: space-between !important;
   padding: 16px !important;
-  gap: 16px;
   margin-bottom: 0;
   text-align: left;
+}
+
+.profile-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.delete-profile-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0 !important;
+  border-radius: var(--border-radius-sm);
+  background-color: var(--color-bg-warm) !important;
+  border: var(--border-width) solid var(--color-border);
+  box-shadow: var(--shadow-jelly-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.1s;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.delete-profile-btn:hover {
+  color: #FF5A5A;
+}
+
+.delete-profile-btn:active {
+  transform: scale(0.9) !important;
+  box-shadow: var(--shadow-jelly-active) !important;
 }
 
 .profile-avatar-circle {
@@ -274,17 +323,18 @@ const handleCreate = () => {
   background-color: rgba(44, 30, 27, 0.4);
   z-index: 200;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: 20px;
   backdrop-filter: blur(4px);
+  overflow-y: auto;
 }
 
 .create-card {
   width: 100%;
   max-width: 360px;
   background-color: #FFFFFF;
-  margin-bottom: 0;
+  margin: auto 0;
 }
 
 .form-group {

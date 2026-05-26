@@ -1271,17 +1271,18 @@ const switchToCredit = () => {
   background-color: rgba(44, 30, 27, 0.4);
   z-index: 200;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: 20px;
   backdrop-filter: blur(4px);
+  overflow-y: auto;
 }
 
 .modal-card {
   width: 100%;
   max-width: 360px;
   background-color: #FFFFFF;
-  margin-bottom: 0;
+  margin: auto 0;
 }
 
 .modal-title {

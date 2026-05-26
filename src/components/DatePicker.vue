@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
-import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ChevronLeft, ChevronRight, Calendar, ChevronDown } from 'lucide-vue-next'
 
 const props = defineProps<{
   modelValue: string  // 'YYYY-MM-DD'
@@ -10,10 +10,17 @@ const emit = defineEmits<{
   (e: 'update:modelValue', val: string): void
 }>()
 
+const isOpen = ref(false)
+const pickerRef = ref<HTMLElement | null>(null)
+
 // 從 modelValue 初始化
 const parseDate = (str: string) => {
   const [y, m, d] = str.split('-').map(Number)
-  return { y: y || new Date().getFullYear(), m: m || new Date().getMonth() + 1, d: d || new Date().getDate() }
+  return { 
+    y: y || new Date().getFullYear(), 
+    m: m || new Date().getMonth() + 1, 
+    d: d || new Date().getDate() 
+  }
 }
 
 const state = ref(parseDate(props.modelValue))
@@ -61,6 +68,7 @@ const selectDay = (d: number | null) => {
   if (!d) return
   state.value = { ...state.value, d }
   emit_change()
+  isOpen.value = false // 選擇完日期後，自動收起面板！
 }
 
 const displayHeader = computed(() => `${state.value.y} 年 ${state.value.m} 月`)
@@ -70,88 +78,190 @@ const isToday = (d: number | null) => {
   const today = new Date()
   return d === today.getDate() && state.value.m === today.getMonth() + 1 && state.value.y === today.getFullYear()
 }
+
+// ─── Trigger Button Label ───
+const displayLabel = computed(() => {
+  const { y, m, d } = state.value
+  return `${y} 年 ${m} 月 ${d} 日`
+})
+
+// ─── 點擊外部關閉 ───
+const handleClickOutside = (event: MouseEvent) => {
+  if (pickerRef.value && !pickerRef.value.contains(event.target as Node)) {
+    isOpen.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside, true)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside, true)
+})
 </script>
 
 <template>
-  <div class="date-picker card-jelly">
-    <!-- 月份導航 -->
-    <div class="dp-header">
-      <button class="btn-jelly nav-btn" @click="prevMonth" aria-label="上個月">
-        <ChevronLeft :size="14" />
-      </button>
-      <span class="dp-header-label">{{ displayHeader }}</span>
-      <button class="btn-jelly nav-btn" @click="nextMonth" aria-label="下個月">
-        <ChevronRight :size="14" />
-      </button>
-    </div>
+  <div class="date-picker-container" ref="pickerRef">
+    <!-- 觸發按鈕 -->
+    <button class="picker-trigger" @click="isOpen = !isOpen" type="button">
+      <div class="trigger-left">
+        <Calendar :size="14" class="calendar-icon" />
+        <span>{{ displayLabel }}</span>
+      </div>
+      <ChevronDown :size="14" class="arrow-icon" :class="{ 'arrow-up': isOpen }" />
+    </button>
 
-    <!-- 星期標頭 -->
-    <div class="dp-weekdays">
-      <span v-for="w in ['日','一','二','三','四','五','六']" :key="w" class="dp-weekday">{{ w }}</span>
-    </div>
+    <!-- 下拉面板 -->
+    <transition name="fade">
+      <div v-if="isOpen" class="picker-dropdown card-jelly">
+        <!-- 月份導航 -->
+        <div class="dp-header">
+          <button class="picker-nav-btn" @click="prevMonth" type="button" aria-label="上個月">
+            <ChevronLeft :size="14" />
+          </button>
+          <span class="dp-header-label">{{ displayHeader }}</span>
+          <button class="picker-nav-btn" @click="nextMonth" type="button" aria-label="下個月">
+            <ChevronRight :size="14" />
+          </button>
+        </div>
 
-    <!-- 日曆格 -->
-    <div class="dp-days-grid">
-      <button
-        v-for="(cell, i) in calendarCells"
-        :key="i"
-        class="dp-day-btn"
-        :class="{
-          'btn-jelly': !!cell,
-          'is-selected': cell === state.d,
-          'is-today': isToday(cell),
-          'is-empty': !cell
-        }"
-        :disabled="!cell"
-        @click="selectDay(cell)"
-      >
-        {{ cell ?? '' }}
-      </button>
-    </div>
+        <!-- 星期標頭 -->
+        <div class="dp-weekdays">
+          <span v-for="w in ['日','一','二','三','四','五','六']" :key="w" class="dp-weekday">{{ w }}</span>
+        </div>
 
-    <!-- 已選日期標示 -->
-    <div class="dp-selected-display">
-      已選：{{ state.y }}/{{ String(state.m).padStart(2,'0') }}/{{ String(state.d).padStart(2,'0') }}
-    </div>
+        <!-- 日曆格 -->
+        <div class="dp-days-grid">
+          <button
+            v-for="(cell, i) in calendarCells"
+            :key="i"
+            class="dp-day-btn"
+            :class="{
+              'active': cell === state.d,
+              'is-today': isToday(cell),
+              'is-empty': !cell
+            }"
+            :disabled="!cell"
+            @click="selectDay(cell)"
+            type="button"
+          >
+            {{ cell ?? '' }}
+          </button>
+        </div>
+
+        <!-- 已選日期標示 -->
+        <div class="dp-selected-display">
+          已選：{{ state.y }}/{{ String(state.m).padStart(2,'0') }}/{{ String(state.d).padStart(2,'0') }}
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
 <style scoped>
-.date-picker {
-  padding: 12px !important;
-  background-color: #ffffff;
-  user-select: none;
+.date-picker-container {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.picker-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background-color: var(--color-card-bg);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-jelly-sm);
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.picker-trigger:active {
+  transform: scale(0.98);
+  box-shadow: var(--shadow-jelly-active);
+}
+
+.trigger-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.calendar-icon {
+  color: var(--color-text-muted);
+}
+
+.arrow-icon {
+  color: var(--color-text-muted);
+  transition: transform 0.2s ease;
+}
+
+.arrow-up {
+  transform: rotate(180deg);
+}
+
+.picker-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background-color: var(--color-card-bg);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-jelly);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .dp-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 4px;
 }
 
 .dp-header-label {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
 }
 
-.nav-btn {
-  width: 30px;
-  height: 30px;
-  padding: 0 !important;
-  background-color: var(--color-bg-warm) !important;
-  border-radius: var(--border-radius-sm) !important;
+.picker-nav-btn {
+  width: 32px;
+  height: 32px;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  background-color: var(--color-bg-warm);
+  box-shadow: var(--shadow-jelly-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.1s;
+}
+
+.picker-nav-btn:active {
+  transform: scale(0.92);
+  box-shadow: var(--shadow-jelly-active);
 }
 
 .dp-weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  margin-bottom: 4px;
+  gap: 4px;
 }
 
 .dp-weekday {
   text-align: center;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   color: var(--color-text-muted);
   padding: 2px 0;
@@ -160,7 +270,7 @@ const isToday = (d: number | null) => {
 .dp-days-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 3px;
+  gap: 4px;
 }
 
 .dp-day-btn {
@@ -173,7 +283,15 @@ const isToday = (d: number | null) => {
   box-shadow: var(--shadow-jelly-sm) !important;
   border: var(--border-width) solid var(--color-border);
   cursor: pointer;
-  transition: all 0.1s ease;
+  transition: all 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dp-day-btn:active:not(.is-empty) {
+  transform: scale(0.9);
+  box-shadow: var(--shadow-jelly-active);
 }
 
 .dp-day-btn.is-empty {
@@ -183,23 +301,36 @@ const isToday = (d: number | null) => {
   cursor: default;
 }
 
-.dp-day-btn.is-selected {
+.dp-day-btn.active {
   background-color: var(--color-income) !important;
-  border-width: 2.5px;
+  box-shadow: var(--shadow-jelly-active) !important;
+  transform: translate(1px, 1px);
   font-weight: 800;
 }
 
-.dp-day-btn.is-today:not(.is-selected) {
+.dp-day-btn.is-today:not(.active) {
   background-color: var(--color-accent-gold) !important;
 }
 
 .dp-selected-display {
-  margin-top: 8px;
+  margin-top: 4px;
   text-align: center;
   font-size: 11px;
   font-weight: 800;
   color: var(--color-text-muted);
   border-top: 1.5px dashed var(--color-border);
   padding-top: 6px;
+}
+
+/* 動畫 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 </style>
