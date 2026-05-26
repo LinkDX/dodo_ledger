@@ -2,7 +2,7 @@ apply plugin: 'com.android.application'
 
 // 動態讀取 Android 獨立版本定義檔（與網頁版 package.json 脫鉤）
 import groovy.json.JsonSlurper
-def androidVersionFile = rootProject.file('../../android-version.json')
+def androidVersionFile = rootProject.file('../android-version.json')
 def androidVersion = new JsonSlurper().parseText(androidVersionFile.text)
 
 android {
