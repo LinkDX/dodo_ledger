@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import type { Account, Transaction, RecurringTransaction, CatMood } from '../types'
 import { useAuth } from './useAuth'
-import { getDatabaseService } from '../services/db'
+import { getDatabaseService, addSystemLog } from '../services/db'
 
 // 核心響應式狀態 (Singleton 全域共享，維護同一個資產紀錄)
 const accounts = ref<Account[]>([])
@@ -258,6 +258,13 @@ export function useLedger() {
         
         await syncAccounts()
         await syncTransactions()
+        
+        await addSystemLog(
+          creatorName,
+          creatorAvatar,
+          'add_expense_installment',
+          `新增分期支出：${txData.category}/${txData.subCategory || '未分類'} 總金額 ${txData.amount} 元 (分 ${T} 期，扣款卡片: ${cardAcct.name})`
+        )
         return
       }
     }
@@ -294,6 +301,32 @@ export function useLedger() {
 
     await syncAccounts()
     await syncTransactions()
+
+    const fromAcctName = accounts.value.find(a => a.id === txData.fromAccountId)?.name || '未知帳戶'
+    const toAcctName = accounts.value.find(a => a.id === txData.toAccountId)?.name || '未知帳戶'
+
+    if (txData.type === 'expense') {
+      await addSystemLog(
+        creatorName,
+        creatorAvatar,
+        'add_expense',
+        `新增支出：${txData.category}/${txData.subCategory || '未分類'} ${txData.amount} 元 (扣款帳戶: ${fromAcctName})`
+      )
+    } else if (txData.type === 'income') {
+      await addSystemLog(
+        creatorName,
+        creatorAvatar,
+        'add_income',
+        `新增收入：${txData.category}/${txData.subCategory || '未分類'} ${txData.amount} 元 (存入帳戶: ${toAcctName})`
+      )
+    } else if (txData.type === 'transfer') {
+      await addSystemLog(
+        creatorName,
+        creatorAvatar,
+        'add_transfer',
+        `帳戶轉帳：從 ${fromAcctName} 轉至 ${toAcctName} ${txData.amount} 元${txData.fee ? ` (手續費 ${txData.fee} 元)` : ''}`
+      )
+    }
   }
 
   // 7. 刪除交易
@@ -302,6 +335,8 @@ export function useLedger() {
     if (idx === -1) return
 
     const tx = transactions.value[idx]
+    const operatorName = currentProfile.value?.name || '系統自動'
+    const operatorAvatar = currentProfile.value?.avatar || '⚙️'
 
     if (tx.creditCardDetails?.isInstallment) {
       const baseTxId = txId.split('_inst_')[0]
@@ -315,6 +350,13 @@ export function useLedger() {
       }
 
       transactions.value = transactions.value.filter(t => !t.id.startsWith(baseTxId))
+
+      await addSystemLog(
+        operatorName,
+        operatorAvatar,
+        'delete_expense_installment',
+        `刪除分期支出：${tx.category}/${tx.subCategory || '未分類'} 總金額 ${totalAmount} 元`
+      )
     } else {
       if (tx.type === 'expense') {
         const fromAcct = accounts.value.find(a => a.id === tx.fromAccountId)
@@ -344,6 +386,13 @@ export function useLedger() {
       }
 
       transactions.value.splice(idx, 1)
+
+      await addSystemLog(
+        operatorName,
+        operatorAvatar,
+        'delete_transaction',
+        `刪除${tx.type === 'expense' ? '支出' : tx.type === 'income' ? '收入' : '轉帳'}：${tx.category}/${tx.subCategory || '未分類'} ${tx.amount} 元`
+      )
     }
 
     await syncAccounts()
@@ -383,6 +432,13 @@ export function useLedger() {
 
     await syncAccounts()
     await syncTransactions()
+
+    await addSystemLog(
+      currentProfile.value?.name || '系統自動',
+      currentProfile.value?.avatar || '⚙️',
+      'pay_credit_card',
+      `繳納信用卡帳單：帳本「${cardAcct.name}」已使用「${bankAcct.name}」繳納 ${billPeriod} 帳單共 ${billAmount} 元`
+    )
   }
 
   // 9. 週期自動記帳 Lazy-check 機制 (由逗逗貓為您服務記名)
@@ -439,6 +495,14 @@ export function useLedger() {
         rec.nextExecutionDate = nextRun
         triggeredReports.value.push(`${rec.title} (x${triggerCount})`)
         hasTriggered = true
+
+        const fromAcctName = accounts.value.find(a => a.id === rec.fromAccountId)?.name || '未知帳戶'
+        await addSystemLog(
+          '逗逗貓',
+          '🐱',
+          'auto_recurring',
+          `自動週期扣款：執行「${rec.title}」自動扣款 ${rec.amount * triggerCount} 元 (扣款帳戶: ${fromAcctName}${triggerCount > 1 ? `，共扣款 ${triggerCount} 次` : ''})`
+        )
       }
     }
 

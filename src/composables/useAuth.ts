@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import type { UserProfile, UserSettings, Category } from '../types'
+import { getDatabaseService, addSystemLog } from '../services/db'
 
 // 預設的台灣生活化主子分類清單 (符合 SPEC 規格)
 export const DEFAULT_CATEGORIES: Category[] = [
@@ -70,39 +71,61 @@ const CURRENT_USER_ID_KEY = 'dodo_ledger_current_uid'
 const profiles = ref<UserProfile[]>([])
 const currentProfile = ref<UserProfile | null>(null)
 
-// 載入所有身分列表 (加上 typeof localStorage 嚴格防禦，適配 SSR 與 Node.js 自動化測試)
-const loadProfiles = () => {
-  if (typeof localStorage === 'undefined') return
+// 載入所有身分列表 (從資料庫拉取，並向後相容本地 localStorage)
+const loadProfiles = async () => {
+  const dbService = getDatabaseService()
+  let loadedProfiles: UserProfile[] = []
   
-  const data = localStorage.getItem(LOCAL_USERS_KEY)
-  if (data) {
-    try {
-      profiles.value = JSON.parse(data)
-    } catch (e) {
-      profiles.value = []
-    }
-  } else {
-    profiles.value = []
+  try {
+    loadedProfiles = await dbService.getProfiles()
+  } catch (e) {
+    console.error('[Dodo Ledger] 無法從雲端或本地資料庫載入 Profiles：', e)
   }
   
+  // 向後相容或本地備份
+  if ((!loadedProfiles || loadedProfiles.length === 0) && typeof localStorage !== 'undefined') {
+    const data = localStorage.getItem(LOCAL_USERS_KEY)
+    if (data) {
+      try {
+        loadedProfiles = JSON.parse(data)
+      } catch (e) {
+        loadedProfiles = []
+      }
+    }
+  }
+  
+  profiles.value = loadedProfiles || []
+  
   // 載入目前選取的身分
-  const currentUid = localStorage.getItem(CURRENT_USER_ID_KEY)
-  if (currentUid) {
-    const found = profiles.value.find(p => p.id === currentUid)
-    currentProfile.value = found || null
+  if (typeof localStorage !== 'undefined') {
+    const currentUid = localStorage.getItem(CURRENT_USER_ID_KEY)
+    if (currentUid) {
+      const found = profiles.value.find(p => p.id === currentUid)
+      currentProfile.value = found || null
+    } else {
+      currentProfile.value = null
+    }
   } else {
     currentProfile.value = null
   }
 }
 
-// 儲存身分列表至本地 (防禦性檢查)
-const saveProfiles = () => {
-  if (typeof localStorage === 'undefined') return
-  localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(profiles.value))
+// 儲存身分列表至本地與資料庫
+const saveProfiles = async () => {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(profiles.value))
+  }
+  
+  const dbService = getDatabaseService()
+  try {
+    await dbService.saveProfiles(profiles.value)
+  } catch (e) {
+    console.error('[Dodo Ledger] 同步儲存 Profiles 失敗：', e)
+  }
 }
 
 // 建立新主人 (New Profile)
-const createProfile = (name: string, avatar: string): UserProfile => {
+const createProfile = async (name: string, avatar: string): Promise<UserProfile> => {
   const newProfile: UserProfile = {
     id: 'user_local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
     name: name.trim() || '逗逗貓主人',
@@ -117,10 +140,19 @@ const createProfile = (name: string, avatar: string): UserProfile => {
   }
   
   profiles.value.push(newProfile)
-  saveProfiles()
+  await saveProfiles()
   
   // 自動登入為新建立的身分
   switchProfile(newProfile.id)
+  
+  // 寫入系統日誌
+  await addSystemLog(
+    '系統自動',
+    '⚙️',
+    'create_profile',
+    `建立了新成員身分「${newProfile.name}」`
+  )
+  
   return newProfile
 }
 
@@ -143,9 +175,13 @@ const logout = () => {
   }
 }
 
-// 更新設定
-const updateProfileSettings = (newSettings: Partial<UserSettings>) => {
+// 更新設定 (支援預算變更與分類變更日誌)
+const updateProfileSettings = async (newSettings: Partial<UserSettings>) => {
   if (!currentProfile.value) return
+  
+  const oldBudget = currentProfile.value.settings.monthlyBudget
+  const isBudgetChanged = newSettings.monthlyBudget !== undefined && newSettings.monthlyBudget !== oldBudget
+  const isCategoriesChanged = newSettings.categories !== undefined
   
   currentProfile.value.settings = {
     ...currentProfile.value.settings,
@@ -155,16 +191,38 @@ const updateProfileSettings = (newSettings: Partial<UserSettings>) => {
   const idx = profiles.value.findIndex(p => p.id === currentProfile.value?.id)
   if (idx !== -1) {
     profiles.value[idx] = currentProfile.value
-    saveProfiles()
+    await saveProfiles()
+    
+    // 寫入系統日誌
+    if (isBudgetChanged) {
+      await addSystemLog(
+        currentProfile.value.name,
+        currentProfile.value.avatar,
+        'update_budget',
+        `將每月預算從 ${oldBudget} 元調整為 ${newSettings.monthlyBudget} 元`
+      )
+    }
+    if (isCategoriesChanged) {
+      await addSystemLog(
+        currentProfile.value.name,
+        currentProfile.value.avatar,
+        'update_categories',
+        `變更了記帳分類與子分類設定`
+      )
+    }
   }
 }
 
 // 刪除身分
-const deleteProfile = (userId: string) => {
+const deleteProfile = async (userId: string) => {
   const idx = profiles.value.findIndex(p => p.id === userId)
   if (idx !== -1) {
+    const deletedName = profiles.value[idx].name
+    const operatorName = currentProfile.value?.name || '系統自動'
+    const operatorAvatar = currentProfile.value?.avatar || '⚙️'
+    
     profiles.value.splice(idx, 1)
-    saveProfiles()
+    await saveProfiles()
     
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem(`dodo_ledger_${userId}_accounts`)
@@ -175,6 +233,14 @@ const deleteProfile = (userId: string) => {
     if (currentProfile.value?.id === userId) {
       logout()
     }
+    
+    // 寫入系統日誌
+    await addSystemLog(
+      operatorName,
+      operatorAvatar,
+      'delete_profile',
+      `刪除了成員身分「${deletedName}」`
+    )
   }
 }
 
