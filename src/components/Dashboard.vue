@@ -26,7 +26,8 @@ const {
   monthlyIncome,
   budgetRatio,
   dodoCatMood,
-  dodoCatSpeech
+  dodoCatSpeech,
+  interactWithCat
 } = useLedger()
 
 // 切換身分泡泡選單控制
@@ -89,7 +90,17 @@ const getTxAmountStyle = (tx: any) => {
 
     <!-- 1. 🐱 逗逗貓療癒生活看板 (最上方 30-40% 畫面高) -->
     <div class="mascot-board card-jelly">
-      <DodoCat :mood="dodoCatMood" :speech="dodoCatSpeech" />
+      <DodoCat :mood="dodoCatMood" :speech="dodoCatSpeech" @pet="interactWithCat('pet')" />
+      
+      <!-- 🐾 逗逗貓趣味互動餵食箱 -->
+      <div class="cat-interaction-bar pop-jelly">
+        <button class="btn-interact btn-jelly" @click="interactWithCat('feed_fish')">
+          🐟 餵魚乾
+        </button>
+        <button class="btn-interact btn-jelly" @click="interactWithCat('feed_can')">
+          🥫 餵罐罐
+        </button>
+      </div>
     </div>
 
     <!-- 2. 🧮 淨資產與收支看板 -->
@@ -292,11 +303,41 @@ const getTxAmountStyle = (tx: any) => {
 .mascot-board {
   padding: 12px !important;
   background-color: var(--color-card-bg);
-  overflow: hidden;
-  height: 200px;
+  overflow: visible; /* 移除 hidden，防止氣泡被截斷 */
+  height: 240px; /* 增加高度，給氣泡充足的顯示空間 */
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  position: relative; /* 方便內部互動按鈕定位 */
+}
+
+/* 🐾 逗逗貓趣味互動工具列 */
+.cat-interaction-bar {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  z-index: 30;
+}
+
+.btn-interact {
+  padding: 5px 10px !important;
+  font-size: 13px !important;
+  background-color: var(--color-bg-warm) !important;
+  border-radius: var(--border-radius-sm) !important;
+  box-shadow: 1.5px 1.5px 0px 0px #2C1E1B !important;
+  font-weight: 800 !important;
+}
+
+.btn-interact:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 2px 2px 0px 0px #2C1E1B !important;
+}
+
+.btn-interact:active {
+  transform: translateY(1px) !important;
+  box-shadow: 1px 1px 0px 0px #2C1E1B !important;
 }
 
 /* 淨資產卡片 */
@@ -306,7 +347,7 @@ const getTxAmountStyle = (tx: any) => {
 }
 
 .networth-label {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
   color: var(--color-text-muted);
   display: flex;
@@ -320,7 +361,7 @@ const getTxAmountStyle = (tx: any) => {
 }
 
 .networth-amount {
-  font-size: 26px;
+  font-size: 30px;
   font-weight: 800;
   margin: 10px 0;
   letter-spacing: -0.5px;
@@ -348,13 +389,13 @@ const getTxAmountStyle = (tx: any) => {
 }
 
 .sub-label {
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--color-text-muted);
 }
 
 .sub-amount {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 800;
   margin-top: 2px;
 }
@@ -364,7 +405,7 @@ const getTxAmountStyle = (tx: any) => {
 
 /* 本月收支與預算 */
 .card-inner-title {
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 800;
   margin-bottom: 12px;
 }
@@ -390,7 +431,7 @@ const getTxAmountStyle = (tx: any) => {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 800;
   color: var(--color-text-dark);
 }
@@ -400,7 +441,7 @@ const getTxAmountStyle = (tx: any) => {
 }
 
 .flow-amount {
-  font-size: 16px;
+  font-size: 19px;
   font-weight: 800;
   margin-top: 4px;
 }
@@ -414,7 +455,7 @@ const getTxAmountStyle = (tx: any) => {
 .progress-labels {
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 800;
   margin-bottom: 6px;
 }
@@ -424,7 +465,7 @@ const getTxAmountStyle = (tx: any) => {
 }
 
 .budget-alert-text {
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 800;
   color: #FF5A5A;
   margin-top: 6px;
@@ -445,7 +486,7 @@ const getTxAmountStyle = (tx: any) => {
 
 .btn-view-all {
   padding: 4px 10px !important;
-  font-size: 10px;
+  font-size: 14px;
   background-color: var(--color-bg-warm) !important;
 }
 
@@ -505,15 +546,15 @@ const getTxAmountStyle = (tx: any) => {
 }
 
 .tx-category-tag {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
 }
 
 .tx-note {
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--color-text-muted);
-  margin-top: 1px;
+  margin-top: 2px;
 }
 
 .tx-right-side {
@@ -523,12 +564,12 @@ const getTxAmountStyle = (tx: any) => {
 }
 
 .tx-amount-text {
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 800;
 }
 
 .tx-date-small {
-  font-size: 9px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--color-text-muted);
   margin-top: 2px;
@@ -554,11 +595,11 @@ const getTxAmountStyle = (tx: any) => {
 }
 
 .tx-creator-badge {
-  font-size: 8px !important;
+  font-size: 13px !important;
   font-weight: 800;
   color: var(--color-text-muted);
   background-color: var(--color-bg-warm);
-  padding: 0px 6px !important;
+  padding: 1px 6px !important;
   border-radius: 10px;
   line-height: 1.4;
 }

@@ -193,7 +193,7 @@ const setTab = (tab: string) => {
 }
 
 .text-add {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   margin-top: 1px;
 }
@@ -227,7 +227,7 @@ const setTab = (tab: string) => {
 }
 
 .placeholder-desc {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--color-text-muted);
   line-height: 1.5;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 // 定義逗逗貓的表情類型
 export type CatMood = 'happy' | 'nervous' | 'scared' | 'crying' | 'sleeping'
@@ -13,6 +13,20 @@ const props = withDefaults(defineProps<Props>(), {
   mood: 'happy',
   speech: ''
 })
+
+const emit = defineEmits<{
+  (e: 'pet'): void
+}>()
+
+const isJellyActive = ref(false)
+
+const handlePetClick = () => {
+  emit('pet')
+  isJellyActive.value = true
+  setTimeout(() => {
+    isJellyActive.value = false
+  }, 300)
+}
 
 // 根據表情產生可愛的提示音或貓咪擬聲詞
 const catMiau = computed(() => {
@@ -39,7 +53,7 @@ const catMiau = computed(() => {
     </Transition>
 
     <!-- 逗逗貓核心 SVG 圖示 -->
-    <div class="cat-svg-wrapper">
+    <div class="cat-svg-wrapper" :class="{ 'cat-jelly-active': isJellyActive }" @click="handlePetClick">
       <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 200 200"
@@ -232,6 +246,23 @@ const catMiau = computed(() => {
   align-items: flex-end;
   position: relative;
   z-index: 10;
+  cursor: pointer;
+  transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.cat-svg-wrapper:hover {
+  transform: scale(1.05);
+}
+
+.cat-jelly-active {
+  animation: catJellyPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes catJellyPop {
+  0% { transform: scale(1); }
+  35% { transform: scale(0.82, 1.25); }
+  65% { transform: scale(1.18, 0.82); }
+  100% { transform: scale(1); }
 }
 
 .cat-svg {
@@ -268,7 +299,7 @@ const catMiau = computed(() => {
 /* 手繪對話泡泡樣式 */
 .speech-bubble {
   position: absolute;
-  bottom: 130px;
+  bottom: 148px;
   background-color: #FFFFFF;
   border: var(--border-width) solid var(--color-border);
   border-radius: 18px;
@@ -280,14 +311,14 @@ const catMiau = computed(() => {
 }
 
 .speech-text {
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 700;
   line-height: 1.5;
   color: var(--color-text-dark);
 }
 
 .cat-signature {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 800;
   text-align: right;
   margin-top: 4px;

@@ -10,6 +10,11 @@ const recurringTransactions = ref<RecurringTransaction[]>([])
 const triggeredReports = ref<string[]>([]) // 逗逗貓待報告的週期記帳清單
 const isDataLoaded = ref(false)
 
+// 🐱 逗逗貓臨時互動狀態
+const temporaryMood = ref<CatMood | null>(null)
+const temporarySpeech = ref<string | null>(null)
+let interactionTimeoutId: any = null
+
 export function useLedger() {
   const { currentProfile } = useAuth()
   const db = getDatabaseService()
@@ -128,6 +133,7 @@ export function useLedger() {
   })
 
   const dodoCatMood = computed<CatMood>(() => {
+    if (temporaryMood.value) return temporaryMood.value
     const ratio = budgetRatio.value
     if (ratio >= 1.0) return 'crying'
     if (ratio >= 0.8) return 'scared'
@@ -137,6 +143,8 @@ export function useLedger() {
 
   // 逗逗貓對話提示
   const dodoCatSpeech = computed(() => {
+    if (temporarySpeech.value) return temporarySpeech.value
+
     if (triggeredReports.value.length > 0) {
       const firstReport = triggeredReports.value[0]
       return `喵～主人！趁您不在，我剛剛幫您處理了「${firstReport}」的週期扣款喔！喵嗚～`
@@ -496,6 +504,51 @@ export function useLedger() {
     await syncRecurring()
   }
 
+  // 12. 🐱 逗逗貓療癒生活看板趣味互動
+  const interactWithCat = (action: string) => {
+    if (interactionTimeoutId) {
+      clearTimeout(interactionTimeoutId)
+    }
+
+    if (action === 'pet') {
+      const petMoods: CatMood[] = ['happy', 'sleeping', 'happy']
+      const randomMood = petMoods[Math.floor(Math.random() * petMoods.length)]
+      const petSpeeches = [
+        '呼嚕呼嚕…主人摸得我好舒服喔！🐾 喵嗚～',
+        '主人今天也有乖乖記帳，真是理財小能手喵！(=^·^=)',
+        '喵～摸摸這裡！逗逗貓今天也最喜歡主人了喔！(❀◕ ▾ ◕)',
+        '喵嗚～今天過得怎麼樣？要多喝水、好好休息喔喵！',
+        '呼嚕呼嚕……(ᴗ̤ . ᴗ̤ ) 差點舒服到要睡著了喵……🐾'
+      ]
+      const randomSpeech = petSpeeches[Math.floor(Math.random() * petSpeeches.length)]
+      
+      temporaryMood.value = randomMood
+      temporarySpeech.value = randomSpeech
+    } else if (action === 'feed_fish' || action === 'feed_can') {
+      // 增加 LocalStorage 餵食次數
+      const key = 'dodo_ledger_feed_count'
+      let count = 0
+      if (typeof localStorage !== 'undefined') {
+        count = Number(localStorage.getItem(key) || '0') + 1
+        localStorage.setItem(key, String(count))
+      }
+
+      temporaryMood.value = 'happy'
+      if (action === 'feed_fish') {
+        temporarySpeech.value = `嗷嗚嗷嗚！🐟 小魚乾真美味喵！主人餵了我第 ${count} 次，逗逗貓幸福度爆表了喵！(>◡<)`
+      } else {
+        temporarySpeech.value = `喵吼！🥫 頂級貓罐頭萬歲！主人太寵我了喵！這是第 ${count} 次美味大餐，謝謝主人！🐾`
+      }
+    }
+
+    // 4 秒後自動回復原本狀態
+    interactionTimeoutId = setTimeout(() => {
+      temporaryMood.value = null
+      temporarySpeech.value = null
+      interactionTimeoutId = null
+    }, 4000)
+  }
+
   return {
     accounts: computed(() => accounts.value),
     transactions: computed(() => transactions.value),
@@ -512,6 +565,8 @@ export function useLedger() {
     
     dodoCatMood,
     dodoCatSpeech,
+    temporaryMood: computed(() => temporaryMood.value),
+    temporarySpeech: computed(() => temporarySpeech.value),
     
     loadLedgerData,
     clearLedgerData,
@@ -527,6 +582,7 @@ export function useLedger() {
     addRecurring,
     toggleRecurringActive,
     deleteRecurring,
-    checkAndTriggerRecurring
+    checkAndTriggerRecurring,
+    interactWithCat
   }
 }
