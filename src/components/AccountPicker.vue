@@ -78,7 +78,7 @@ const balanceLabel = (acct: Account) => {
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding-bottom: 4px;
+  padding: 6px 4px 6px 4px; /* 增加邊距以容納 hover/選取浮起效果，防止邊緣被切 */
 }
 
 .picker-scroll::-webkit-scrollbar {

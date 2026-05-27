@@ -123,10 +123,12 @@ const AVATAR_OPTIONS = [
   '🍑','🧊','🍇','🌸','⭐','🌈','🎃','🍀'
 ]
 const avatarSaved = ref(false)
+const showAvatarModal = ref(false)
 
 const handleSelectAvatar = async (emoji: string) => {
   await updateProfileAvatar(emoji)
   avatarSaved.value = true
+  showAvatarModal.value = false // 選擇後自動關閉 modal
   setTimeout(() => { avatarSaved.value = false }, 2000)
 }
 
@@ -166,24 +168,17 @@ const formatCurrency = (val: number) => {
 
       <div class="avatar-current-row">
         <span class="avatar-current-display">{{ currentProfile?.avatar }}</span>
-        <span class="avatar-current-name">{{ currentProfile?.name }}</span>
+        <div class="avatar-current-info">
+          <span class="avatar-current-name">{{ currentProfile?.name }}</span>
+          <button class="btn-jelly btn-action btn-change-avatar" @click="showAvatarModal = true" type="button">
+            🐾 選擇新頭像
+          </button>
+        </div>
         <Transition name="fade-success">
           <span v-if="avatarSaved" class="save-success-badge pop-jelly">
             <CheckCircle :size="12" /> 已更新！
           </span>
         </Transition>
-      </div>
-
-      <div class="avatar-picker-grid">
-        <button
-          v-for="emoji in AVATAR_OPTIONS"
-          :key="emoji"
-          class="avatar-option btn-jelly"
-          :class="{ 'avatar-active': currentProfile?.avatar === emoji }"
-          @click="handleSelectAvatar(emoji)"
-        >
-          {{ emoji }}
-        </button>
       </div>
     </div>
 
@@ -459,10 +454,118 @@ const formatCurrency = (val: number) => {
         </div>
       </div>
     </Transition>
+
+    <!-- ========== 更換頭像彈窗 (Teleport 可愛 Dialog) ========== -->
+    <Teleport to="#app">
+      <Transition name="fade">
+        <div v-if="showAvatarModal" class="modal-overlay" @click="showAvatarModal = false">
+          <div class="modal-card card-jelly pop-jelly" @click.stop>
+            <div class="modal-header-row">
+              <h3 class="modal-title">🐱 選擇我的可愛頭像</h3>
+              <button class="btn-jelly btn-close-edit" @click="showAvatarModal = false" type="button">
+                <X :size="14" />
+              </button>
+            </div>
+
+            <div class="avatar-picker-grid">
+              <button
+                v-for="emoji in AVATAR_OPTIONS"
+                :key="emoji"
+                class="avatar-option btn-jelly"
+                :class="{ 'avatar-active': currentProfile?.avatar === emoji }"
+                @click="handleSelectAvatar(emoji)"
+              >
+                {{ emoji }}
+              </button>
+            </div>
+            
+            <div class="modal-actions">
+              <button class="btn-jelly btn-cancel" @click="showAvatarModal = false" style="width: 100%" type="button">
+                關閉 🐾
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
 <style scoped>
+/* ========== 彈窗樣式 ========== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(44, 30, 27, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  overflow-y: auto;
+  backdrop-filter: blur(4px);
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 360px;
+  background-color: #FFFFFF;
+  border: var(--border-width) solid var(--color-border) !important;
+  border-radius: var(--border-radius-lg) !important;
+  padding: 20px !important;
+  margin: auto 0;
+  box-shadow: var(--shadow-jelly-lg) !important;
+}
+
+.modal-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.modal-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--color-text-dark);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.btn-close-edit {
+  width: 28px;
+  height: 28px;
+  padding: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-bg-warm) !important;
+  border: var(--border-width) solid var(--color-border) !important;
+}
+
+.avatar-current-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.btn-change-avatar {
+  padding: 4px 10px !important;
+  font-size: 12px !important;
+  background-color: var(--color-bg-warm) !important;
+  font-weight: 800 !important;
+  box-shadow: var(--shadow-jelly-sm) !important;
+  border-radius: var(--border-radius-sm) !important;
+}
+
+.btn-change-avatar:hover {
+  background-color: #FFFFFF !important;
+}
 .settings-page {
   padding: 16px;
   padding-bottom: 90px;

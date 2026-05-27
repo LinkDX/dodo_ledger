@@ -616,7 +616,7 @@ const handleSubmit = async () => {
   display: flex;
   overflow-x: auto;
   gap: 8px;
-  padding-bottom: 8px;
+  padding: 6px 4px 8px 4px; /* 增加邊距防止 hover 浮起時邊緣被切 */
   width: 100%;
 }
 
