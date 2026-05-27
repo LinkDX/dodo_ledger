@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useLedger } from '../composables/useLedger'
+import { useConfirm } from '../composables/useConfirm'
 import type { Account, AccountType } from '../types'
 import { 
   Plus, 
@@ -27,6 +28,20 @@ const {
   addTransaction,
   payCreditCardBill
 } = useLedger()
+
+const { showConfirm } = useConfirm()
+
+const handleDeleteAccount = async (acctId: string) => {
+  const acct = accounts.value.find(a => a.id === acctId)
+  const acctName = acct ? acct.name : '此帳戶'
+  const confirmed = await showConfirm(
+    `刪除「${acctName}」將會連同該帳戶下的所有記帳明細一起刪除，且無法復原喔！確定要刪除嗎？喵？`,
+    '🐱 確定要刪除帳戶嗎？'
+  )
+  if (confirmed) {
+    await deleteAccount(acctId)
+  }
+}
 
 // 內部 Tab: 帳戶 / 信用卡帳單
 const activeSection = ref<'accounts' | 'credit'>('accounts')
@@ -330,7 +345,7 @@ const switchToCredit = () => {
             <button class="btn-edit-card" @click="openEditModal(acct)" title="編輯帳戶">
               <Pencil :size="11" />
             </button>
-            <button class="btn-delete-card" @click="deleteAccount(acct.id)">
+            <button class="btn-delete-card" @click="handleDeleteAccount(acct.id)">
               ×
             </button>
           </div>

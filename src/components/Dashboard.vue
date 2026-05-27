@@ -9,7 +9,8 @@ import {
   Wallet, 
   LogOut, 
   PlusCircle,
-  ArrowLeftRight
+  ArrowLeftRight,
+  Award
 } from 'lucide-vue-next'
 
 const emit = defineEmits<{
@@ -43,6 +44,11 @@ const handleLogout = () => {
   logout()
 }
 
+const openAchievements = () => {
+  showUserMenu.value = false
+  showAchievements.value = true
+}
+
 // 取得近 3 筆交易紀錄
 const recentTransactions = computed(() => {
   // 對交易時間排序
@@ -67,11 +73,33 @@ const getTxAmountStyle = (tx: any) => {
 const showAchievements = ref(false)
 
 const achievementList = [
-  { id: 'survival_pro', title: '破產求生', desc: '再窮也不能窮貓咪！在負債（淨資產為負）時依然餵食頂級罐罐。喵！', emoji: '🥫' },
+  // 摸摸大師系列
   { id: 'pet_10', title: '初級鏟屎官', desc: '累計摸摸逗逗貓 10 次。', emoji: '👋' },
-  { id: 'pet_100', title: '貓咪按摩師', desc: '累計摸摸逗逗貓 100 次。', emoji: '💆' },
+  { id: 'pet_50', title: '得心應手', desc: '累計摸摸逗逗貓 50 次。', emoji: '💆' },
+  { id: 'pet_100', title: '貓咪按摩師', desc: '累計摸摸逗逗貓 100 次。', emoji: '🖐️' },
+  { id: 'pet_500', title: '皇家擼貓聖手', desc: '累計摸摸逗逗貓 500 次。', emoji: '👑' },
+
+  // 米其林飼養員系列
   { id: 'feed_20', title: '見習飼養員', desc: '累計餵食（魚乾或罐罐） 20 次。', emoji: '🐟' },
-  { id: 'streak_7', title: '全職貓奴', desc: '連續 7 天開啟 App 並陪伴逗逗貓。', emoji: '📅' }
+  { id: 'feed_100', title: '特級主廚', desc: '累計餵食（魚乾或罐罐） 100 次。', emoji: '🧑‍🍳' },
+  { id: 'feed_300', title: '皇家御膳房總管', desc: '累計餵食（魚乾或罐罐） 300 次。', emoji: '🍣' },
+
+  // 長情陪伴系列
+  { id: 'streak_3', title: '三日溫存', desc: '連續 3 天開啟 App 並與逗逗貓互動。', emoji: '🌱' },
+  { id: 'streak_7', title: '全職貓奴', desc: '連續 7 天開啟 App 並與逗逗貓互動。', emoji: '📅' },
+  { id: 'streak_30', title: '終身伴侶', desc: '連續 30 天開啟 App 並與逗逗貓互動。', emoji: '💖' },
+
+  // 健康理財系列
+  { id: 'wealth_100k', title: '金庫滿盈', desc: '個人總資產首次突破或達到 TWD $100,000 大關！', emoji: '💎' },
+  { id: 'saving_master', title: '存錢大師', desc: '當月記帳「收入」大於「支出」的兩倍。', emoji: '💰' },
+  { id: 'zero_debt', title: '無債一身輕', desc: '個人淨資產為正值，且所有信用卡負債皆已全數清空！', emoji: '🕊️' },
+  { id: 'saver_10', title: '省錢達人', desc: '當月總支出低於理財預算的 10%（需已設定月預算且當月有記帳支出）。', emoji: '🛡️' },
+  { id: 'debt_buster', title: '負債剋星', desc: '單筆還清信用卡款項超過 TWD $10,000。', emoji: '💥' },
+
+  // 隱藏彩蛋
+  { id: 'cat_vault', title: '貓咪保險箱', desc: '成功建立並啟用至少一個「週期性自動記帳」設定項目。', emoji: '🔐', isHidden: true },
+  { id: 'disturbed_sleep', title: '擾人清夢', desc: '在凌晨 02:00 ~ 05:00 之間，點擊睡覺中的貓咪 5 次。', emoji: '⏰', isHidden: true },
+  { id: 'cold_war', title: '冷戰期', desc: '超過 7 天未開啟 App 後重新回來陪伴。', emoji: '❄️', isHidden: true }
 ]
 
 const isAchievementUnlocked = (id: string) => {
@@ -93,8 +121,12 @@ const isAchievementUnlocked = (id: string) => {
         <!-- 身分切換/登出可愛下拉選單 -->
         <Transition name="fade-menu">
           <div v-if="showUserMenu" class="user-dropdown-menu card-jelly pop-jelly">
+            <button class="menu-item btn-jelly" @click="openAchievements">
+              <Award :size="14" class="menu-icon" /> 🏆 貓咪成就牆
+            </button>
+            <div class="menu-divider"></div>
             <button class="menu-item btn-jelly" @click="handleLogout">
-              <LogOut :size="14" class="menu-icon" /> 登出/切換身分
+              <LogOut :size="14" class="menu-icon" /> 🚪 登出/切換身分
             </button>
           </div>
         </Transition>
@@ -143,12 +175,6 @@ const isAchievementUnlocked = (id: string) => {
           @click="interactWithCat('feed_can')"
         >
           🥫 餵罐罐 <span class="cost-tag">-5</span>
-        </button>
-        <button 
-          class="btn-interact btn-achievement btn-jelly" 
-          @click="showAchievements = true"
-        >
-          🏆 成就
         </button>
       </div>
     </div>
@@ -280,7 +306,7 @@ const isAchievementUnlocked = (id: string) => {
     <!-- 🏆 成就徽章彈出面板 -->
     <Transition name="fade-modal">
       <div v-if="showAchievements" class="modal-overlay" @click.self="showAchievements = false">
-        <div class="achievement-modal card-jelly pop-jelly">
+        <div class="achievement-modal card-jelly">
           <div class="modal-header">
             <h3 class="modal-title">🏆 逗逗貓成就徽章牆</h3>
             <button class="btn-close-circle btn-jelly" @click="showAchievements = false">×</button>
@@ -291,18 +317,25 @@ const isAchievementUnlocked = (id: string) => {
               v-for="ach in achievementList" 
               :key="ach.id" 
               class="achievement-item card-jelly"
-              :class="{ 'ach-locked': !isAchievementUnlocked(ach.id) }"
+              :class="{ 
+                'ach-locked': !isAchievementUnlocked(ach.id),
+                'ach-hidden-locked': ach.isHidden && !isAchievementUnlocked(ach.id)
+              }"
             >
               <div class="ach-badge-icon">
                 <span class="ach-emoji">{{ isAchievementUnlocked(ach.id) ? ach.emoji : '🔒' }}</span>
               </div>
               <div class="ach-info">
                 <div class="ach-name">
-                  {{ ach.title }}
-                  <span v-if="!isAchievementUnlocked(ach.id)" class="ach-locked-tag">鎖定中</span>
+                  {{ (ach.isHidden && !isAchievementUnlocked(ach.id)) ? '🐱 隱藏成就' : ach.title }}
+                  <span v-if="!isAchievementUnlocked(ach.id)" class="ach-locked-tag">
+                    {{ ach.isHidden ? '未探索' : '鎖定中' }}
+                  </span>
                   <span v-else class="ach-unlocked-tag">已達成 🎉</span>
                 </div>
-                <div class="ach-desc">{{ ach.desc }}</div>
+                <div class="ach-desc">
+                  {{ (ach.isHidden && !isAchievementUnlocked(ach.id)) ? '？？？（這是一個神秘的隱藏彩蛋，努力探索吧喵！）' : ach.desc }}
+                </div>
               </div>
             </div>
           </div>
@@ -371,6 +404,12 @@ const isAchievementUnlocked = (id: string) => {
 
 .menu-icon {
   color: var(--color-text-muted);
+}
+
+.menu-divider {
+  height: 1px;
+  background-color: var(--color-border);
+  margin: 6px 2px;
 }
 
 .app-logo-cute {

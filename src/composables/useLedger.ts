@@ -19,6 +19,7 @@ const temporarySpeech = ref<string | null>(null)
 let interactionTimeoutId: any = null
 let lastInteractTimestamp = 0 // 防連點
 let catProfileUnsubscribe: (() => void) | null = null
+let disturbedClickCount = 0 // 凌晨點擊計數
 
 // 預設貓咪狀態
 const DEFAULT_CAT_PROFILE: DodoCatProfile = {
@@ -88,6 +89,10 @@ export function useLedger() {
       checkNaturalEnergyRecovery()
     }
 
+    // 執行一次性冷戰期與理財成就檢查
+    checkColdWarAchievement()
+    checkFinancialAchievements()
+
     // 🚀 啟動即時同步訂閱，確保多裝置等級 100% 一致
     catProfileUnsubscribe = db.subscribeCatProfile(userId, (newProfile) => {
       // 僅在版本不同時更新，避免無窮迴圈
@@ -142,10 +147,12 @@ export function useLedger() {
   // 3. 資料同步回資料庫的方法
   const syncAccounts = async () => {
     await db.saveAccounts(accounts.value)
+    checkFinancialAchievements()
   }
 
   const syncTransactions = async () => {
     await db.saveTransactions(transactions.value)
+    checkFinancialAchievements()
   }
 
   const syncRecurring = async () => {
@@ -266,6 +273,84 @@ export function useLedger() {
     }
     return `喵～這個月只花了 ${percent}% 的預算！主人真是理財高手！繼續保持，逗逗貓最愛您了喵～(❀◕ ▾ ◕)`
   })
+
+  // 🏆 成就系統核心輔助函數
+
+  // 解鎖成就
+  const unlockAchievement = async (id: string, title: string, desc: string) => {
+    if (!catProfile.value || catProfile.value.unlockedAchievementIds.includes(id)) return
+    catProfile.value.unlockedAchievementIds.push(id)
+    temporarySpeech.value = `🎉 恭喜解鎖成就：【${title}】！${desc} 喵！`
+    console.log(`🎉 解鎖成就：【${title}】 - ${desc}`)
+    await syncCatProfile()
+  }
+
+  // 檢查次數類成就（摸摸、餵食、連續天數）
+  const checkCountAchievements = () => {
+    if (!catProfile.value) return
+    const { totalPets, totalFeeds, streakDays } = catProfile.value.stats
+    
+    // 摸摸大師系列
+    if (totalPets >= 10) unlockAchievement('pet_10', '初級鏟屎官', '累計摸摸 10 次。')
+    if (totalPets >= 50) unlockAchievement('pet_50', '得心應手', '累計摸摸 50 次。')
+    if (totalPets >= 100) unlockAchievement('pet_100', '貓咪按摩師', '累計摸摸 100 次。')
+    if (totalPets >= 500) unlockAchievement('pet_500', '皇家擼貓聖手', '累計摸摸 500 次。')
+
+    // 米其林飼養員系列
+    if (totalFeeds >= 20) unlockAchievement('feed_20', '見習飼養員', '累計餵食 20 次。')
+    if (totalFeeds >= 100) unlockAchievement('feed_100', '特級主廚', '累計餵食 100 次。')
+    if (totalFeeds >= 300) unlockAchievement('feed_300', '皇家御膳房總管', '累計餵食 300 次。')
+
+    // 長情陪伴系列
+    if (streakDays >= 3) unlockAchievement('streak_3', '三日溫存', '連續 3 天陪伴逗逗貓。')
+    if (streakDays >= 7) unlockAchievement('streak_7', '全職貓奴', '連續 7 天陪伴逗逗貓。')
+    if (streakDays >= 30) unlockAchievement('streak_30', '終身伴侶', '連續 30 天陪伴逗逗貓。')
+  }
+
+  // 檢查理財類成就
+  const checkFinancialAchievements = () => {
+    if (!catProfile.value) return
+
+    // 1. 金庫滿盈 (總資產 >= 100,000)
+    if (totalAssets.value >= 100000) {
+      unlockAchievement('wealth_100k', '金庫滿盈', '個人總資產首次突破或達到 TWD $100,000 大關！')
+    }
+
+    // 2. 無債一身輕 (淨資產為正值，且所有信用卡負債餘額皆為 0)
+    const cardDebt = accounts.value
+      .filter(a => a.type === 'credit_card')
+      .reduce((sum, a) => sum + Math.abs(a.balance), 0)
+    if (netWorth.value > 0 && cardDebt === 0) {
+      unlockAchievement('zero_debt', '無債一身輕', '個人淨資產為正值，且所有信用卡負債皆已全數清空！')
+    }
+
+    // 3. 存錢大師 (當月收入大於支出的兩倍)
+    if (monthlyIncome.value > 0 && monthlyExpense.value > 0 && monthlyIncome.value >= monthlyExpense.value * 2) {
+      unlockAchievement('saving_master', '存錢大師', '當月記帳「收入」大於「支出」的兩倍。')
+    }
+
+    // 4. 省錢達人 (當月總支出低於理財預算的 10%)
+    const budget = currentProfile.value?.settings?.monthlyBudget || 0
+    if (budget > 0 && monthlyExpense.value > 0 && monthlyExpense.value < budget * 0.1) {
+      unlockAchievement('saver_10', '省錢達人', '當月總支出低於理財預算的 10%。')
+    }
+  }
+
+  // 檢查冷戰期成就 (超過 7 天未上線)
+  const checkColdWarAchievement = () => {
+    if (!catProfile.value) return
+    const lastInteract = catProfile.value.stats.lastInteractDate
+    if (lastInteract) {
+      const todayStr = new Date().toISOString().split('T')[0]
+      const lastDate = new Date(lastInteract)
+      const todayDate = new Date(todayStr)
+      const diffTime = Math.abs(todayDate.getTime() - lastDate.getTime())
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+      if (diffDays > 7 && !catProfile.value.unlockedAchievementIds.includes('cold_war')) {
+        unlockAchievement('cold_war', '冷戰期', '超過 7 天未開啟 App 後重新回來陪伴。')
+      }
+    }
+  }
 
   // 5. 輔助函數：計算信用卡的帳單歸屬月份
   const calculateBillPeriod = (dateMs: number, billingCycleDate: number): string => {
@@ -559,6 +644,10 @@ export function useLedger() {
     await syncAccounts()
     await syncTransactions()
 
+    if (billAmount >= 10000) {
+      unlockAchievement('debt_buster', '負債剋星', '單筆還清信用卡款項超過 TWD $10,000。')
+    }
+
     await addSystemLog(
       currentProfile.value?.name || '系統自動',
       currentProfile.value?.avatar || '⚙️',
@@ -752,6 +841,9 @@ export function useLedger() {
     recurringTransactions.value.push(newRec)
     await syncRecurring()
     await checkAndTriggerRecurring()
+
+    // 解鎖週期自動記帳成就 (貓咪保險箱)
+    unlockAchievement('cat_vault', '貓咪保險箱', '成功建立並啟用至少一個「週期性自動記帳」設定項目。')
   }
 
   const toggleRecurringActive = async (recId: string) => {
@@ -814,6 +906,15 @@ export function useLedger() {
   const interactWithCat = async (action: string) => {
     if (!catProfile.value) return
     
+    // 凌晨點擊彩蛋 (2:00 ~ 5:00)
+    const hour = new Date().getHours()
+    if (hour >= 2 && hour < 5) {
+      disturbedClickCount++
+      if (disturbedClickCount >= 5 && !catProfile.value.unlockedAchievementIds.includes('disturbed_sleep')) {
+        unlockAchievement('disturbed_sleep', '擾人清夢', '在凌晨 02:00 ~ 05:00 點擊睡覺中的貓咪 5 次。')
+      }
+    }
+
     const now = Date.now()
     const today = new Date().toISOString().split('T')[0]
     
@@ -863,11 +964,6 @@ export function useLedger() {
         catProfile.value.stats.totalCans++
         xpGain = 50
         speech = `喵吼！🥫 頂級罐罐萬歲！主人太寵我了喵！這是我吃的第 ${catProfile.value.stats.totalCans} 個罐罐！🐾`
-        
-        // 隱藏成就：破產求生 (資產為負且餵罐罐)
-        if (netWorth.value < 0 && !catProfile.value.unlockedAchievementIds.includes('survival_pro')) {
-          unlockAchievement('survival_pro', '破產求生', '再窮也不能窮貓咪！在負債時依然餵食頂級罐罐。')
-        }
       }
     }
 
@@ -918,25 +1014,7 @@ export function useLedger() {
     }
   }
 
-  // 輔助：解鎖成就
-  const unlockAchievement = (id: string, title: string, desc: string) => {
-    if (!catProfile.value || catProfile.value.unlockedAchievementIds.includes(id)) return
-    catProfile.value.unlockedAchievementIds.push(id)
-    // 這裡未來可以噴出一個 Toast，目前先 Log 並觸發對話
-    temporarySpeech.value = `🎉 恭喜解鎖成就：【${title}】！${desc} 喵！`
-    console.log(`🎉 解鎖成就：【${title}】 - ${desc}`)
-  }
 
-  // 輔助：檢查次數類成就
-  const checkCountAchievements = () => {
-    if (!catProfile.value) return
-    const { totalPets, totalFeeds, streakDays } = catProfile.value.stats
-    
-    if (totalPets >= 10) unlockAchievement('pet_10', '初級鏟屎官', '累計摸摸 10 次。')
-    if (totalPets >= 100) unlockAchievement('pet_100', '貓咪按摩師', '累計摸摸 100 次。')
-    if (totalFeeds >= 20) unlockAchievement('feed_20', '見習飼養員', '累計餵食 20 次。')
-    if (streakDays >= 7) unlockAchievement('streak_7', '全職貓奴', '連續 7 天陪伴逗逗貓。')
-  }
 
   const resetTemporaryState = () => {
     if (interactionTimeoutId) clearTimeout(interactionTimeoutId)
