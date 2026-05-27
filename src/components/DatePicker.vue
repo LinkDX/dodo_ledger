@@ -337,8 +337,9 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 4px;
-  min-width: 68px;
+  min-width: 76px; /* 稍微調寬，確保單行文字寬度充足 */
   justify-content: center;
+  white-space: nowrap; /* 確保不換行 */
 }
 
 .custom-select-trigger:hover {
@@ -361,7 +362,7 @@ onUnmounted(() => {
   gap: 4px;
   max-height: 180px;
   overflow-y: auto;
-  min-width: 90px;
+  min-width: 96px; /* 調整下拉寬度 */
 }
 
 .month-dropdown {
@@ -379,6 +380,7 @@ onUnmounted(() => {
   text-align: center;
   margin-bottom: 0 !important;
   flex-shrink: 0;
+  white-space: nowrap; /* 確保不換行 */
 }
 
 .select-option:hover {

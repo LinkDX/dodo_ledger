@@ -360,95 +360,102 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
       </div>
     </div>
 
-    <!-- ===== 編輯交易彈窗 ===== -->
-    <div v-if="showEditModal" class="modal-overlay">
-      <div class="modal-card card-jelly pop-jelly">
-        <div class="modal-header">
-          <h3 class="modal-title">✏️ 編輯記帳明細</h3>
-          <button class="btn-jelly btn-close-modal" @click="closeEditModal">
-            <X :size="14" />
-          </button>
-        </div>
+    <!-- ===== 編輯交易彈窗 (Teleport 全螢幕 Modal Dialog) ===== -->
+    <Teleport to="#app">
+      <Transition name="fade">
+        <div v-if="showEditModal" class="modal-overlay" @click="closeEditModal">
+          <div class="modal-card card-jelly pop-jelly" @click.stop>
+            <div class="modal-header">
+              <h3 class="modal-title">✏️ 編輯記帳明細</h3>
+              <button class="btn-jelly btn-close-modal" @click="closeEditModal" type="button">
+                <X :size="14" />
+              </button>
+            </div>
 
-        <!-- 金額 -->
-        <div class="form-group">
-          <label class="label-cute">金額</label>
-          <input v-model.number="editAmount" type="number" min="0" class="input-jelly" />
-        </div>
+            <!-- 金額 -->
+            <div class="form-group">
+              <label class="label-cute">金額</label>
+              <input v-model.number="editAmount" type="number" min="0" class="input-jelly" />
+            </div>
 
-        <!-- 備註 -->
-        <div class="form-group">
-          <label class="label-cute">備註</label>
-          <input v-model="editNote" type="text" class="input-jelly" maxlength="30" />
-        </div>
+            <!-- 備註 -->
+            <div class="form-group">
+              <label class="label-cute">備註</label>
+              <input v-model="editNote" type="text" class="input-jelly" maxlength="30" />
+            </div>
 
-        <!-- 日期 -->
-        <div class="form-group">
-          <label class="label-cute">日期</label>
-          <DatePicker v-model="editDateStr" />
-        </div>
+            <!-- 日期 -->
+            <div class="form-group">
+              <label class="label-cute">日期</label>
+              <DatePicker v-model="editDateStr" />
+            </div>
 
-        <!-- 主分類 -->
-        <div class="form-group">
-          <label class="label-cute">主分類</label>
-          <div class="cat-chips">
-            <button
-              v-for="cat in categoryOptions"
-              :key="cat.id"
-              class="btn-jelly chip-btn"
-              :class="{ active: editCategory === cat.name }"
-              @click="editCategory = cat.name; editSubCategory = cat.subCategories[0] || ''"
-            >
-              {{ cat.name }}
-            </button>
+            <!-- 主分類 -->
+            <div class="form-group">
+              <label class="label-cute">主分類</label>
+              <div class="cat-chips">
+                <button
+                  v-for="cat in categoryOptions"
+                  :key="cat.id"
+                  class="btn-jelly chip-btn"
+                  :class="{ active: editCategory === cat.name }"
+                  @click="editCategory = cat.name; editSubCategory = cat.subCategories[0] || ''"
+                  type="button"
+                >
+                  {{ cat.name }}
+                </button>
+              </div>
+            </div>
+
+            <!-- 子分類 -->
+            <div v-if="subCategoryOptions.length" class="form-group">
+              <label class="label-cute">子分類</label>
+              <div class="cat-chips">
+                <button
+                  v-for="sub in subCategoryOptions"
+                  :key="sub"
+                  class="btn-jelly chip-btn"
+                  :class="{ active: editSubCategory === sub }"
+                  @click="editSubCategory = sub"
+                  type="button"
+                >
+                  {{ sub }}
+                  <Check v-if="editSubCategory === sub" :size="10" stroke-width="4" class="inline-check" />
+                </button>
+              </div>
+            </div>
+
+            <!-- 來源/目的帳戶 -->
+            <div v-if="editType === 'expense' || editType === 'transfer'" class="form-group">
+              <label class="label-cute">支付帳戶</label>
+              <select v-model="editFromAccountId" class="input-jelly">
+                <option value="">(不指定)</option>
+                <option v-for="a in expenseAccounts" :key="a.id" :value="a.id">{{ a.name }}</option>
+              </select>
+            </div>
+            <div v-if="editType === 'income' || editType === 'transfer'" class="form-group">
+              <label class="label-cute">存入帳戶</label>
+              <select v-model="editToAccountId" class="input-jelly">
+                <option value="">(不指定)</option>
+                <option v-for="a in incomeAccounts" :key="a.id" :value="a.id">{{ a.name }}</option>
+              </select>
+            </div>
+
+            <div class="modal-actions">
+              <button class="btn-jelly btn-cancel" @click="closeEditModal" type="button">取消 🐾</button>
+              <button
+                class="btn-jelly btn-confirm"
+                :disabled="editAmount <= 0"
+                @click="handleEditSave"
+                type="button"
+              >
+                儲存變更 🐾
+              </button>
+            </div>
           </div>
         </div>
-
-        <!-- 子分類 -->
-        <div v-if="subCategoryOptions.length" class="form-group">
-          <label class="label-cute">子分類</label>
-          <div class="cat-chips">
-            <button
-              v-for="sub in subCategoryOptions"
-              :key="sub"
-              class="btn-jelly chip-btn"
-              :class="{ active: editSubCategory === sub }"
-              @click="editSubCategory = sub"
-            >
-              {{ sub }}
-              <Check v-if="editSubCategory === sub" :size="10" stroke-width="4" />
-            </button>
-          </div>
-        </div>
-
-        <!-- 來源/目的帳戶 -->
-        <div v-if="editType === 'expense' || editType === 'transfer'" class="form-group">
-          <label class="label-cute">支付帳戶</label>
-          <select v-model="editFromAccountId" class="input-jelly">
-            <option value="">(不指定)</option>
-            <option v-for="a in expenseAccounts" :key="a.id" :value="a.id">{{ a.name }}</option>
-          </select>
-        </div>
-        <div v-if="editType === 'income' || editType === 'transfer'" class="form-group">
-          <label class="label-cute">存入帳戶</label>
-          <select v-model="editToAccountId" class="input-jelly">
-            <option value="">(不指定)</option>
-            <option v-for="a in incomeAccounts" :key="a.id" :value="a.id">{{ a.name }}</option>
-          </select>
-        </div>
-
-        <div class="modal-actions">
-          <button class="btn-jelly btn-cancel" @click="closeEditModal">取消</button>
-          <button
-            class="btn-jelly btn-confirm"
-            :disabled="editAmount <= 0"
-            @click="handleEditSave"
-          >
-            儲存變更 ✔
-          </button>
-        </div>
-      </div>
-    </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -711,7 +718,7 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
 
 .modal-card {
   width: 100%;
-  max-width: 480px;
+  max-width: 380px;
   background-color: #FFFFFF;
   margin: auto 0;
   border-radius: var(--border-radius-lg) !important;

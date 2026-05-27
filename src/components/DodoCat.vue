@@ -236,6 +236,7 @@ const catMiau = computed(() => {
   position: relative;
   width: 100%;
   height: 190px;
+  transform: translateX(-40px); /* 貓咪往左平移，與右側對話框共同居中 */
 }
 
 .cat-svg-wrapper {
@@ -296,43 +297,43 @@ const catMiau = computed(() => {
   transform-origin: center;
 }
 
-/* 手繪對話泡泡樣式 */
+/* 手繪對話泡泡樣式 (方案 B: 側邊漫畫旁白氣泡) */
 .speech-bubble {
   position: absolute;
-  bottom: 132px;
+  left: 145px; /* 定位在貓咪右側 */
+  bottom: 24px; /* 與貓咪身體並排，低於貓咪頭頂 */
   background-color: #FFFFFF;
   border: var(--border-width) solid var(--color-border);
   border-radius: 18px;
-  padding: 12px 16px;
-  width: calc(100% - 40px);
-  max-width: 320px;
+  padding: 10px 14px;
+  width: 165px; /* 固定的精緻寬度，防止超出 */
   box-shadow: var(--shadow-jelly-sm);
   z-index: 20;
 }
 
 .speech-text {
-  font-size: 17px;
+  font-size: 13px; /* 稍微調小字體以適應寬度 */
   font-weight: 700;
-  line-height: 1.5;
+  line-height: 1.4;
   color: var(--color-text-dark);
 }
 
 .cat-signature {
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 800;
   text-align: right;
   margin-top: 4px;
   color: var(--color-text-muted);
 }
 
-/* 泡泡指引三角形線框 */
+/* 泡泡指引三角形線框 (指向左側貓咪) */
 .speech-arrow {
   position: absolute;
-  bottom: -11px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 16px;
-  height: 10px;
+  left: -11px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 16px;
   background-color: #FFFFFF;
 }
 
@@ -344,17 +345,17 @@ const catMiau = computed(() => {
 }
 
 .speech-arrow::before {
-  border-width: 11px 11px 0;
-  border-color: var(--color-border) transparent;
-  bottom: -2.5px;
-  left: -3px;
+  border-width: 8px 8px 8px 0;
+  border-color: transparent var(--color-border) transparent transparent;
+  left: -2.5px;
+  top: -3px;
 }
 
 .speech-arrow::after {
-  border-width: 8px 8px 0;
-  border-color: #FFFFFF transparent;
-  bottom: 0;
+  border-width: 5px 5px 5px 0;
+  border-color: transparent #FFFFFF transparent transparent;
   left: 0;
+  top: 0;
 }
 
 /* 對話框過渡動畫 */
@@ -365,11 +366,11 @@ const catMiau = computed(() => {
 
 .bubble-fade-enter-from {
   opacity: 0;
-  transform: scale(0.8) translateY(10px);
+  transform: scale(0.8) translateX(10px);
 }
 
 .bubble-fade-leave-to {
   opacity: 0;
-  transform: scale(0.9) translateY(5px);
+  transform: scale(0.9) translateX(5px);
 }
 </style>
