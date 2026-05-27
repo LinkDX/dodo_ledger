@@ -4,7 +4,7 @@ import { useAuth } from '../composables/useAuth'
 import DodoCat from './DodoCat.vue'
 import { Sparkles, Plus, Check, Trash2 } from 'lucide-vue-next'
 
-const { profiles, createProfile, deleteProfile } = useAuth()
+const { profiles, createProfile, deleteProfile, isLoading } = useAuth()
 
 // 可愛頭像候選清單 (以馬卡龍色貓咪背景為主)
 const avatars = [
@@ -57,8 +57,21 @@ const handleDeleteProfile = async (id: string, name: string) => {
       />
     </div>
 
+    <!-- 0. 資料讀取中畫面 -->
+    <div v-if="isLoading" class="profiles-section">
+      <div class="profile-card card-jelly loading-card" style="flex-direction: column !important; justify-content: center !important; gap: 16px; padding: 28px !important;">
+        <div class="spinner-container">
+          <div class="spinner"></div>
+        </div>
+        <div class="profile-info" style="align-items: center;">
+          <h3 class="profile-name">🐱 資料讀取中...</h3>
+          <p class="profile-date">逗逗貓正努力載入主人資料，請等一下下喔！</p>
+        </div>
+      </div>
+    </div>
+
     <!-- 1. 新建主人彈窗 (Jelly Modal) -->
-    <div v-if="isCreating" class="create-modal-overlay">
+    <div v-else-if="isCreating" class="create-modal-overlay">
       <div class="create-card card-jelly pop-jelly">
         <h2 class="section-title"><Sparkles class="icon-inline" /> 建立新身分</h2>
         
@@ -420,5 +433,32 @@ const handleDeleteProfile = async (id: string, name: string) => {
   cursor: not-allowed;
   transform: none !important;
   box-shadow: var(--shadow-jelly-sm) !important;
+}
+
+/* Spinner 讀取動畫 */
+.spinner-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 4px solid var(--color-bg-warm);
+  border-top-color: var(--color-border);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.loading-card {
+  background-color: #FFFFFF !important;
+  border-color: var(--color-border) !important;
+  box-shadow: var(--shadow-jelly) !important;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 </style>

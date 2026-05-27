@@ -2,6 +2,28 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Web 1.9.3] - 2026-05-27
+
+### 🎨 記帳與身分選擇功能優化
+
+- **身分載入中狀態提示 (Loading State)**：
+  - 在 `useAuth.ts` 中新增了 `isLoading` 載入狀態，追蹤 Profiles 的讀取過程。
+  - 在 `UserSelection.vue` 中當讀取時展示「🐱 資料讀取中... / 逗逗貓正努力載入主人資料，請等一下下喔！」提示卡片與 Spinner 旋轉動畫，解決雲端/本地載入期間畫面空白的突兀感。
+- **日曆快速跳轉特定年月 (DatePicker Select Dropdowns)**：
+  - 將 `DatePicker.vue` 頂部的月份導航改為兩個馬卡龍奶油黃、具果凍觸感（hover 放大，active 縮小）的 `<select>` 下拉選單。
+  - 年份提供當前年前 10 年到後 5 年的寬廣切換範圍。
+  - 實作防呆日期 clamp 算法，在切換年月時自動修正月底越界天數（例如切換至 2 月或 4 月時自動限制在最大天數），防止非法日期。
+- **客製化 Dodo Cat 內部彈窗 (Custom Alert Dialog)**：
+  - 實作了專屬的 `custom-alert-overlay` 與 `custom-alert-card`。
+  - 支援 `success`（薄荷綠）、`warning`（奶油黃）、`error`（粉桃紅）三種馬卡龍配色風格，且搭配可愛貓咪 Emoji 與 bouncing 彈跳動畫，Overlay 具有毛玻璃背景模糊與淡入淡出效果，成功取代瀏覽器原生的醜陋 `alert`。
+- **記帳 OK 鍵防呆驗證**：
+  - 移除了計算機鍵盤上 OK 鍵的 disabled 狀態限制，允許隨時點擊。
+  - 在 `handleSubmit` 中加入嚴密的金額、帳戶與分類驗證，若未填寫會主動彈出精美的客製 Warning 提示引導使用者，解決了以往點擊靜默無反應的問題。
+- **協同開發手冊更新**：
+  - 更新了 `GEMINI.md`，於 `1.5 功能變更文件同步規範` 中明確要求每一次功能改變後必須同步維護專案相關文件，確保協同開發脈絡的一致性。
+
+---
+
 ## [Android 1.0.0 / Web 1.9.2] - 2026-05-26
 
 ### 🏷️ Android 版號獨立化與帶版號 Release Tag 系統

@@ -70,9 +70,11 @@ const CURRENT_USER_ID_KEY = 'dodo_ledger_current_uid'
 // 響應式狀態
 const profiles = ref<UserProfile[]>([])
 const currentProfile = ref<UserProfile | null>(null)
+const isLoading = ref(true)
 
 // 載入所有身分列表 (從資料庫拉取，並向後相容本地 localStorage)
 const loadProfiles = async () => {
+  isLoading.value = true
   const dbService = getDatabaseService()
   let loadedProfiles: UserProfile[] = []
   
@@ -108,6 +110,8 @@ const loadProfiles = async () => {
   } else {
     currentProfile.value = null
   }
+  
+  isLoading.value = false
 }
 
 // 儲存身分列表至本地與資料庫
@@ -261,6 +265,7 @@ export function useAuth() {
     profiles: computed(() => profiles.value),
     currentProfile: computed(() => currentProfile.value),
     isLoggedIn: computed(() => currentProfile.value !== null),
+    isLoading: computed(() => isLoading.value),
     createProfile,
     switchProfile,
     logout,

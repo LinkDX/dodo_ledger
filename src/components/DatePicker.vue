@@ -71,6 +71,34 @@ const selectDay = (d: number | null) => {
   isOpen.value = false // 選擇完日期後，自動收起面板！
 }
 
+// ─── 快速年月份跳轉 ───
+const years = computed(() => {
+  const currentYear = new Date().getFullYear()
+  const list: number[] = []
+  for (let y = currentYear - 10; y <= currentYear + 5; y++) {
+    list.push(y)
+  }
+  return list
+})
+
+const handleYearChange = (event: Event) => {
+  const y = Number((event.target as HTMLSelectElement).value)
+  const m = state.value.m
+  const maxD = new Date(y, m, 0).getDate()
+  const d = Math.min(state.value.d, maxD)
+  state.value = { y, m, d }
+  emit_change()
+}
+
+const handleMonthChange = (event: Event) => {
+  const y = state.value.y
+  const m = Number((event.target as HTMLSelectElement).value)
+  const maxD = new Date(y, m, 0).getDate()
+  const d = Math.min(state.value.d, maxD)
+  state.value = { y, m, d }
+  emit_change()
+}
+
 const displayHeader = computed(() => `${state.value.y} 年 ${state.value.m} 月`)
 
 const isToday = (d: number | null) => {
@@ -115,12 +143,19 @@ onUnmounted(() => {
     <!-- 下拉面板 -->
     <transition name="fade">
       <div v-if="isOpen" class="picker-dropdown card-jelly">
-        <!-- 月份導航 -->
+        <!-- 月份導航與快速跳轉 -->
         <div class="dp-header">
           <button class="picker-nav-btn" @click="prevMonth" type="button" aria-label="上個月">
             <ChevronLeft :size="14" />
           </button>
-          <span class="dp-header-label">{{ displayHeader }}</span>
+          <div class="dp-header-selects">
+            <select :value="state.y" @change="handleYearChange" class="dp-select header-select" type="button">
+              <option v-for="year in years" :key="year" :value="year">{{ year }} 年</option>
+            </select>
+            <select :value="state.m" @change="handleMonthChange" class="dp-select header-select" type="button">
+              <option v-for="month in 12" :key="month" :value="month">{{ month }} 月</option>
+            </select>
+          </div>
           <button class="picker-nav-btn" @click="nextMonth" type="button" aria-label="下個月">
             <ChevronRight :size="14" />
           </button>
@@ -229,9 +264,38 @@ onUnmounted(() => {
   margin-bottom: 4px;
 }
 
-.dp-header-label {
-  font-size: 14px;
+.dp-header-selects {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.header-select {
+  font-size: 13px;
   font-weight: 800;
+  color: var(--color-text-dark);
+  background-color: var(--color-bg-warm);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  padding: 4px 24px 4px 8px;
+  cursor: pointer;
+  box-shadow: var(--shadow-jelly-sm);
+  outline: none;
+  transition: all 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  appearance: none; /* 去掉原生下拉箭頭，改用背景圖示或簡約無圖示 */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%233D2B1F' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+
+.header-select:hover {
+  background-color: #FFFFFF;
+  transform: scale(1.05);
+}
+
+.header-select:active {
+  transform: scale(0.95);
+  box-shadow: var(--shadow-jelly-active);
 }
 
 .picker-nav-btn {

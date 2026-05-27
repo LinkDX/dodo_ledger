@@ -204,13 +204,51 @@ watch(selectedAccountId, (newId) => {
 const note = ref('')
 const dateStr = ref(new Date().toISOString().split('T')[0]) // 預設今天
 
+// 自訂內部 Alert 狀態
+interface AlertState {
+  show: boolean
+  type: 'success' | 'warning' | 'error'
+  message: string
+}
+
+const alertState = ref<AlertState>({
+  show: false,
+  type: 'success',
+  message: ''
+})
+
+const triggerAlert = (message: string, type: 'success' | 'warning' | 'error' = 'success') => {
+  alertState.value = {
+    show: true,
+    type,
+    message
+  }
+  if (type === 'success') {
+    setTimeout(() => {
+      if (alertState.value.message === message) {
+        alertState.value.show = false
+      }
+    }, 3000)
+  }
+}
+
 // 7. 送出交易
 const handleSubmit = async () => {
   calculateResult() // 確保計算最終金額
   const finalAmount = displayResult.value
   
-  if (finalAmount <= 0) return
-  if (!selectedAccountId.value || !selectedCatId.value) return
+  if (finalAmount <= 0) {
+    triggerAlert('🐱 喵？金額必須大於 0 才能記帳喔！', 'warning')
+    return
+  }
+  if (!selectedAccountId.value) {
+    triggerAlert('🐱 喵？請選擇支付 / 收款帳戶喔！', 'warning')
+    return
+  }
+  if (!selectedCatId.value) {
+    triggerAlert('🐱 喵？請選擇交易分類喔！', 'warning')
+    return
+  }
 
   const txData: any = {
     type: txType.value,
@@ -242,7 +280,7 @@ const handleSubmit = async () => {
   note.value = ''
   isInstallment.value = false
   isNewInput.value = true
-  alert('🐱 喵！成功記下一筆帳囉！')
+  triggerAlert('🐱 喵！成功記下一筆帳囉！', 'success')
 }
 </script>
 
@@ -403,13 +441,29 @@ const handleSubmit = async () => {
         <button class="btn-jelly key-btn" @click="handleKeyPress('.')">.</button>
         <button 
           class="btn-jelly key-btn key-confirm" 
-          :disabled="displayResult <= 0"
           @click="handleSubmit"
         >
           OK 🐾
         </button>
       </div>
     </div>
+
+    <!-- 內部精美 Alert 提示框 -->
+    <Transition name="fade-alert">
+      <div v-if="alertState.show" class="custom-alert-overlay" @click="alertState.show = false">
+        <div class="custom-alert-card card-jelly" :class="alertState.type" @click.stop>
+          <div class="alert-emoji">
+            <span v-if="alertState.type === 'success'">🐱🎉</span>
+            <span v-else-if="alertState.type === 'warning'">🐱⚠️</span>
+            <span v-else>🐱❌</span>
+          </div>
+          <div class="alert-message">{{ alertState.message }}</div>
+          <button class="btn-jelly alert-btn" @click="alertState.show = false" type="button">
+            好的，喵！
+          </button>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -710,5 +764,107 @@ const handleSubmit = async () => {
   cursor: not-allowed;
   transform: none !important;
   box-shadow: var(--shadow-jelly-sm) !important;
+}
+
+/* 內部 Alert 樣式 */
+.custom-alert-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(61, 43, 31, 0.4); /* 深灰褐透明 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  padding: 20px;
+  backdrop-filter: blur(4px);
+}
+
+.custom-alert-card {
+  background-color: var(--color-card-bg);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  padding: 24px;
+  width: 100%;
+  max-width: 320px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  box-shadow: var(--shadow-jelly);
+}
+
+.custom-alert-card.success {
+  border-color: var(--color-income);
+  background-color: #F4FBF7; /* 極淡薄荷綠 */
+}
+
+.custom-alert-card.warning {
+  border-color: var(--color-accent-gold);
+  background-color: #FFFDF9; /* 極淡奶油黃 */
+}
+
+.custom-alert-card.error {
+  border-color: var(--color-expense);
+  background-color: #FFF5F5; /* 極淡粉紅 */
+}
+
+.alert-emoji {
+  font-size: 32px;
+  animation: bounce 1s infinite alternate;
+}
+
+.alert-message {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--color-text-dark);
+  line-height: 1.5;
+}
+
+.alert-btn {
+  width: 100%;
+  padding: 10px !important;
+  font-size: 14px;
+  font-weight: 800;
+  background-color: var(--color-accent-gold) !important;
+  border-color: var(--color-border) !important;
+}
+
+/* Alert 動畫 */
+.fade-alert-enter-active,
+.fade-alert-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-alert-enter-active .custom-alert-card {
+  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.fade-alert-leave-active .custom-alert-card {
+  transition: transform 0.15s ease;
+}
+
+.fade-alert-enter-from {
+  opacity: 0;
+}
+
+.fade-alert-enter-from .custom-alert-card {
+  transform: scale(0.85) translateY(15px);
+}
+
+.fade-alert-leave-to {
+  opacity: 0;
+}
+
+.fade-alert-leave-to .custom-alert-card {
+  transform: scale(0.9) translateY(-10px);
+}
+
+@keyframes bounce {
+  from { transform: translateY(0); }
+  to { transform: translateY(-4px); }
 }
 </style>
