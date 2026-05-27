@@ -313,7 +313,7 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
         <!-- 左側：icon + 分類資訊 -->
         <div class="tx-left">
           <div class="tx-icon-circle" :style="{ backgroundColor: getTxStyle(tx).bg }">
-            <ArrowLeftRight v-if="tx.type === 'transfer'" :size="15" :stroke="'#4A7FE0'" />
+            <ArrowLeftRight v-if="tx.type === 'transfer'" :size="18" :stroke="'#4A7FE0'" />
             <span v-else class="tx-emoji">{{ getTxStyle(tx).icon }}</span>
           </div>
           <div class="tx-info">
@@ -596,8 +596,8 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
 }
 
 .tx-icon-circle {
-  width: 36px;
-  height: 36px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -607,7 +607,7 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
 }
 
 .tx-emoji {
-  font-size: 16px;
+  font-size: 20px;
 }
 
 .tx-info {
@@ -618,7 +618,7 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
 }
 
 .tx-category {
-  font-size: 15px;
+  font-size: 18px;
   font-weight: 800;
   white-space: nowrap;
   overflow: hidden;
@@ -626,7 +626,7 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
 }
 
 .tx-note {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--color-text-dark); /* 稍微加深顏色提升易讀性 */
   opacity: 0.8;
@@ -636,13 +636,13 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
 }
 
 .tx-account-info {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--color-text-muted);
 }
 
 .creator-tag {
-  font-size: 10px !important;
+  font-size: 12px !important;
   padding: 1px 6px !important;
   width: fit-content;
 }
@@ -658,13 +658,13 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
 }
 
 .tx-amount {
-  font-size: 17px;
-  font-weight: 800;
+  font-size: 22px;
+  font-weight: 900;
   letter-spacing: -0.3px;
 }
 
 .tx-date {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--color-text-muted);
 }
@@ -676,8 +676,8 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
 }
 
 .btn-edit {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   padding: 0 !important;
   background-color: #EEF4FF !important;
   color: #4A7FE0;
@@ -688,8 +688,8 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
 }
 
 .btn-delete {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   padding: 0 !important;
   background-color: #FFF0F0 !important;
   color: #FF5A5A;

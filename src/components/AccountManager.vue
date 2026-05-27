@@ -1112,7 +1112,7 @@ const switchToCredit = () => {
 }
 
 .type-text {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
 }
 
@@ -1163,7 +1163,7 @@ const switchToCredit = () => {
 }
 
 .card-avatar-emoji {
-  font-size: 16px;
+  font-size: 22px;
 }
 
 /* Avatar picker */
@@ -1204,7 +1204,7 @@ const switchToCredit = () => {
 }
 
 .card-name {
-  font-size: 19px;
+  font-size: 23px;
   font-weight: 800;
   margin-top: 8px;
 }
@@ -1217,7 +1217,7 @@ const switchToCredit = () => {
 }
 
 .currency-tag {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   color: var(--color-text-muted);
   border: 1.5px solid var(--color-border);
@@ -1227,8 +1227,8 @@ const switchToCredit = () => {
 }
 
 .general-balance {
-  font-size: 24px;
-  font-weight: 800;
+  font-size: 32px;
+  font-weight: 900;
   letter-spacing: -0.5px;
 }
 
@@ -1245,13 +1245,13 @@ const switchToCredit = () => {
 }
 
 .debt-amount {
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 800;
   color: #C66230;
 }
 
 .limit-amount {
-  font-size: 15px;
+  font-size: 18px;
   font-weight: 800;
   margin-top: 2px;
 }
@@ -1268,7 +1268,7 @@ const switchToCredit = () => {
 }
 
 .card-details-small {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--color-text-muted);
   margin-top: 4px;
