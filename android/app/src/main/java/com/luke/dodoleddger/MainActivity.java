@@ -1,5 +1,7 @@
 package com.luke.dodoleddger;
 
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.util.Log;
 import com.getcapacitor.BridgeActivity;
@@ -21,6 +23,48 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
         
         try {
+            // 0. 🔍 雙重保險：偵測 APK 覆蓋安裝或首次安裝，若有新版 APK 則清理舊熱更新沙盒
+            int currentVersionCode = 0;
+            try {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                    currentVersionCode = (int) this.getPackageManager().getPackageInfo(this.getPackageName(), 0).getLongVersionCode();
+                } else {
+                    currentVersionCode = this.getPackageManager().getPackageInfo(this.getPackageName(), 0).versionCode;
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "無法取得當前 APK versionCode", e);
+            }
+
+            SharedPreferences prefs = this.getSharedPreferences("dodo_app_prefs", Context.MODE_PRIVATE);
+            int lastVersionCode = prefs.getInt("last_apk_version_code", 0);
+
+            if (currentVersionCode > lastVersionCode) {
+                Log.d(TAG, "🐱 偵測到 APK 覆蓋安裝或首次啟動 (舊版本: " + lastVersionCode + ", 新版本: " + currentVersionCode + ")，主動清理舊的熱更新沙盒以防止衝突...");
+                try {
+                    File filesDir = this.getFilesDir();
+                    File versionFile = new File(filesDir, "current_hot_version.txt");
+                    if (versionFile.exists()) {
+                        versionFile.delete();
+                    }
+                    
+                    // 掃描並遞迴刪除所有 update_pack_* 資料夾與 zip 檔
+                    File[] files = filesDir.listFiles();
+                    if (files != null) {
+                        for (File file : files) {
+                            if (file.getName().startsWith("update_pack_")) {
+                                deleteRecursive(file);
+                            }
+                        }
+                    }
+                    Log.d(TAG, "🧹 舊熱更新沙盒清理完成。");
+                } catch (Exception e) {
+                    Log.e(TAG, "清理舊沙盒失敗", e);
+                }
+                
+                // 記錄當前版本號，防止重複清理
+                prefs.edit().putInt("last_apk_version_code", currentVersionCode).apply();
+            }
+
             // 1. 取得手機內部私有沙盒實體目錄 (Directory.Data 對應於 Android 的 getFilesDir())
             File filesDir = this.getFilesDir();
             File versionFile = new File(filesDir, "current_hot_version.txt");
@@ -119,5 +163,20 @@ public class MainActivity extends BridgeActivity {
         } finally {
             zis.close();
         }
+    }
+
+    /**
+     * 🧹 遞迴刪除檔案或資料夾
+     */
+    private void deleteRecursive(File fileOrDirectory) {
+        if (fileOrDirectory.isDirectory()) {
+            File[] children = fileOrDirectory.listFiles();
+            if (children != null) {
+                for (File child : children) {
+                    deleteRecursive(child);
+                }
+            }
+        }
+        fileOrDirectory.delete();
     }
 }

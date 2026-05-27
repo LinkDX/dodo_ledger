@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { Capacitor, CapacitorHttp } from '@capacitor/core'
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem'
+import pkg from '../../package.json'
 
 const HOT_VERSION_KEY = 'dodo_app_hot_version_code'
 
@@ -39,7 +40,20 @@ export function useLiveUpdates() {
       const remote = response.data
       
       // 2. 取得目前手機內已啟用的版本號，預設為 100
-      const localVersion = parseInt(localStorage.getItem(HOT_VERSION_KEY) || '100', 10)
+      let localVersion = parseInt(localStorage.getItem(HOT_VERSION_KEY) || '100', 10)
+      
+      // 💡 雙重保險：若目前程式碼內建的版本比 localStorage 裡的紀錄還要新，說明是剛升級的 APK 內置資源，自動升級 localStorage 紀錄
+      const parts = pkg.version.split('.')
+      const major = parseInt(parts[0] || '1', 10)
+      const minor = parseInt(parts[1] || '0', 10)
+      const patch = parseInt(parts[2] || '0', 10)
+      const builtInVersionCode = major * 10000 + minor * 100 + patch
+      
+      if (builtInVersionCode > localVersion) {
+        console.log(`[LiveUpdate] 💡 偵測到內置網頁版本 (${builtInVersionCode}) 新於熱更新紀錄 (${localVersion})，自動升級 localStorage 紀錄。`)
+        localStorage.setItem(HOT_VERSION_KEY, builtInVersionCode.toString())
+        localVersion = builtInVersionCode
+      }
       
       console.log(`[LiveUpdate] 雲端版本: ${remote.versionCode}, 本地版本: ${localVersion}`)
       

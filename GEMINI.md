@@ -119,6 +119,7 @@
 - **資安合規防禦**：原生解壓縮代碼中內建了 **「防範 Zip Slip 漏洞路徑穿越攻擊」** 的安全過濾機制，100% 阻斷非法跨目錄寫入，確保金融級系統底座安全性。
 - **離線降級**：斷網或伺服器異常時自動跳過更新檢查，秒進 App 載入本地最新加載成功的沙盒版本或預置 bundled 資源，絕不影響任何既有功能。
 - **不依賴付費服務**：完全自建，無需 Appflow 或 Capgo 等第三方訂閱。
+- **覆蓋安裝版本自愈機制**：為防範覆蓋安裝新版 APK 後，因手機沙盒中殘留舊版熱更新資源而導致版本衝突，`MainActivity.java` 內置 `SharedPreferences` 比對機制。一旦偵測到當前 APK `versionCode` 大於上一次啟動紀錄，便主動刪除 `current_hot_version.txt` 與所有 `update_pack_*` 沙盒檔案，回退載入內置最新預置資源。同時 Web 端 `useLiveUpdates.ts` 也會同步將 `localStorage` 紀錄更新為內置網頁版本號，實現完美的雙重防護自愈閉環。
 
 ### 2.5 本地通知與網路請求規範
 - **本地通知插件**：`@capacitor/local-notifications`
