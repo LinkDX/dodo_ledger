@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useAuth } from '../composables/useAuth'
 import { getDatabaseService, FirestoreDatabaseService } from '../services/db'
+import type { SystemLog } from '../types'
 import { 
   Settings as SettingsIcon, 
   Sparkles, 
@@ -25,6 +26,46 @@ const {
   disableLocalPassword,
   lockApp 
 } = useAppLock()
+
+// ─── 版本資訊與進階管理員彩蛋 ───
+const appVersion = '1.0.0'
+const webVersion = '1.9.3'
+const webClickCount = ref(0)
+const isAdminMode = ref(false)
+
+const handleWebVersionClick = () => {
+  webClickCount.value++
+  if (webClickCount.value >= 5) {
+    isAdminMode.value = true
+    alert('🐱 喵！恭喜主人觸發神秘彩蛋！解鎖「逗逗貓超高級管理介面」！🐾')
+    setTimeout(() => {
+      document.getElementById('admin-panel')?.scrollIntoView({ behavior: 'smooth' })
+    }, 100)
+  }
+}
+
+// ─── 稽核日誌拉取 ───
+const logsList = ref<SystemLog[]>([])
+const isLogsLoading = ref(false)
+
+const loadSystemLogs = async () => {
+  isLogsLoading.value = true
+  try {
+    const dbService = getDatabaseService()
+    const allLogs = await dbService.getLogs()
+    logsList.value = allLogs ? allLogs.sort((a, b) => b.date - a.date) : []
+  } catch (e) {
+    console.error('無法載入稽核日誌：', e)
+  } finally {
+    isLogsLoading.value = false
+  }
+}
+
+watch(isAdminMode, (newVal) => {
+  if (newVal) {
+    loadSystemLogs()
+  }
+})
 
 const showLockModal = ref(false)
 const lockActionType = ref<'enable' | 'disable' | 'change'>('enable')
@@ -181,115 +222,173 @@ const formatCurrency = (val: number) => {
       </div>
     </div>
 
-    <!-- 2. Firebase 雲端同步狀態 -->
-    <div class="settings-box card-jelly">
-      <h3 class="box-title">
-        <CloudLightning class="icon-inline" /> Firebase 雲端備份防護
-      </h3>
-
-      <!-- 雲端狀態橫條 -->
-      <div 
-        class="cloud-status-badge card-jelly"
-        :class="{ 'cloud-active': isCurrentlyCloudMode, 'cloud-inactive': !isCurrentlyCloudMode }"
-      >
-        <div class="status-left">
-          <Cloud v-if="isCurrentlyCloudMode" :size="20" class="icon-cloud" />
-          <CloudLightning v-else :size="20" class="icon-cloud" />
-          <span class="status-text">
-            儲存狀態: {{ isCurrentlyCloudMode ? '☁️ Firebase 雲端同步模式' : '📟 LocalStorage 本地儲存模式' }}
-          </span>
+    <!-- 🐾 2. 逗逗貓超高級管理介面 (神秘彩蛋) 🐾 -->
+    <Transition name="expand-details">
+      <div v-if="isAdminMode" id="admin-panel" class="admin-panel-container card-jelly pop-jelly">
+        <div class="admin-panel-header">
+          <h2 class="admin-title">🐾 逗逗貓超高級管理介面 🐾</h2>
+          <p class="admin-subtitle">此處為系統最高權限稽核管理中心，僅限超級管理貓咪使用！🐾</p>
         </div>
-      </div>
 
-      <!-- 雲端狀態說明 -->
-      <div v-if="isCurrentlyCloudMode" class="cloud-connected-info pop-jelly">
-        <div class="shield-success-card card-jelly">
-          <ShieldCheck :size="32" class="icon-shield" />
-          <h4>雲端防護已自動啟動！</h4>
-          <p class="shield-desc">
-            偵測到專案內置的 Firebase 金鑰設定。您的記帳資料已自動在 Firebase Firestore 進行安全的雲端即時同步備份與多人共同記帳保護，未來的 Android App 也將能無縫共享資料喔喵！🐾
-          </p>
-        </div>
-      </div>
+        <!-- 移過來的卡片 1: Firebase 雲端備份防護 -->
+        <div class="settings-box card-jelly">
+          <h3 class="box-title">
+            <CloudLightning class="icon-inline" /> Firebase 雲端備份防護
+          </h3>
 
-      <div v-else class="cloud-connected-info pop-jelly">
-        <div class="inner-config-card card-jelly" style="background-color: #FFF0ED !important; border-color: #FFAAAA !important; text-align: left;">
-          <div class="config-icon">📟</div>
-          <div class="config-details">
-            <h4 class="config-title" style="color: #B4463E;">本地離線記帳中</h4>
-            <p class="shield-desc" style="margin-top: 4px; color: var(--color-text-muted);">
-              目前未使用雲端。您的所有記帳與資產紀錄皆安全地儲存在您本機瀏覽器的 LocalStorage 裡。若要開啟多人雲端共同記帳，請在發布時配置 Firebase 金鑰，系統即會自動上雲同步喵！
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 🔒 3. Dodo Gatekeeper 安全防護與密碼鎖 -->
-    <div class="settings-box card-jelly">
-      <h3 class="box-title">
-        <ShieldCheck class="icon-inline" /> 🔒 應用安全防護門禁
-      </h3>
-      
-      <p class="categories-preview-hint">
-        為您的記帳本加上一道鎖，防止別人在同台電腦或透過網址直接進入您的私密金庫。
-      </p>
-
-      <div class="lock-status-card card-jelly" :class="{ 'lock-active-border': hasLocalPassword || isGlobalLockEnabled }">
-        <div class="status-left-lock">
-          <span class="status-icon">
-            <ShieldCheck v-if="hasLocalPassword || isGlobalLockEnabled" :size="20" style="color: #2EB086" />
-            <BadgeAlert v-else :size="20" style="color: #FF5A5A" />
-          </span>
-          <div class="status-info">
-            <h4 class="status-title-text">
-              防護狀態：{{ isGlobalLockEnabled ? '全域金鑰保護中' : hasLocalPassword ? '本地密碼鎖啟用中' : '無密碼保護 (不安全)' }}
-            </h4>
-            <p class="status-desc-text">
-              {{ isGlobalLockEnabled ? '此系統已被全域環境變數鎖定，未授權者無法存取。' : hasLocalPassword ? '每次開啟本網頁時，都必須輸入您設定的專屬數字密碼。' : '目前任何人只要知道此網址即可直接進入並檢視您的資料，建議立刻開啟密碼鎖。' }}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div class="lock-actions-row">
-        <!-- 情況 A: 全域鎖定中 -->
-        <div v-if="isGlobalLockEnabled" class="global-lock-notice">
-          🛡️ 系統已受全域打包金鑰防護，無法於此處修改密碼。
-        </div>
-        
-        <!-- 情況 B: 本地密碼操作 -->
-        <div v-else class="local-actions-flex">
-          <button 
-            v-if="!hasLocalPassword" 
-            class="btn-jelly btn-lock-primary"
-            @click="openLockModal('enable')"
+          <!-- 雲端狀態橫條 -->
+          <div 
+            class="cloud-status-badge card-jelly"
+            :class="{ 'cloud-active': isCurrentlyCloudMode, 'cloud-inactive': !isCurrentlyCloudMode }"
           >
-            🔑 開啟本地密碼鎖
-          </button>
+            <div class="status-left">
+              <Cloud v-if="isCurrentlyCloudMode" :size="20" class="icon-cloud" />
+              <CloudLightning v-else :size="20" class="icon-cloud" />
+              <span class="status-text">
+                儲存狀態: {{ isCurrentlyCloudMode ? '☁️ Firebase 雲端同步模式' : '📟 LocalStorage 本地儲存模式' }}
+              </span>
+            </div>
+          </div>
+
+          <!-- 雲端狀態說明 -->
+          <div v-if="isCurrentlyCloudMode" class="cloud-connected-info pop-jelly">
+            <div class="shield-success-card card-jelly">
+              <ShieldCheck :size="32" class="icon-shield" />
+              <h4>雲端防護已自動啟動！</h4>
+              <p class="shield-desc">
+                偵測到專案內置的 Firebase 金鑰設定。您的記帳資料已自動在 Firebase Firestore 進行安全的雲端即時同步備份與多人共同記帳保護，未來的 Android App 也將能無縫共享資料喔喵！🐾
+              </p>
+            </div>
+          </div>
+
+          <div v-else class="cloud-connected-info pop-jelly">
+            <div class="inner-config-card card-jelly" style="background-color: #FFF0ED !important; border-color: #FFAAAA !important; text-align: left;">
+              <div class="config-icon">📟</div>
+              <div class="config-details">
+                <h4 class="config-title" style="color: #B4463E;">本地離線記帳中</h4>
+                <p class="shield-desc" style="margin-top: 4px; color: var(--color-text-muted);">
+                  目前未使用雲端。您的所有記帳與資產紀錄皆安全地儲存在您本機瀏覽器的 LocalStorage 裡。若要開啟多人雲端共同記帳，請在發布時配置 Firebase 金鑰，系統即會自動上雲同步喵！
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 移過來的卡片 2: Dodo Gatekeeper 安全防護與密碼鎖 -->
+        <div class="settings-box card-jelly">
+          <h3 class="box-title">
+            <ShieldCheck class="icon-inline" /> 🔒 應用安全防護門禁
+          </h3>
           
-          <template v-else>
-            <button 
-              class="btn-jelly btn-lock-secondary"
-              @click="openLockModal('change')"
-            >
-              🔄 修改密碼
+          <p class="categories-preview-hint">
+            為您的記帳本加上一道鎖，防止別人在同台電腦或透過網址直接進入您的私密金庫。
+          </p>
+
+          <div class="lock-status-card card-jelly" :class="{ 'lock-active-border': hasLocalPassword || isGlobalLockEnabled }">
+            <div class="status-left-lock">
+              <span class="status-icon">
+                <ShieldCheck v-if="hasLocalPassword || isGlobalLockEnabled" :size="20" style="color: #2EB086" />
+                <BadgeAlert v-else :size="20" style="color: #FF5A5A" />
+              </span>
+              <div class="status-info">
+                <h4 class="status-title-text">
+                  防護狀態：{{ isGlobalLockEnabled ? '全域金鑰保護中' : hasLocalPassword ? '本地密碼鎖啟用中' : '無密碼保護 (不安全)' }}
+                </h4>
+                <p class="status-desc-text">
+                  {{ isGlobalLockEnabled ? '此系統已被全域環境變數鎖定，未授權者無法存取。' : hasLocalPassword ? '每次開啟本網頁時，都必須輸入您設定的專屬數字密碼。' : '目前任何人只要知道此網址即可直接進入並檢視您的資料，建議立刻開啟密碼鎖。' }}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="lock-actions-row">
+            <!-- 情況 A: 全域鎖定中 -->
+            <div v-if="isGlobalLockEnabled" class="global-lock-notice">
+              🛡️ 系統已受全域打包金鑰防護，無法於此處修改密碼。
+            </div>
+            
+            <!-- 情況 B: 本地密碼操作 -->
+            <div v-else class="local-actions-flex">
+              <button 
+                v-if="!hasLocalPassword" 
+                class="btn-jelly btn-lock-primary"
+                @click="openLockModal('enable')"
+              >
+                🔑 開啟本地密碼鎖
+              </button>
+              
+              <template v-else>
+                <button 
+                  class="btn-jelly btn-lock-secondary"
+                  @click="openLockModal('change')"
+                >
+                  🔄 修改密碼
+                </button>
+                <button 
+                  class="btn-jelly btn-lock-danger"
+                  @click="openLockModal('disable')"
+                >
+                  🔓 關閉密碼鎖
+                </button>
+                <button 
+                  class="btn-jelly btn-lock-test"
+                  @click="handleImmediateLock"
+                >
+                  🐱 立即測試鎖定
+                </button>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <!-- 新增卡片 3: Dodo Cat 系統稽核日誌 -->
+        <div class="settings-box card-jelly">
+          <h3 class="box-title" style="justify-content: space-between; display: flex; width: 100%;">
+            <span>📋 Dodo Cat 系統稽核日誌</span>
+            <button class="btn-jelly btn-refresh-logs" @click="loadSystemLogs" :disabled="isLogsLoading" type="button">
+              🔄 重新整理
             </button>
-            <button 
-              class="btn-jelly btn-lock-danger"
-              @click="openLockModal('disable')"
-            >
-              🔓 關閉密碼鎖
-            </button>
-            <button 
-              class="btn-jelly btn-lock-test"
-              @click="handleImmediateLock"
-            >
-              🐱 立即測試鎖定
-            </button>
-          </template>
+          </h3>
+          
+          <p class="categories-preview-hint">
+            此日誌精準記錄了成員身分變更、財務設定與金庫存取紀錄。
+          </p>
+
+          <div v-if="isLogsLoading" class="logs-spinner-container">
+            <div class="spinner"></div>
+            <span style="font-size: 13px; font-weight: 800; margin-left: 8px;">日誌努力載入中...</span>
+          </div>
+
+          <div v-else-if="logsList.length === 0" class="empty-logs-hint">
+            🐱 喵？目前沒有發現 any 稽核操作紀錄喔。
+          </div>
+
+          <div v-else class="logs-scroll-box">
+            <div v-for="log in logsList" :key="log.id" class="log-item-card card-jelly">
+              <div class="log-item-header">
+                <div class="log-operator-info">
+                  <span class="log-avatar">{{ log.operatorAvatar }}</span>
+                  <span class="log-operator-name">{{ log.operator }}</span>
+                </div>
+                <span class="log-time">{{ new Date(log.date).toLocaleString() }}</span>
+              </div>
+              <div class="log-item-body">
+                <span class="log-action-tag" :class="log.action">{{ log.action }}</span>
+                <p class="log-desc">{{ log.description }}</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
+    </Transition>
+
+    <!-- 最底部的版本標籤 (自定義 UI) -->
+    <div class="version-section">
+      <span class="version-item">App Version: v{{ appVersion }}</span>
+      <span class="version-separator">|</span>
+      <span class="version-item web-version-trigger btn-jelly" @click="handleWebVersionClick">
+        Web Version: v{{ webVersion }}
+      </span>
     </div>
 
     <!-- 🔒 密碼設定/驗證彈窗 Modal (Jelly Style) -->
@@ -1033,6 +1132,187 @@ const formatCurrency = (val: number) => {
   background: var(--color-accent-gold) !important;
   transform: scale(1.1);
   border-width: 3px;
+}
+
+/* 🐾 逗逗貓超高級管理介面樣式 🐾 */
+.admin-panel-container {
+  border: 3px solid #D4A373 !important; /* 金黃色手繪邊框 */
+  background: linear-gradient(135deg, #FFFDF9 0%, #FFF5E6 100%) !important; /* 高貴淡金黃漸層 */
+  padding: 16px !important;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-jelly-lg) !important;
+}
+
+.admin-panel-header {
+  text-align: center;
+  margin-bottom: 18px;
+  border-bottom: 2px dashed #D4A373;
+  padding-bottom: 12px;
+}
+
+.admin-title {
+  font-size: 19px;
+  font-weight: 800;
+  color: #8C5E3C;
+}
+
+.admin-subtitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: #B2825B;
+  margin-top: 4px;
+}
+
+/* Dodo Cat 系統稽核日誌 */
+.btn-refresh-logs {
+  background-color: var(--color-bg-warm) !important;
+  font-size: 11px !important;
+  padding: 4px 8px !important;
+}
+
+.logs-spinner-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.empty-logs-hint {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: 20px;
+}
+
+.logs-scroll-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 4px;
+  margin-top: 6px;
+}
+
+.log-item-card {
+  background-color: #FFFFFF !important;
+  padding: 10px 12px !important;
+  margin-bottom: 0 !important;
+  box-shadow: var(--shadow-jelly-sm-sm, 1px 1px 0 0 #2C1E1B) !important;
+  border: 1.5px solid var(--color-border) !important;
+}
+
+.log-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.log-operator-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.log-avatar {
+  font-size: 16px;
+}
+
+.log-operator-name {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--color-text-dark);
+}
+
+.log-time {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.log-item-body {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.log-action-tag {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 4px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-dark);
+}
+
+/* 日誌動作標籤馬卡龍色調配 */
+.log-action-tag.create_profile,
+.log-action-tag.update_categories {
+  background-color: #E1F8EB; /* 綠 */
+}
+.log-action-tag.delete_profile,
+.log-action-tag.delete_transaction {
+  background-color: #FFF0ED; /* 紅 */
+}
+.log-action-tag.add_transaction {
+  background-color: #FFF9E6; /* 黃 */
+}
+.log-action-tag.update_budget,
+.log-action-tag.update_avatar {
+  background-color: #E3EFFF; /* 藍 */
+}
+
+.log-desc {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-text-dark);
+  line-height: 1.3;
+  margin: 0;
+}
+
+/* 底部版本標籤樣式 */
+.version-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  padding: 10px 0;
+}
+
+.version-item {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--color-text-muted);
+}
+
+.version-separator {
+  font-size: 11px;
+  color: rgba(44, 30, 27, 0.15);
+}
+
+.web-version-trigger {
+  cursor: pointer;
+  background-color: var(--color-bg-warm) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 20px !important;
+  padding: 2px 8px !important;
+  font-size: 11px;
+  box-shadow: var(--shadow-jelly-sm-sm, 1px 1px 0 0 #2C1E1B) !important;
+  transition: all 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.web-version-trigger:hover {
+  background-color: #FFFFFF !important;
+  transform: scale(1.05);
+}
+
+.web-version-trigger:active {
+  transform: scale(0.92);
+  box-shadow: var(--shadow-jelly-active) !important;
 }
 </style>
 

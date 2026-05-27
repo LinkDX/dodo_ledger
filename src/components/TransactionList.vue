@@ -701,20 +701,22 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
   inset: 0;
   background: rgba(44, 30, 27, 0.45);
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: center;
   z-index: 200;
-  padding: 0;
+  padding: 20px;
+  overflow-y: auto;
+  backdrop-filter: blur(4px);
 }
 
 .modal-card {
   width: 100%;
   max-width: 480px;
-  max-height: 88vh;
-  overflow-y: auto;
-  border-bottom-left-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
+  background-color: #FFFFFF;
+  margin: auto 0;
+  border-radius: var(--border-radius-lg) !important;
   padding: 20px !important;
+  overflow-y: visible;
 }
 
 .modal-header {

@@ -242,6 +242,7 @@ const getTxAmountStyle = (tx: any) => {
   align-items: center;
   margin-bottom: 16px;
   position: relative;
+  z-index: 100;
 }
 
 .user-profile-widget {

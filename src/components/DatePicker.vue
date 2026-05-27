@@ -71,7 +71,7 @@ const selectDay = (d: number | null) => {
   isOpen.value = false // 選擇完日期後，自動收起面板！
 }
 
-// ─── 快速年月份跳轉 ───
+// ─── 快速年月份跳轉 (自定義 Q 彈 Popover) ───
 const years = computed(() => {
   const currentYear = new Date().getFullYear()
   const list: number[] = []
@@ -81,22 +81,25 @@ const years = computed(() => {
   return list
 })
 
-const handleYearChange = (event: Event) => {
-  const y = Number((event.target as HTMLSelectElement).value)
+const isYearSelectOpen = ref(false)
+const isMonthSelectOpen = ref(false)
+
+const handleYearSelect = (year: number) => {
   const m = state.value.m
-  const maxD = new Date(y, m, 0).getDate()
+  const maxD = new Date(year, m, 0).getDate()
   const d = Math.min(state.value.d, maxD)
-  state.value = { y, m, d }
+  state.value = { y: year, m, d }
   emit_change()
+  isYearSelectOpen.value = false
 }
 
-const handleMonthChange = (event: Event) => {
+const handleMonthSelect = (month: number) => {
   const y = state.value.y
-  const m = Number((event.target as HTMLSelectElement).value)
-  const maxD = new Date(y, m, 0).getDate()
+  const maxD = new Date(y, month, 0).getDate()
   const d = Math.min(state.value.d, maxD)
-  state.value = { y, m, d }
+  state.value = { y, m: month, d }
   emit_change()
+  isMonthSelectOpen.value = false
 }
 
 const displayHeader = computed(() => `${state.value.y} 年 ${state.value.m} 月`)
@@ -117,6 +120,8 @@ const displayLabel = computed(() => {
 const handleClickOutside = (event: MouseEvent) => {
   if (pickerRef.value && !pickerRef.value.contains(event.target as Node)) {
     isOpen.value = false
+    isYearSelectOpen.value = false
+    isMonthSelectOpen.value = false
   }
 }
 
@@ -143,18 +148,61 @@ onUnmounted(() => {
     <!-- 下拉面板 -->
     <transition name="fade">
       <div v-if="isOpen" class="picker-dropdown card-jelly">
-        <!-- 月份導航與快速跳轉 -->
+        <!-- 月份導航與快速跳轉 (自定義 Q 彈 Popover) -->
         <div class="dp-header">
           <button class="picker-nav-btn" @click="prevMonth" type="button" aria-label="上個月">
             <ChevronLeft :size="14" />
           </button>
           <div class="dp-header-selects">
-            <select :value="state.y" @change="handleYearChange" class="dp-select header-select" type="button">
-              <option v-for="year in years" :key="year" :value="year">{{ year }} 年</option>
-            </select>
-            <select :value="state.m" @change="handleMonthChange" class="dp-select header-select" type="button">
-              <option v-for="month in 12" :key="month" :value="month">{{ month }} 月</option>
-            </select>
+            <!-- 自定義年份選取器 -->
+            <div class="custom-select-container">
+              <button 
+                class="btn-jelly custom-select-trigger" 
+                @click.stop="isYearSelectOpen = !isYearSelectOpen; isMonthSelectOpen = false"
+                type="button"
+              >
+                {{ state.y }} 年
+              </button>
+              <Transition name="fade-popover">
+                <div v-if="isYearSelectOpen" class="custom-select-dropdown card-jelly">
+                  <button 
+                    v-for="year in years" 
+                    :key="year"
+                    class="select-option btn-jelly"
+                    :class="{ active: state.y === year }"
+                    @click="handleYearSelect(year)"
+                    type="button"
+                  >
+                    {{ year }} 年
+                  </button>
+                </div>
+              </Transition>
+            </div>
+
+            <!-- 自定義月份選取器 -->
+            <div class="custom-select-container">
+              <button 
+                class="btn-jelly custom-select-trigger" 
+                @click.stop="isMonthSelectOpen = !isMonthSelectOpen; isYearSelectOpen = false"
+                type="button"
+              >
+                {{ state.m }} 月
+              </button>
+              <Transition name="fade-popover">
+                <div v-if="isMonthSelectOpen" class="custom-select-dropdown card-jelly month-dropdown">
+                  <button 
+                    v-for="month in 12" 
+                    :key="month"
+                    class="select-option btn-jelly"
+                    :class="{ active: state.m === month }"
+                    @click="handleMonthSelect(month)"
+                    type="button"
+                  >
+                    {{ month }} 月
+                  </button>
+                </div>
+              </Transition>
+            </div>
           </div>
           <button class="picker-nav-btn" @click="nextMonth" type="button" aria-label="下個月">
             <ChevronRight :size="14" />
@@ -270,32 +318,88 @@ onUnmounted(() => {
   align-items: center;
 }
 
-.header-select {
-  font-size: 13px;
-  font-weight: 800;
-  color: var(--color-text-dark);
-  background-color: var(--color-bg-warm);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--border-radius-sm);
-  padding: 4px 24px 4px 8px;
+/* 自定義下拉選單樣式 */
+.custom-select-container {
+  position: relative;
+  display: inline-block;
+}
+
+.custom-select-trigger {
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  color: var(--color-text-dark) !important;
+  background-color: var(--color-bg-warm) !important;
+  border: var(--border-width) solid var(--color-border) !important;
+  border-radius: var(--border-radius-sm) !important;
+  padding: 4px 10px !important;
   cursor: pointer;
-  box-shadow: var(--shadow-jelly-sm);
-  outline: none;
-  transition: all 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  appearance: none; /* 去掉原生下拉箭頭，改用背景圖示或簡約無圖示 */
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%233D2B1F' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
-  background-repeat: no-repeat;
-  background-position: right 8px center;
+  box-shadow: var(--shadow-jelly-sm) !important;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 68px;
+  justify-content: center;
 }
 
-.header-select:hover {
-  background-color: #FFFFFF;
-  transform: scale(1.05);
+.custom-select-trigger:hover {
+  background-color: #FFFFFF !important;
 }
 
-.header-select:active {
-  transform: scale(0.95);
-  box-shadow: var(--shadow-jelly-active);
+.custom-select-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 120;
+  background-color: #FFFFFF !important;
+  border: var(--border-width) solid var(--color-border) !important;
+  border-radius: var(--border-radius-md) !important;
+  box-shadow: var(--shadow-jelly-lg) !important;
+  padding: 6px !important;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+  min-width: 90px;
+}
+
+.month-dropdown {
+  min-width: 76px;
+}
+
+.select-option {
+  width: 100% !important;
+  padding: 6px 10px !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  background-color: var(--color-bg-warm) !important;
+  border-color: var(--color-border) !important;
+  box-shadow: var(--shadow-jelly-sm-sm) !important;
+  text-align: center;
+  margin-bottom: 0 !important;
+  flex-shrink: 0;
+}
+
+.select-option:hover {
+  background-color: #FFFFFF !important;
+}
+
+.select-option.active {
+  background-color: var(--color-income) !important;
+  border-width: 2px !important;
+}
+
+/* Popover 動畫 */
+.fade-popover-enter-active,
+.fade-popover-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.fade-popover-enter-from,
+.fade-popover-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-6px) scale(0.9);
 }
 
 .picker-nav-btn {

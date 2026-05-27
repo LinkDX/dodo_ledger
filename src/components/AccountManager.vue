@@ -79,6 +79,8 @@ const editingAcctId = ref('')
 const editName = ref('')
 const editAvatar = ref('')
 const editColorIdx = ref(0)
+const editBalance = ref<number | ''>('')
+const editType = ref('cash')
 
 const toggleAddModal = () => {
   showAddModal.value = !showAddModal.value
@@ -111,6 +113,8 @@ const openEditModal = (acct: Account) => {
   editAvatar.value = acct.avatar || ''
   editColorIdx.value = cardColors.findIndex(c => c.class === acct.color)
   if (editColorIdx.value < 0) editColorIdx.value = 0
+  editBalance.value = acct.type === 'credit_card' ? -acct.balance : acct.balance
+  editType.value = acct.type
   showEditModal.value = true
 }
 
@@ -121,10 +125,12 @@ const closeEditModal = () => {
 
 const handleSaveEdit = async () => {
   if (!editingAcctId.value || !editName.value.trim()) return
+  const balanceVal = Number(editBalance.value) || 0
   await editAccount(editingAcctId.value, {
     name: editName.value.trim(),
     avatar: editAvatar.value || undefined,
-    color: cardColors[editColorIdx.value].class
+    color: cardColors[editColorIdx.value].class,
+    balance: editType.value === 'credit_card' ? -balanceVal : balanceVal
   })
   closeEditModal()
 }
@@ -664,6 +670,13 @@ const switchToCredit = () => {
           <div class="form-group">
             <label class="label-cute">帳戶名稱</label>
             <input v-model="editName" type="text" class="input-jelly" maxlength="15" />
+          </div>
+
+          <div class="form-group">
+            <label class="label-cute">
+              {{ editType === 'credit_card' ? '當前已刷金額 (負債)' : '目前金額 (餘額)' }}
+            </label>
+            <input v-model.number="editBalance" type="number" class="input-jelly" placeholder="0" />
           </div>
 
           <div class="form-group">

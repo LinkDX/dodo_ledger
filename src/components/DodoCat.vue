@@ -299,7 +299,7 @@ const catMiau = computed(() => {
 /* 手繪對話泡泡樣式 */
 .speech-bubble {
   position: absolute;
-  bottom: 148px;
+  bottom: 132px;
   background-color: #FFFFFF;
   border: var(--border-width) solid var(--color-border);
   border-radius: 18px;
