@@ -2,6 +2,12 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Android 1.0.5 / Build 6] - 2026-05-27
+
+### 🚑 熱更新引擎 (Capacitor 6) 致命錯誤修復
+- **原生路徑切換修正**：修正 `MainActivity.java` 中對於熱更新路徑的反射注入邏輯。Capacitor 6 移除了 `appUrl` 欄位導致舊版反射程式碼崩潰並回退至舊版 APK 緩存。現已改用官方推薦的 `bridge.setServerBasePath()` API，徹底解決 App 下載了新版更新卻依然顯示舊版畫面的問題。
+- **需重新安裝 APK**：由於修復位於 Android 原生層 (`MainActivity.java`)，無法透過熱更新推送，必須重新下載安裝 `1.0.5` 版本 APK 才能徹底解決熱更新失效問題。
+
 ## [Web 1.9.9] - 2026-05-27
 
 ### ⚙️ 設定頁面與排版優化 (Settings & UI Refinement)
