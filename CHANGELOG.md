@@ -2,6 +2,15 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Web 1.9.6] - 2026-05-27
+
+### 📡 熱更新監控閣優化 (Hot Update Improvements)
+- **修正更新卡住問題**：啟用 `CapacitorHttp` 插件，透過原生管道下載更新包，徹底繞過 Android WebView 的 CORS 限制與重新導向問題。
+- **強化錯誤診斷**：新增 `updateError` 狀態與 UI 顯示，讓使用者能清楚看見下載失敗的原因（如 HTTP 404 或網路超時）。
+- **異常自愈機制**：下載失敗時會自動重設進度條，不再永久卡在 10%。
+- **新增維護功能**：於監控閣新增「🧹 清除熱更新快取」按鈕，方便一鍵重置回 APK 內建版本以解決損壞問題。
+- **程式碼健壯性**：優化 `useLiveUpdates` 的異常捕獲邏輯，加入更多詳細的 `[LiveUpdate]` 除錯日誌。
+
 ## [Web 1.9.5] - 2026-05-27
 
 ### 🐱 逗逗貓互動與成就系統 (Dodo Cat Game System)

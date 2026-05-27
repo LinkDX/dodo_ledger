@@ -35,6 +35,7 @@ const {
   isChecking: isHotChecking,
   updateProgress: hotUpdateProgress,
   hasUpdate: hasHotUpdate,
+  updateError: hotUpdateError,
   checkForUpdates: runHotUpdateCheck
 } = useLiveUpdates()
 
@@ -42,12 +43,21 @@ const localHotVersion = ref(localStorage.getItem('dodo_app_hot_version_code') ||
 
 const handleManualHotUpdate = async () => {
   await runHotUpdateCheck()
+  // 更新成功後重新讀取本地版本號，讓 UI 同步
   localHotVersion.value = localStorage.getItem('dodo_app_hot_version_code') || '100'
+}
+
+const handleResetHotUpdate = () => {
+  if (confirm('🐱 喵？確定要清除所有熱更新快取並回退到 APK 內建版本嗎？')) {
+    localStorage.removeItem('dodo_app_hot_version_code')
+    localHotVersion.value = '100'
+    alert('✨ 已清除快取！請「重啟 App」以恢復至原始版本。🐾')
+  }
 }
 
 // ─── 版本資訊與進階管理員彩蛋 ───
 const appVersion = '1.0.0'
-const webVersion = '1.9.3'
+const webVersion = '1.9.6'
 const webClickCount = ref(0)
 const isAdminMode = ref(false)
 
@@ -276,6 +286,9 @@ const formatCurrency = (val: number) => {
                 <span v-else-if="hotUpdateProgress === 100">
                   🎉 下載成功！熱更新套件已布署，請徹底「關閉 App 重開」以套用新版！🐾
                 </span>
+                <span v-else-if="hotUpdateError" class="status-error">
+                  ❌ 更新失敗：{{ hotUpdateError }}。請檢查網路連線或稍後再試。
+                </span>
                 <span v-else-if="hasHotUpdate">
                   ✨ 發現有可更新的網頁包，正在準備背景下載...
                 </span>
@@ -299,6 +312,14 @@ const formatCurrency = (val: number) => {
               type="button"
             >
               {{ isHotChecking ? '正在對帳...' : '🐾 手動檢查並下載更新' }}
+            </button>
+            <button 
+              class="btn-jelly btn-action btn-reset-update" 
+              @click="handleResetHotUpdate"
+              type="button"
+              style="background-color: var(--color-bg-warm) !important; color: var(--color-text-muted); margin-left: 8px;"
+            >
+              🧹 清除熱更新快取
             </button>
           </div>
         </div>
@@ -676,6 +697,12 @@ const formatCurrency = (val: number) => {
 .monitor-value.status-online {
   color: #2EB086;
   font-weight: 800;
+}
+
+.status-error {
+  color: #FF6B6B;
+  font-weight: 800;
+  display: block;
 }
 
 .monitor-value.code-value {
