@@ -1086,10 +1086,14 @@ const switchToCredit = () => {
 
 /* 繪本插畫風格帳戶卡片 */
 .account-card {
-  padding: 14px 16px !important;
+  padding: 10px 14px !important; /* 壓縮 padding 以減少高度 */
   margin-bottom: 0 !important;
   display: flex;
   flex-direction: column;
+}
+
+.account-card :deep(.progress-bar-container) {
+  height: 12px !important; /* 壓縮信用卡額度進度條高度，省下 4px 空間 */
 }
 
 .card-top-row {
@@ -1201,13 +1205,13 @@ const switchToCredit = () => {
 }
 
 .card-name {
-  font-size: 23px;
+  font-size: 21px; /* 稍微縮小名稱字型 */
   font-weight: 800;
-  margin-top: 8px;
+  margin-top: 4px; /* 壓縮垂直間距 */
 }
 
 .card-balance-block {
-  margin-top: 14px;
+  margin-top: 8px; /* 壓縮垂直間距 */
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -1224,7 +1228,7 @@ const switchToCredit = () => {
 }
 
 .general-balance {
-  font-size: 32px;
+  font-size: 28px; /* 稍微縮小餘額字體，使微縮卡片更和諧，但依然霸氣醒目 */
   font-weight: 900;
   letter-spacing: -0.5px;
 }
@@ -1242,7 +1246,7 @@ const switchToCredit = () => {
 }
 
 .debt-amount {
-  font-size: 16px;
+  font-size: 14px; /* 縮減信用卡負債字體以節省空間 */
   font-weight: 800;
   color: #C66230;
 }

@@ -291,7 +291,7 @@ const handleSubmit = async () => {
       <p class="page-subtitle">請選擇您的消費分類，並在下方鍵盤輸入金額喔！</p>
     </div>
 
-    <!-- 1. 頂部控制面板：交易類型切換 (支出/收入) 與 記帳日期 並排 -->
+    <!-- 1. 頂部控制面板：交易類型切換 (支出/收入) 滿寬 -->
     <div class="tx-type-switch-container card-jelly">
       <div class="switch-buttons-group">
         <button 
@@ -309,13 +309,16 @@ const handleSubmit = async () => {
           💰 收入
         </button>
       </div>
-      <div class="header-date-picker">
-        <DatePicker v-model="dateStr" />
-      </div>
     </div>
 
-    <!-- 2. 收支參數設定區 (帳戶獨佔滿寬，防止帳戶增加壓扁日期) -->
+    <!-- 2. 收支參數設定區 (日期與帳戶各自獨立滿寬行) -->
     <div class="form-core-details card-jelly">
+      <!-- 記帳日期 -->
+      <div class="form-group">
+        <label class="label-cute">記帳日期</label>
+        <DatePicker v-model="dateStr" />
+      </div>
+
       <!-- 帳戶選取 -->
       <div class="form-group margin-zero">
         <label class="label-cute">選擇支付 / 收款帳戶</label>
@@ -377,7 +380,7 @@ const handleSubmit = async () => {
       </div>
 
       <!-- 子分類動態展開膠囊標籤 (RWD 彈性包裝) -->
-      <div class="sub-categories-wrapper card-jelly">
+      <div class="sub-categories-wrapper">
         <p class="sub-cat-hint">點選子分類：</p>
         <div class="sub-categories-grid">
           <button 
@@ -496,12 +499,10 @@ const handleSubmit = async () => {
   color: var(--color-text-muted);
 }
 
-/* 頂部控制面板 (收支類型與日期並排) */
+/* 頂部控制面板 (收支類型獨佔一行滿寬) */
 .tx-type-switch-container {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
   padding: 6px 8px !important;
   background-color: #FFFFFF;
   margin-bottom: 8px !important;
@@ -510,13 +511,13 @@ const handleSubmit = async () => {
 .switch-buttons-group {
   display: flex;
   gap: 6px;
-  flex: 1.4; /* 收支切換佔用較多空間 */
+  width: 100%; /* 收支切換 100% 滿寬填滿 */
 }
 
 .btn-switch {
   flex: 1;
   font-size: 13px;
-  padding: 7px !important;
+  padding: 9px !important; /* 增加 padding 提升點擊手感 */
   background-color: var(--color-bg-warm) !important;
 }
 
@@ -528,22 +529,6 @@ const handleSubmit = async () => {
 .btn-income-active {
   background-color: var(--color-income) !important;
   border-width: 3px;
-}
-
-.header-date-picker {
-  flex: 1.1; /* 日期選擇佔用適中空間 */
-  min-width: 110px;
-}
-
-/* 日期選擇器深度穿透樣式微調，以自然融入頂欄 */
-.header-date-picker :deep(.picker-trigger) {
-  padding: 7px 10px !important;
-  font-size: 11px !important;
-  border-radius: var(--border-radius-sm) !important;
-}
-
-.header-date-picker :deep(.trigger-left) {
-  gap: 4px !important;
 }
 
 /* 表單設定區 */
@@ -681,15 +666,17 @@ const handleSubmit = async () => {
 
 /* 子分類膠囊區 */
 .sub-categories-wrapper {
-  background-color: var(--color-bg-warm) !important;
-  padding: 6px 8px !important;
-  margin-top: 6px;
+  background-color: rgba(44, 30, 27, 0.04) !important; /* 融入底色，做成微凹槽感 */
+  border: 1.5px dashed rgba(44, 30, 27, 0.25) !important; /* 精緻手繪虛線外框 */
+  border-radius: var(--border-radius-md) !important;
+  padding: 8px 10px !important;
+  margin-top: 8px;
   margin-bottom: 0 !important;
-  box-shadow: var(--shadow-jelly-sm) !important;
+  box-shadow: none !important; /* 移除臃腫重影 */
 }
 
 .sub-cat-hint {
-  font-size: 9px;
+  font-size: 10px; /* 稍微放大 */
   font-weight: 800;
   color: var(--color-text-muted);
   margin-bottom: 6px;
@@ -702,19 +689,23 @@ const handleSubmit = async () => {
 }
 
 .btn-sub-tag {
-  padding: 3px 8px !important;
-  font-size: 10px;
+  padding: 4px 10px !important; /* 稍微增大，更易點選 */
+  font-size: 11px; /* 放大字體 */
   background-color: #FFFFFF !important;
-  border-radius: 20px !important;
+  border: 1.5px solid var(--color-border) !important;
+  border-radius: 12px !important; /* 採用微圓角取代膠囊，與整體軟萌繪本風一致 */
   display: flex !important;
   align-items: center;
-  gap: 3px;
-  box-shadow: var(--shadow-jelly-sm-sm) !important;
+  gap: 4px;
+  box-shadow: 1.5px 1.5px 0px 0px var(--color-border) !important; /* 精美微投影 */
+  transition: all 0.1s;
 }
 
 .btn-sub-tag.active {
   background-color: var(--color-income) !important;
-  border-width: 2px;
+  box-shadow: 1px 1px 0px 0px var(--color-border) !important;
+  transform: translate(0.5px, 0.5px);
+  border-width: 1.5px !important;
   font-weight: 800;
 }
 

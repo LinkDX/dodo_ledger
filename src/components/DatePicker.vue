@@ -262,6 +262,7 @@ onUnmounted(() => {
   font-weight: 800;
   cursor: pointer;
   transition: all 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  white-space: nowrap; /* 確保日期文字絕對不折行 */
 }
 
 .picker-trigger:active {

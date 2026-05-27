@@ -16,13 +16,6 @@ const select = (id: string) => emit('update:modelValue', id)
 const formatBalance = (val: number) =>
   new Intl.NumberFormat('zh-TW').format(Math.abs(val))
 
-const typeLabel = (t: Account['type']) => {
-  if (t === 'cash') return '現金'
-  if (t === 'bank') return '銀行'
-  if (t === 'credit_card') return '信用卡'
-  return '電子票證'
-}
-
 const balanceLabel = (acct: Account) => {
   if (acct.type === 'credit_card') {
     const avail = Math.max((acct.cardDetails?.creditLimit || 0) - Math.abs(acct.balance), 0)
@@ -56,13 +49,12 @@ const balanceLabel = (acct: Account) => {
         <!-- 帳戶資訊 -->
         <div class="acct-info">
           <span class="acct-name">{{ acct.name }}</span>
-          <span class="acct-type">{{ typeLabel(acct.type) }}</span>
           <span class="acct-balance">{{ balanceLabel(acct) }}</span>
         </div>
 
         <!-- 選中勾勾 -->
         <div v-if="modelValue === acct.id" class="selected-check">
-          <Check :size="12" stroke-width="4" />
+          <Check :size="9" stroke-width="4" />
         </div>
       </button>
     </div>
@@ -72,35 +64,35 @@ const balanceLabel = (acct: Account) => {
 <style scoped>
 .account-picker {
   width: 100%;
+  max-width: 100%;
+  min-width: 0; /* 使用 min-width: 0 阻止 Flexbox 撐寬，同時防止 overflow: hidden 截斷捲軸與卡片陰影 */
 }
 
 .picker-scroll {
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding: 6px 4px 6px 4px; /* 增加邊距以容納 hover/選取浮起效果，防止邊緣被切 */
+  width: 100%;
+  max-width: 100%;
+  padding: 6px 4px 10px 4px; /* 增加下方內距，提供空間顯示與全域一致的可愛捲軸 */
+  -webkit-overflow-scrolling: touch; /* 優化觸控面板流暢度 */
 }
 
-.picker-scroll::-webkit-scrollbar {
-  height: 4px;
-}
-.picker-scroll::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 4px;
-}
+/* 移除本檔案專屬的自定義滾動條，使其完全繼承 style.css 的全域手繪捲軸，與分類滾動條 100% 一致 */
 
 .acct-card {
   flex-shrink: 0;
-  min-width: 100px;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 8px !important;
+  min-width: 95px; /* 微調寬度，讓多張卡片可以更緊湊並列 */
+  flex-direction: column; /* 回歸直立式 column 佈局，使用者極度喜愛的緊湊柱狀樣式！ */
+  gap: 3px; /* 縮小垂直 gap，節省高度 */
+  padding: 6px 8px !important; /* 壓縮上下內距 */
   border-radius: var(--border-radius-md) !important;
   background-color: var(--color-bg-warm) !important;
   position: relative;
   align-items: center;
   text-align: center;
   border-width: 2px;
+  touch-action: pan-x; /* 解放手勢！允許直接在卡片上水平滑動進行橫向滾動 */
 }
 
 .acct-card.is-selected {
@@ -124,11 +116,11 @@ const balanceLabel = (acct: Account) => {
 .acct-card.card-coral  { background-color: #FFBBA8 !important; }
 
 .acct-avatar {
-  width: 36px;
-  height: 36px;
+  width: 26px; /* 縮小頭像尺寸，極大程度壓縮垂直空間 */
+  height: 26px;
   border-radius: 50%;
   background-color: rgba(255, 255, 255, 0.65);
-  border: 2px solid var(--color-border);
+  border: 1.5px solid var(--color-border);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -136,7 +128,7 @@ const balanceLabel = (acct: Account) => {
 }
 
 .avatar-emoji {
-  font-size: 18px;
+  font-size: 13px; /* 縮小頭像 Emoji */
   line-height: 1;
 }
 
@@ -148,34 +140,32 @@ const balanceLabel = (acct: Account) => {
 }
 
 .acct-name {
-  font-size: 11px;
+  font-size: 12px; /* 放大字體，提高可讀性 */
   font-weight: 800;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 84px;
+  max-width: 80px;
 }
 
 .acct-type {
-  font-size: 9px;
-  font-weight: 700;
-  color: var(--color-text-muted);
+  display: none; /* 隱藏帳戶類型，釋放一行高度 */
 }
 
 .acct-balance {
-  font-size: 10px;
+  font-size: 11px; /* 放大金額字體，讓數字更醒目 */
   font-weight: 800;
 }
 
 .selected-check {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 18px;
-  height: 18px;
+  top: 3px;
+  right: 3px;
+  width: 14px; /* 縮小選中勾勾 */
+  height: 14px;
   border-radius: 50%;
   background-color: var(--color-income);
-  border: 2px solid var(--color-border);
+  border: 1.5px solid var(--color-border);
   display: flex;
   align-items: center;
   justify-content: center;
