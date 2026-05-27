@@ -9,6 +9,11 @@
 - **改用插件 API 下載**：將熱更新引擎 (`useLiveUpdates.ts`) 改為手動呼叫 `CapacitorHttp` 插件 API 進行版本比對與 ZIP 下載。
 - **優化下載效能**：利用原生管道進行靜態資源下載，維持繞過 CORS 限制的優點，同時保障 App 整體連線穩定性。
 
+## [Android 1.0.4 / Build 5] - 2026-05-27
+
+### 🚑 原生配置還原與連線修復
+- **撤銷全域 CapacitorHttp 攔截**：更新 `capacitor.config.ts` 以關閉全域 HTTP 攔截功能。這是一個**原生層級的配置變更**，必須重新安裝此版 APK 才能真正解除 Firebase 網路連線的阻擋。
+
 ## [Web 1.9.7] - 2026-05-27
 
 ### 🐱 貓咪狀態即時同步 (Real-time Cat Sync)

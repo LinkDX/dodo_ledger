@@ -175,7 +175,14 @@
 | Android 建置 | `.github/workflows/android.yml` | `android-version.json`、`android/**`、`build-apk.sh`、`capacitor.config.ts` | Release APK（帶版號 Tag + latest） |
 
 > [!IMPORTANT]
-> **兩條管線完全獨立**：修改網頁端代碼不會觸發 Android 編譯；發布新 Android 版本只需修改 `android-version.json`，不影響網頁 CI。
+> **Android 原生變更判定與版號強制升級規範 (CRITICAL)**：
+> 凡是修改了上述 `Android 建置` 的觸發條件檔案（特別是 `capacitor.config.ts`，**即使只是撤銷/Revert 裡面的設定**），皆屬於**原生變更**。
+> 身為 AI 助理，當您修改這些檔案時，**必須絕對主動執行以下動作**，不可遺漏：
+> 1. 修改 `android-version.json` 提升 `version` 與 `buildNumber`。
+> 2. 在 `CHANGELOG.md` 中新增專屬的 `[Android X.Y.Z]` 更新條目，說明原生層級的變更。
+> 3. 提醒使用者需要重新安裝 APK。
+>
+> 兩條管線完全獨立：發布新 Android 版本不影響網頁 CI；反之亦然。
 
 ### 3.2 財務日誌與核心安全稽核共識
 - **日誌過濾原則**：**絕不在 `SystemLog` 中記錄娛樂性質的操作（如摸貓、餵貓等）**。日誌應專注於核心財務與成員變更，以確保對帳與稽核資料的純粹性與高效性。
