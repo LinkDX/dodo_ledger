@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useLedger } from '../composables/useLedger'
 import { useConfirm } from '../composables/useConfirm'
 import type { Account, AccountType } from '../types'
@@ -18,6 +18,7 @@ import {
   X
 } from 'lucide-vue-next'
 import MonthYearPicker from './MonthYearPicker.vue'
+import AccountPicker from './AccountPicker.vue'
 
 const { 
   accounts,
@@ -26,7 +27,9 @@ const {
   deleteAccount,
   editAccount,
   addTransaction,
-  payCreditCardBill
+  payCreditCardBill,
+  getBillPeriodForCard,
+  getCreditCardBillPeriod
 } = useLedger()
 
 const { showConfirm } = useConfirm()
@@ -218,35 +221,69 @@ const creditCards = computed(() => accounts.value.filter(a => a.type === 'credit
 const selectedCardId = ref('')
 const selectedPeriod = ref('')
 
+const getFallbackPeriod = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+const getDefaultBillPeriod = (cardId: string) => {
+  return getBillPeriodForCard(cardId, Date.now()) || getFallbackPeriod()
+}
+
 const initCreditDefaults = () => {
-  if (creditCards.value.length > 0) {
-    if (!selectedCardId.value) selectedCardId.value = creditCards.value[0].id
-    if (!selectedPeriod.value) {
-      const d = new Date()
-      selectedPeriod.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    }
+  if (creditCards.value.length === 0) {
+    selectedCardId.value = ''
+    selectedPeriod.value = ''
+    return
+  }
+
+  if (!creditCards.value.some(card => card.id === selectedCardId.value)) {
+    selectedCardId.value = creditCards.value[0].id
+  }
+
+  if (!selectedPeriod.value || !billPeriods.value.includes(selectedPeriod.value)) {
+    selectedPeriod.value = billPeriods.value.includes(getDefaultBillPeriod(selectedCardId.value))
+      ? getDefaultBillPeriod(selectedCardId.value)
+      : billPeriods.value[billPeriods.value.length - 1]
   }
 }
 
 const activeCard = computed(() => creditCards.value.find(a => a.id === selectedCardId.value))
 
 const billPeriods = computed(() => {
-  const list: string[] = []
-  const d = new Date()
-  for (let i = -3; i <= 2; i++) {
-    const date = new Date()
-    date.setMonth(d.getMonth() + i)
-    list.push(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`)
+  const periods = new Set<string>()
+
+  if (selectedCardId.value) {
+    const anchor = new Date(`${getDefaultBillPeriod(selectedCardId.value)}-01T00:00:00`)
+    for (let i = -4; i <= 2; i++) {
+      const date = new Date(anchor)
+      date.setMonth(anchor.getMonth() + i)
+      periods.add(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`)
+    }
+  } else {
+    periods.add(getFallbackPeriod())
   }
-  return list
+
+  for (const tx of transactions.value) {
+    if (tx.fromAccountId !== selectedCardId.value) continue
+    const period = getCreditCardBillPeriod(tx)
+    if (period) {
+      periods.add(period)
+    }
+  }
+
+  return [...periods].sort()
 })
 
 const billedTransactions = computed(() => {
   if (!selectedCardId.value || !selectedPeriod.value) return []
-  return transactions.value.filter(tx =>
-    tx.fromAccountId === selectedCardId.value &&
-    tx.creditCardDetails?.billPeriod === selectedPeriod.value
-  )
+  return transactions.value
+    .filter(tx =>
+      tx.type === 'expense' &&
+      tx.fromAccountId === selectedCardId.value &&
+      getCreditCardBillPeriod(tx) === selectedPeriod.value
+    )
+    .sort((a, b) => b.date - a.date)
 })
 
 const billTotalAmount = computed(() =>
@@ -274,6 +311,14 @@ const switchToCredit = () => {
   activeSection.value = 'credit'
   initCreditDefaults()
 }
+
+watch(creditCards, initCreditDefaults, { immediate: true })
+watch(selectedCardId, (newCardId, oldCardId) => {
+  if (!newCardId) return
+  if (!oldCardId || !selectedPeriod.value || !billPeriods.value.includes(selectedPeriod.value)) {
+    selectedPeriod.value = getDefaultBillPeriod(newCardId)
+  }
+})
 </script>
 
 <template>
@@ -315,7 +360,7 @@ const switchToCredit = () => {
     </div>
 
     <!-- 帳戶列表展示 (大圓角馬卡龍卡片) -->
-    <div class="accounts-list">
+    <div v-show="activeSection === 'accounts'" class="accounts-list">
       <div v-if="accounts.length === 0" class="empty-placeholder card-jelly">
         <p class="empty-text">主人目前還沒有建立任何帳戶喔喵～</p>
         <p class="empty-hint">請點擊上方「新增帳戶」建立第一個記帳卡片吧！</p>
@@ -402,11 +447,9 @@ const switchToCredit = () => {
       <div v-else class="credit-core-layout">
         <!-- 卡片與月份篩選列 -->
         <div class="selectors-row card-jelly">
-          <div class="select-group">
+          <div class="select-group bill-card-picker">
             <label class="label-cute">選擇信用卡</label>
-            <select v-model="selectedCardId" class="input-jelly select-cute">
-              <option v-for="c in creditCards" :key="c.id" :value="c.id">{{ c.name }}</option>
-            </select>
+            <AccountPicker v-model="selectedCardId" :accounts="creditCards" />
           </div>
           <div class="select-group">
             <label class="label-cute">帳單月份</label>
@@ -502,11 +545,7 @@ const switchToCredit = () => {
           </div>
           <div class="form-group">
             <label class="label-cute">扣款銀行 / 現金帳戶</label>
-            <select v-model="linkedBankId" class="input-jelly">
-              <option v-for="b in bankAccounts" :key="b.id" :value="b.id">
-                {{ b.name }} (餘額: ${{ formatCurrency(b.balance) }})
-              </option>
-            </select>
+            <AccountPicker v-model="linkedBankId" :accounts="bankAccounts" />
           </div>
           <div class="modal-actions">
             <button class="btn-jelly btn-cancel" @click="showPayModal = false">取消</button>
@@ -834,7 +873,8 @@ const switchToCredit = () => {
 
 .selectors-row {
   display: flex;
-  gap: 12px;
+  flex-direction: column;
+  gap: 14px;
   padding: 12px !important;
   background-color: #FFFFFF;
 }
@@ -843,9 +883,24 @@ const switchToCredit = () => {
   flex: 1;
 }
 
-.select-cute {
-  font-weight: 700;
-  background-color: var(--color-bg-warm);
+.bill-card-picker :deep(.acct-card) {
+  min-width: 116px;
+  padding: 10px 10px !important;
+  gap: 6px;
+}
+
+.bill-card-picker :deep(.acct-avatar) {
+  width: 30px;
+  height: 30px;
+}
+
+.bill-card-picker :deep(.acct-name) {
+  font-size: 14px;
+  max-width: 98px;
+}
+
+.bill-card-picker :deep(.acct-balance) {
+  font-size: 12px;
 }
 
 .bill-status-board {
@@ -856,21 +911,23 @@ const switchToCredit = () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .board-period-badge {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   background-color: rgba(44, 30, 27, 0.1);
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 10px;
+  padding: 4px 10px;
+  border-radius: 14px;
+  font-size: 12px;
   font-weight: 800;
 }
 
 .board-due-date {
-  font-size: 9px;
+  font-size: 14px;
   font-weight: 800;
 }
 
@@ -880,16 +937,17 @@ const switchToCredit = () => {
 }
 
 .amount-label {
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 800;
   color: var(--color-text-muted);
 }
 
 .amount-value {
-  font-size: 32px;
+  font-size: 44px;
   font-weight: 800;
-  margin-top: 4px;
-  letter-spacing: -0.5px;
+  margin-top: 8px;
+  letter-spacing: -1px;
+  line-height: 1;
 }
 
 .board-progress-section {
@@ -899,9 +957,9 @@ const switchToCredit = () => {
 .board-progress-section .progress-labels {
   display: flex;
   justify-content: space-between;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 800;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .board-progress-section .progress-bar-container {
@@ -919,12 +977,12 @@ const switchToCredit = () => {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
   color: #2C8C67;
   background-color: rgba(46, 176, 134, 0.15);
   border: 1.5px solid #2C8C67;
-  padding: 6px 12px;
+  padding: 8px 14px;
   border-radius: 20px;
 }
 
@@ -933,8 +991,9 @@ const switchToCredit = () => {
 .btn-pay-bill {
   width: 100%;
   background-color: #FFFFFF !important;
-  padding: 10px !important;
-  font-size: 13px;
+  padding: 14px !important;
+  font-size: 16px;
+  letter-spacing: 0.3px;
 }
 
 .bill-details-section.card-jelly {
@@ -967,8 +1026,9 @@ const switchToCredit = () => {
 .bill-tx-item {
   display: flex !important;
   justify-content: space-between;
-  align-items: center;
-  padding: 10px 14px !important;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px !important;
   margin-bottom: 0 !important;
   box-shadow: var(--shadow-jelly-sm) !important;
 }
@@ -980,19 +1040,21 @@ const switchToCredit = () => {
 }
 
 .bill-tx-cat {
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 800;
+  line-height: 1.35;
 }
 
 .bill-tx-note {
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--color-text-muted);
+  line-height: 1.4;
 }
 
 .installment-tag {
-  font-size: 9px !important;
-  padding: 1px 6px !important;
+  font-size: 11px !important;
+  padding: 2px 8px !important;
   background-color: var(--color-expense) !important;
   margin-top: 4px;
   width: fit-content;
@@ -1002,19 +1064,20 @@ const switchToCredit = () => {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .bill-tx-amount {
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 800;
   color: #FF5A5A;
 }
 
 .bill-tx-date {
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--color-text-muted);
-  margin-top: 2px;
 }
 
 /* 還款彈窗 */

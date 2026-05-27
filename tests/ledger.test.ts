@@ -265,7 +265,7 @@ describe('🐱 Dodo Ledger 多人共同記帳與演算法測試', () => {
     const bankId = ledger.accounts.value[0].id
     const cardId = ledger.accounts.value[1].id
 
-    // 模擬 5/5 (結帳日前) 消費 3,000 元 ➔ 歸屬 "2026-05" 帳單
+    // 模擬 5/5 (結帳日前) 刷卡 3,000 元；一般刷卡不手動帶 billPeriod，應由記帳核心自動推算
     await ledger.addTransaction({
       type: 'expense',
       amount: 3000,
@@ -273,16 +273,11 @@ describe('🐱 Dodo Ledger 多人共同記帳與演算法測試', () => {
       fromAccountId: cardId,
       date: new Date('2026-05-05').getTime(),
       note: '聚餐',
-      tags: [],
-      creditCardDetails: {
-        isInstallment: false,
-        installmentTerm: 1,
-        currentInstallment: 1,
-        billPeriod: '2026-05'
-      }
+      tags: []
     })
 
     expect(ledger.accounts.value[1].balance).toBe(-3000)
+    expect(ledger.transactions.value[0].creditCardDetails?.billPeriod).toBe('2026-05')
 
     // 執行一鍵繳款
     await ledger.payCreditCardBill(cardId, bankId, '2026-05')
@@ -402,4 +397,3 @@ describe('🐱 Dodo Ledger 多人共同記帳與演算法測試', () => {
     expect(months.length).toBe(28)
   })
 })
-

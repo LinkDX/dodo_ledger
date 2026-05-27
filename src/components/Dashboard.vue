@@ -112,24 +112,26 @@ const isAchievementUnlocked = (id: string) => {
   <div class="dashboard-container">
     <!-- 頂部 Header & 身分切換 -->
     <div class="dashboard-header">
-      <div class="user-profile-widget">
-        <div class="avatar-badge btn-jelly" @click="toggleUserMenu">
-          <span class="avatar-emoji">{{ currentProfile?.avatar }}</span>
-          <span class="user-name">{{ currentProfile?.name }}</span>
-        </div>
-        
-        <!-- 身分切換/登出可愛下拉選單 -->
-        <Transition name="fade-menu">
-          <div v-if="showUserMenu" class="user-dropdown-menu card-jelly pop-jelly">
-            <button class="menu-item btn-jelly" @click="openAchievements">
-              <Award :size="14" class="menu-icon" /> 🏆 貓咪成就牆
-            </button>
-            <div class="menu-divider"></div>
-            <button class="menu-item btn-jelly" @click="handleLogout">
-              <LogOut :size="14" class="menu-icon" /> 🚪 登出/切換身分
-            </button>
+      <div class="header-left-actions">
+        <div class="user-profile-widget">
+          <div class="avatar-badge btn-jelly" @click="toggleUserMenu">
+            <span class="avatar-emoji">{{ currentProfile?.avatar }}</span>
+            <span class="user-name">{{ currentProfile?.name }}</span>
           </div>
-        </Transition>
+          
+          <!-- 身分切換/登出可愛下拉選單 -->
+          <Transition name="fade-menu">
+            <div v-if="showUserMenu" class="user-dropdown-menu card-jelly pop-jelly">
+              <button class="menu-item btn-jelly" @click="handleLogout">
+                <LogOut :size="14" class="menu-icon" /> 🚪 登出/切換身分
+              </button>
+            </div>
+          </Transition>
+        </div>
+
+        <button class="btn-jelly btn-header-action btn-achievement" @click="openAchievements">
+          <Award :size="14" class="menu-icon" /> 成就
+        </button>
       </div>
 
       <div class="app-logo-cute">
@@ -361,6 +363,12 @@ const isAchievementUnlocked = (id: string) => {
   z-index: 100;
 }
 
+.header-left-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .user-profile-widget {
   position: relative;
 }
@@ -406,10 +414,14 @@ const isAchievementUnlocked = (id: string) => {
   color: var(--color-text-muted);
 }
 
-.menu-divider {
-  height: 1px;
-  background-color: var(--color-border);
-  margin: 6px 2px;
+.btn-header-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px !important;
+  font-size: 13px;
+  font-weight: 800;
+  background-color: #FFFFFF !important;
 }
 
 .app-logo-cute {
@@ -802,7 +814,7 @@ const isAchievementUnlocked = (id: string) => {
 
 /* 🏆 成就按鈕樣式 */
 .btn-achievement {
-  background-color: #FFF2CC !important; /* 軟萌鵝黃 */
+  background-color: #FFF2CC !important;
   color: var(--color-text-dark) !important;
 }
 

@@ -374,6 +374,32 @@ export function useLedger() {
     return `${targetYear}-${finalMonthStr}`
   }
 
+  const getCreditCardAccount = (accountId?: string) => {
+    if (!accountId) return undefined
+    return accounts.value.find(
+      (account): account is Account => account.id === accountId && account.type === 'credit_card'
+    )
+  }
+
+  const getBillPeriodForCard = (cardId: string, dateMs: number = Date.now()) => {
+    const cardAcct = getCreditCardAccount(cardId)
+    if (!cardAcct?.cardDetails) return null
+    return calculateBillPeriod(dateMs, cardAcct.cardDetails.billingCycleDate)
+  }
+
+  const getCreditCardBillPeriod = (tx: Pick<Transaction, 'type' | 'fromAccountId' | 'date' | 'creditCardDetails'>) => {
+    if (tx.type !== 'expense') {
+      return tx.creditCardDetails?.billPeriod || null
+    }
+
+    if (tx.creditCardDetails?.billPeriod) {
+      return tx.creditCardDetails.billPeriod
+    }
+
+    if (!tx.fromAccountId) return null
+    return getBillPeriodForCard(tx.fromAccountId, tx.date)
+  }
+
   // 6. 記帳核心方法
   const addTransaction = async (txData: Omit<Transaction, 'id' | 'createdBy' | 'createdByAvatar'>) => {
     const txId = 'tx_' + Date.now() + Math.random().toString(36).substr(2, 4)
@@ -404,9 +430,14 @@ export function useLedger() {
       }
     }
 
+    const creditCardBillPeriod =
+      txData.type === 'expense' && txData.fromAccountId
+        ? getBillPeriodForCard(txData.fromAccountId, txData.date)
+        : null
+
     // b. 信用卡分期付款處理 (分期各期數明細同樣記名)
     if (txData.type === 'expense' && txData.creditCardDetails?.isInstallment) {
-      const cardAcct = accounts.value.find(a => a.id === txData.fromAccountId)
+      const cardAcct = getCreditCardAccount(txData.fromAccountId)
       if (cardAcct && cardAcct.type === 'credit_card' && cardAcct.cardDetails) {
         const totalAmount = txData.amount
         const T = txData.creditCardDetails.installmentTerm
@@ -467,6 +498,17 @@ export function useLedger() {
       createdByAvatar: creatorAvatar,
       updatedAt: Date.now()
     }
+
+    if (txData.type === 'expense' && creditCardBillPeriod) {
+      newTx.creditCardDetails = {
+        isInstallment: false,
+        installmentTerm: 1,
+        currentInstallment: 1,
+        ...txData.creditCardDetails,
+        billPeriod: creditCardBillPeriod
+      }
+    }
+
     transactions.value.push(newTx)
 
     if (txData.type === 'expense') {
@@ -615,7 +657,7 @@ export function useLedger() {
     if (!cardAcct || cardAcct.type !== 'credit_card' || !bankAcct) return
 
     const billAmount = transactions.value
-      .filter(tx => tx.fromAccountId === cardId && tx.creditCardDetails?.billPeriod === billPeriod)
+      .filter(tx => tx.fromAccountId === cardId && getCreditCardBillPeriod(tx) === billPeriod)
       .reduce((sum, tx) => sum + tx.amount, 0)
 
     if (billAmount <= 0) return
@@ -1059,6 +1101,8 @@ export function useLedger() {
     deleteTransaction,
     editTransaction,
     payCreditCardBill,
+    getBillPeriodForCard,
+    getCreditCardBillPeriod,
     
     addAccount,
     deleteAccount,
