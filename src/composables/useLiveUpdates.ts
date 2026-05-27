@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { Capacitor } from '@capacitor/core'
-import { Filesystem, Directory } from '@capacitor/filesystem'
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem'
 
 const HOT_VERSION_KEY = 'dodo_app_hot_version_code'
 
@@ -79,6 +79,14 @@ export function useLiveUpdates() {
         path: zipFileName,
         data: base64Data,
         directory: Directory.Data
+      })
+
+      // C2. 寫入實體版本指標文字檔，供原生 Android (MainActivity.java) 啟動時作為解壓與載入的依據
+      await Filesystem.writeFile({
+        path: 'current_hot_version.txt',
+        data: newVersionCode.toString(),
+        directory: Directory.Data,
+        encoding: Encoding.UTF8
       })
       
       // D. 更新本地版本指標。下一次開啟 App 時，Webview 就會自動套用新版。
