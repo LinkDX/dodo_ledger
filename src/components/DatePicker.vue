@@ -102,7 +102,6 @@ const handleMonthSelect = (month: number) => {
   isMonthSelectOpen.value = false
 }
 
-const displayHeader = computed(() => `${state.value.y} 年 ${state.value.m} 月`)
 
 const isToday = (d: number | null) => {
   if (!d) return false
@@ -161,7 +160,7 @@ onUnmounted(() => {
                 @click.stop="isYearSelectOpen = !isYearSelectOpen; isMonthSelectOpen = false"
                 type="button"
               >
-                {{ state.y }} 年
+                {{ state.y }}年
               </button>
               <Transition name="fade-popover">
                 <div v-if="isYearSelectOpen" class="custom-select-dropdown card-jelly">
@@ -173,7 +172,7 @@ onUnmounted(() => {
                     @click="handleYearSelect(year)"
                     type="button"
                   >
-                    {{ year }} 年
+                    {{ year }}年
                   </button>
                 </div>
               </Transition>
@@ -186,7 +185,7 @@ onUnmounted(() => {
                 @click.stop="isMonthSelectOpen = !isMonthSelectOpen; isYearSelectOpen = false"
                 type="button"
               >
-                {{ state.m }} 月
+                {{ state.m }}月
               </button>
               <Transition name="fade-popover">
                 <div v-if="isMonthSelectOpen" class="custom-select-dropdown card-jelly month-dropdown">
@@ -198,7 +197,7 @@ onUnmounted(() => {
                     @click="handleMonthSelect(month)"
                     type="button"
                   >
-                    {{ month }} 月
+                    {{ month }}月
                   </button>
                 </div>
               </Transition>

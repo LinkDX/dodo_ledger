@@ -708,7 +708,7 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
   inset: 0;
   background: rgba(44, 30, 27, 0.45);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   z-index: 200;
   padding: 20px;

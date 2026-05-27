@@ -43,16 +43,7 @@ const catMiau = computed(() => {
 
 <template>
   <div class="dodo-cat-container cat-wiggle">
-    <!-- 可愛手繪風對話泡泡 (Speech Bubble) -->
-    <Transition name="bubble-fade">
-      <div v-if="speech" class="speech-bubble pop-jelly">
-        <p class="speech-text">{{ speech }}</p>
-        <p class="cat-signature">{{ catMiau }}</p>
-        <div class="speech-arrow"></div>
-      </div>
-    </Transition>
-
-    <!-- 逗逗貓核心 SVG 圖示 -->
+    <!-- 1. 逗逗貓核心 SVG 圖示 (在左邊) -->
     <div class="cat-svg-wrapper" :class="{ 'cat-jelly-active': isJellyActive }" @click="handlePetClick">
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -192,7 +183,7 @@ const catMiau = computed(() => {
           <path d="M 70 107 Q 78 112 85 107" fill="none" stroke="#2C1E1B" stroke-width="4.5" stroke-linecap="round" />
           <path d="M 115 107 Q 122 112 130 107" fill="none" stroke="#2C1E1B" stroke-width="4.5" stroke-linecap="round" />
           <!-- W 嘴巴 -->
-          <path d="M 95 118 Q 100 122 100 118 Q 100 122 105 118" fill="none" stroke="#2C1E1B" stroke-width="4" stroke-linecap="round" />
+          <path d="M 95 118 Q 100 122 100 118 Q 100 122 105 118" fill="none" stroke="#2C1E1B" stroke-width="4.5" stroke-linecap="round" />
         </g>
 
         <!-- 貓鼻子 (倒三角) -->
@@ -209,19 +200,28 @@ const catMiau = computed(() => {
         <path d="M 100 67 L 100 80" stroke="#2C1E1B" stroke-width="4.5" stroke-linecap="round" />
         <path d="M 106 67 L 106 77" stroke="#2C1E1B" stroke-width="4.5" stroke-linecap="round" />
       </svg>
+
+      <!-- 逗逗貓的小道具：玩毛線球 (僅在 happy 時顯示，固定在貓咪左下角) -->
+      <Transition name="bubble-fade">
+        <div v-if="mood === 'happy'" class="yarn-ball-container">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" class="yarn-svg">
+            <circle cx="20" cy="20" r="14" fill="#FFB4B4" stroke="#2C1E1B" stroke-width="3" />
+            <path d="M 12 12 Q 20 22 28 28" fill="none" stroke="#2C1E1B" stroke-width="2.5" />
+            <path d="M 10 24 Q 22 18 30 10" fill="none" stroke="#2C1E1B" stroke-width="2.5" />
+            <path d="M 20 6 Q 14 20 22 34" fill="none" stroke="#2C1E1B" stroke-width="2.5" />
+            <!-- 散落的毛線頭 -->
+            <path d="M 30 30 C 35 32, 28 38, 36 38" fill="none" stroke="#2C1E1B" stroke-width="2" stroke-linecap="round" />
+          </svg>
+        </div>
+      </Transition>
     </div>
 
-    <!-- 逗逗貓的小道具：玩毛線球 (僅在 happy 時顯示) -->
+    <!-- 2. 可愛手繪風對話泡泡 (Speech Bubble) (在右邊) -->
     <Transition name="bubble-fade">
-      <div v-if="mood === 'happy'" class="yarn-ball-container">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" class="yarn-svg">
-          <circle cx="20" cy="20" r="14" fill="#FFB4B4" stroke="#2C1E1B" stroke-width="3" />
-          <path d="M 12 12 Q 20 22 28 28" fill="none" stroke="#2C1E1B" stroke-width="2.5" />
-          <path d="M 10 24 Q 22 18 30 10" fill="none" stroke="#2C1E1B" stroke-width="2.5" />
-          <path d="M 20 6 Q 14 20 22 34" fill="none" stroke="#2C1E1B" stroke-width="2.5" />
-          <!-- 散落的毛線頭 -->
-          <path d="M 30 30 C 35 32, 28 38, 36 38" fill="none" stroke="#2C1E1B" stroke-width="2" stroke-linecap="round" />
-        </svg>
+      <div v-if="speech" class="speech-bubble pop-jelly">
+        <p class="speech-text">{{ speech }}</p>
+        <p class="cat-signature">{{ catMiau }}</p>
+        <div class="speech-arrow"></div>
       </div>
     </Transition>
   </div>
@@ -230,13 +230,15 @@ const catMiau = computed(() => {
 <style scoped>
 .dodo-cat-container {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
+  flex-direction: row; /* 水平排列：貓在左，氣泡在右 */
+  align-items: flex-end; /* 底部對齊 */
+  justify-content: center; /* 在大卡片內整體居中 */
+  gap: 20px; /* 貓咪與氣泡的水平安全間距，絕不重疊 */
   position: relative;
   width: 100%;
-  height: 190px;
-  transform: translateX(-40px); /* 貓咪往左平移，與右側對話框共同居中 */
+  height: 100%;
+  padding-bottom: 24px; /* 留出底部給貓咪陰影與毛線球 */
+  box-sizing: border-box;
 }
 
 .cat-svg-wrapper {
@@ -248,6 +250,7 @@ const catMiau = computed(() => {
   position: relative;
   z-index: 10;
   cursor: pointer;
+  flex-shrink: 0; /* 防止貓咪被擠壓變形 */
   transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
@@ -271,11 +274,11 @@ const catMiau = computed(() => {
   height: 100%;
 }
 
-/* 療癒毛線球擺放 */
+/* 療癒毛線球擺放 (完美靠在貓咪左下角) */
 .yarn-ball-container {
   position: absolute;
-  bottom: 0px;
-  right: 110px;
+  bottom: -4px;
+  left: -12px;
   width: 36px;
   height: 36px;
   z-index: 15;
@@ -299,20 +302,22 @@ const catMiau = computed(() => {
 
 /* 手繪對話泡泡樣式 (方案 B: 側邊漫畫旁白氣泡) */
 .speech-bubble {
-  position: absolute;
-  left: 145px; /* 定位在貓咪右側 */
-  bottom: 24px; /* 與貓咪身體並排，低於貓咪頭頂 */
+  position: relative; /* 改為相對定位，成為 Flex item */
+  margin-bottom: 48px; /* 向上提，精準避開底部的餵食互動按鈕 */
   background-color: #FFFFFF;
   border: var(--border-width) solid var(--color-border);
   border-radius: 18px;
   padding: 10px 14px;
-  width: 165px; /* 固定的精緻寬度，防止超出 */
+  flex: 1; /* 彈性寬度 */
+  max-width: 180px; /* 限制最大寬度，在大螢幕也精緻 */
+  min-width: 120px; /* 限制最小寬度，在小螢幕也能正常顯示 */
   box-shadow: var(--shadow-jelly-sm);
   z-index: 20;
+  word-wrap: break-word;
 }
 
 .speech-text {
-  font-size: 13px; /* 稍微調小字體以適應寬度 */
+  font-size: 13px;
   font-weight: 700;
   line-height: 1.4;
   color: var(--color-text-dark);

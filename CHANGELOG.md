@@ -18,9 +18,15 @@
 - **記帳編輯 Modal 超出畫面修復 (Transaction Overlay Scroll Fix)**：
   - 重構 `TransactionList.vue` 中的交易編輯 Modal 樣式，將 Overlay 設為 `align-items: flex-start` 與 `overflow-y: auto`。
   - 將 Card 改為置中 `margin: auto 0` 且賦予完整四邊圓角，完美解決小螢幕或手機上高度超出、儲存按鈕被遮擋且無法滾動的問題。
-- **首頁 Mascot 遮擋與對話框調整**：
-  - 為 `Dashboard.vue` 的頂部 `.dashboard-header` 加入 `z-index: 100`，確保帳號、頭像與標題在任何寬度下都渲染在最上層，不再被氣泡蓋住。
-  - 將 `DodoCat.vue` 中的 speech bubble `bottom` 調降至 `132px`，縮小與貓咪頭頂的間距以增加凝聚力，並預留頂部安全高度。
+- **首頁 Mascot 佈局與氣泡遮擋完美根治 (Flex 物理排列)**：
+  - 徹底重構 `DodoCat.vue` 的 DOM 與 CSS 結構，將原本的絕對定位佈局改為健全的 CSS Flexbox 物理排列（`flex-direction: row`）。
+  - 將貓咪固定放置於左側（`flex-shrink: 0` 防止受擠壓變形），可愛的手繪對話泡泡置於右側，利用 `gap: 20px` 以及彈性寬度限制（`flex: 1; max-width: 180px; min-width: 120px`），從物理層面**徹底根除對話框蓋住貓咪的 Overlapping 缺陷**！
+  - 將玩毛線球的小道具 (`yarn-ball-container`) 移動至貓咪 SVG 容器內部，使其定位與貓咪完全綁定，不論氣泡是否出現，毛線球都永遠緊緊靠在貓咪左下腳，不再發生貓咪移動而毛線球留在原地分離的 bug。
+  - 修復了 CSS 結尾處存在的 `.bubble-fad` 語法截斷錯誤，並將 `DatePicker.vue` 中未使用的 `displayHeader` 變數移除，使專案完全無警告順暢通過生產環境編譯（`vue-tsc -b && vite build`）。
+- **記帳 DatePicker 年份折行問題修正**：
+  - 去除 `DatePicker.vue` 中年份按鈕 label（`{{ year }}年`）及月份按鈕 label（`{{ month }}月`）裡的多餘空格，徹底杜絕瀏覽器在小螢幕空間受限時於空格處自動折行成兩行的瑕疵，確保年份永遠完美呈現在單行。
+- **記帳編輯 Modal 垂直居中對齊優化**：
+  - 將 `TransactionList.vue` 的編輯 Modal Overlay 修改為 `align-items: center`，使編輯明細彈窗在垂直與水平方向皆能完美居中對齊，徹底消除在交易明細偏少、畫面無法撐滿時彈窗出現折痕或布局異常，與錢包的新增卡片彈窗風格達到極致的視覺統一。
 - **高級管理員彩蛋與版本資訊**：
   - 於設定頁最下方放置 App (v1.0.0) 與 Web (v1.9.3) 版號。連點 5 次 `Web Version` 觸發解鎖神祕彩蛋，開啟華麗金棕色漸層的「逗逗貓超高級管理介面」。
   - 普通模式下會自動隱藏「雲端備份防護」與「安全防護門禁」卡片，解鎖後它們會顯示於管理介面中，並內建全新的 **「Dodo Cat 系統稽核日誌檢視器」**，支援手動更新與時間倒序的操作日誌滾動列表。
