@@ -27,6 +27,24 @@ const {
   lockApp 
 } = useAppLock()
 
+// ─── 熱更新引擎實時監控 ───
+import { Capacitor } from '@capacitor/core'
+import { useLiveUpdates } from '../composables/useLiveUpdates'
+
+const {
+  isChecking: isHotChecking,
+  updateProgress: hotUpdateProgress,
+  hasUpdate: hasHotUpdate,
+  checkForUpdates: runHotUpdateCheck
+} = useLiveUpdates()
+
+const localHotVersion = ref(localStorage.getItem('dodo_app_hot_version_code') || '100')
+
+const handleManualHotUpdate = async () => {
+  await runHotUpdateCheck()
+  localHotVersion.value = localStorage.getItem('dodo_app_hot_version_code') || '100'
+}
+
 // ─── 版本資訊與進階管理員彩蛋 ───
 const appVersion = '1.0.0'
 const webVersion = '1.9.3'
@@ -223,6 +241,66 @@ const formatCurrency = (val: number) => {
         <div class="admin-panel-header">
           <h2 class="admin-title">🐾 逗逗貓超高級管理介面 🐾</h2>
           <p class="admin-subtitle">此處為系統最高權限稽核管理中心，僅限超級管理貓咪使用！🐾</p>
+        </div>
+
+        <!-- 📡 逗逗貓自建熱更新監控閣 -->
+        <div class="settings-box card-jelly" style="background-color: #FFFDF9 !important;">
+          <h3 class="box-title" style="color: var(--color-text-dark); margin-bottom: 6px;">
+            📡 逗逗貓自建熱更新監控閣
+          </h3>
+          <p style="font-size: 11px; color: var(--color-text-muted); margin-bottom: 12px;">
+            實時監控 Android 行動裝置的自建雙緩衝熱更新引擎狀態，確保金庫資源與雲端 100% 同步。
+          </p>
+
+          <div class="update-monitor-grid">
+            <div class="monitor-item">
+              <span class="monitor-label">連線狀態：</span>
+              <span class="monitor-value status-online">🟢 正常連線至 linkdx.github.io</span>
+            </div>
+            <div class="monitor-item">
+              <span class="monitor-label">本地熱更新版號：</span>
+              <span class="monitor-value code-value">Code {{ localHotVersion }}</span>
+            </div>
+            <div class="monitor-item">
+              <span class="monitor-label">當前加載平台：</span>
+              <span class="monitor-value code-value">{{ Capacitor.isNativePlatform() ? '📱 Android 原生沙盒 WebView' : '💻 桌面瀏覽器 (Web Mode)' }}</span>
+            </div>
+            
+            <!-- 實時狀態 -->
+            <div class="monitor-status-box pop-jelly">
+              <p class="status-msg">
+                <span v-if="isHotChecking">🔍 正在與雲端伺服器對帳比對中，請稍候...</span>
+                <span v-else-if="hotUpdateProgress > 0 && hotUpdateProgress < 100">
+                  📥 正在背景默默下載最新網頁包：{{ hotUpdateProgress }}%
+                </span>
+                <span v-else-if="hotUpdateProgress === 100">
+                  🎉 下載成功！熱更新套件已布署，請徹底「關閉 App 重開」以套用新版！🐾
+                </span>
+                <span v-else-if="hasHotUpdate">
+                  ✨ 發現有可更新的網頁包，正在準備背景下載...
+                </span>
+                <span v-else>
+                  🐱 已加載本地最新金庫版本，安全無虞！
+                </span>
+              </p>
+              
+              <!-- 進度條 -->
+              <div v-if="hotUpdateProgress > 0 && hotUpdateProgress < 100" class="update-progress-bar-bg">
+                <div class="update-progress-bar-fill" :style="{ width: hotUpdateProgress + '%' }"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="monitor-actions-row">
+            <button 
+              class="btn-jelly btn-action btn-check-update" 
+              :disabled="isHotChecking || (hotUpdateProgress > 0 && hotUpdateProgress < 100)"
+              @click="handleManualHotUpdate"
+              type="button"
+            >
+              {{ isHotChecking ? '正在對帳...' : '🐾 手動檢查並下載更新' }}
+            </button>
+          </div>
         </div>
 
         <!-- 移過來的卡片 1: Firebase 雲端備份防護 -->
@@ -565,6 +643,102 @@ const formatCurrency = (val: number) => {
 
 .btn-change-avatar:hover {
   background-color: #FFFFFF !important;
+}
+
+/* ========== 熱更新監控閣樣式 ========== */
+.update-monitor-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background-color: var(--color-bg-warm);
+  padding: 12px;
+  border-radius: var(--border-radius-md);
+  border: 1.5px solid var(--color-border);
+  margin-bottom: 12px;
+}
+
+.monitor-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.monitor-label {
+  color: var(--color-text-muted);
+}
+
+.monitor-value {
+  color: var(--color-text-dark);
+}
+
+.monitor-value.status-online {
+  color: #2EB086;
+  font-weight: 800;
+}
+
+.monitor-value.code-value {
+  background-color: #FFFFFF;
+  border: 1px solid var(--color-border);
+  padding: 2px 6px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.monitor-status-box {
+  background-color: #FFFFFF;
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--border-radius-sm);
+  padding: 10px;
+  margin-top: 6px;
+  text-align: center;
+}
+
+.status-msg {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--color-text-dark);
+  margin: 0;
+}
+
+.update-progress-bar-bg {
+  width: 100%;
+  height: 8px;
+  background-color: var(--color-bg-warm);
+  border: 1.5px solid var(--color-border);
+  border-radius: 4px;
+  margin-top: 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+.update-progress-bar-fill {
+  height: 100%;
+  background-color: var(--color-income);
+  transition: width 0.1s linear;
+}
+
+.monitor-actions-row {
+  display: flex;
+  justify-content: center;
+}
+
+.btn-check-update {
+  width: 100%;
+  padding: 8px 12px !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  background-color: var(--color-accent-gold) !important;
+  box-shadow: var(--shadow-jelly-sm) !important;
+}
+
+.btn-check-update:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: 1px 1px 0px 0px #2C1E1B !important;
 }
 .settings-page {
   padding: 16px;
