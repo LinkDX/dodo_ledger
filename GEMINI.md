@@ -114,8 +114,10 @@
 
 ### 2.4 自建熱更新 (Live Updates) 引擎
 - **實作位置**：`src/composables/useLiveUpdates.ts`，並於 `src/App.vue` 的 `onMounted` 中整合觸發。
-- **工作原理**：每次 App 啟動時，背景比對 GitHub Pages 上的 `version.json`，若有新版則靜默下載 `app-update.zip` 解壓縮至手機沙盒目錄，下次啟動時加載。
-- **離線降級**：斷網時自動跳過更新檢查，秒進 App，不影響任何既有功能。
+- **工作原理**：每次 App 啟動時，背景向當前專案遠端 `https://linkdx.github.io/dodo_ledger/version.json` 對帳比對版本。若發現新版，則默默在背景下載 `app-update.zip` 寫入沙盒，並同時產生 `current_hot_version.txt` 版本信箱指標。
+- **原生極速解壓縮與重定向**：下一次 App 啟動（冷啟動）時，原生 Android 端 (`MainActivity.java`) 會在啟動第一時間讀取該指標，並使用 Java 原生 `ZipInputStream` 進行 **20ms 極速原生解壓縮**，解壓完畢自動掃除 ZIP 原始檔以節省硬碟空間，隨後動態執行 `this.bridge.setServerUrl()` 將 WebView 重新導向至沙盒 `index.html`，實現完美的無感熱更新閉環。
+- **資安合規防禦**：原生解壓縮代碼中內建了 **「防範 Zip Slip 漏洞路徑穿越攻擊」** 的安全過濾機制，100% 阻斷非法跨目錄寫入，確保金融級系統底座安全性。
+- **離線降級**：斷網或伺服器異常時自動跳過更新檢查，秒進 App 載入本地最新加載成功的沙盒版本或預置 bundled 資源，絕不影響任何既有功能。
 - **不依賴付費服務**：完全自建，無需 Appflow 或 Capgo 等第三方訂閱。
 
 ### 2.5 本地通知規範

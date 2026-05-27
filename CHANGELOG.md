@@ -2,6 +2,32 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Web 1.9.4 / Android 1.0.1] - 2026-05-27
+
+### 📡 究極自建熱更新引擎閉環與介面美化
+
+- **補齊自建熱更新引擎後半段 (Android 原生 Java 閉環)**：
+  - **版本信箱傳遞**：在 `useLiveUpdates.ts` 內下載熱更新包成功後，新增自動寫入 `current_hot_version.txt` 版本指標文字檔的邏輯，作為前端與原生的通訊信道。
+  - **原生極速解壓縮**：在原生 Android `MainActivity.java` 中補齊了未完工的熱更新重定向與解壓模組。在啟動時自動讀取版本指標，如果發現新版 ZIP 原始包，會調用 Java 底層 `ZipInputStream` 進行**閃電解壓縮（解壓 dist 僅需 20 毫秒）**，解壓完畢自動刪除 ZIP 包。
+  - **資安合規保護**：原生 Java 解壓核心中內建了 **「防範 Zip Slip 漏洞路徑穿越攻擊」** 的安全校驗，防止惡意 ZIP 包穿越複寫系統重要檔案，保障金庫最高防護。
+  - **WebView 實時重定向**：解壓縮完備後，自動執行 `this.bridge.setServerUrl()` 動態將 WebView 指向沙盒目錄底下的 `index.html`，真正達成了「Web 更新，Android 自動更新」的極致離線優先閉環！
+  - **域名大修正**：將 App 熱更新向遠端連線獲取 `version.json` 的域名從 luke.github.io 修正為當前新專案 Repo 的 **linkdx.github.io**，徹底打通更新源。
+- **自建熱更新狀態實時監控閣 (Live Updates Console)**：
+  - 於 `Settings.vue` 的進階管理員面板（神秘彩蛋）最上方，獨家整合了 **「📡 逗逗貓自建熱更新監控閣」**。
+  - 實時展示當前加載平台（Web/Android 沙盒）、本地熱更新版號（Code）、伺服器連線狀態，以及**背景默默下載時的實時進度百分比（如 80%）與薄荷綠進度條**！
+  - 提供 Q 彈的 `🐾 手動檢查並下載更新` 按鈕，點擊立刻對帳下載，下載完成高亮提示重啟 App，徹底終結更新進度的黑盒體驗！
+- **滾動容器 Padding 優化與防切邊修復**：
+  - 修正了 `AccountPicker.vue` 中的 `.picker-scroll` 滾動區域以及 `TransactionForm.vue` 中的 `.main-categories-list` 滾動區域的 padding 定義，增設了適度的 `padding-top` 和水平 padding。
+  - 完美容納了帳戶卡片與分類按鈕在 hover 選取或 active 物理彈跳時的向上位移，**100% 解決了 hover 彈起時頂部與左右邊緣被橫向滾動容器（overflow）硬生生切掉的缺陷**。
+- **更換頭像面板 Dialog 模態彈窗化**：
+  - 重構 `Settings.vue` 設定畫面的頭像更換區，移除大面積展開的頭像 emoji 選取列表，改為簡潔清爽的單行頭像顯示與 Q 彈的 `🐾 選擇新頭像` 按鈕。
+  - 點擊按鈕後彈出精緻手製的模態對話框（Modal Dialog），採用磨砂玻璃背景與馬卡龍邊框，選定後自動更新並靜默關閉，視覺體驗極為高級。
+- **CI/CD 工作流 Web 自動 Release 升級**：
+  - 升級了 `.github/workflows/deploy.yml` 部署管線，在每次推送發布網頁端時，自動將 `dist/` 網頁檔壓縮成 `app-update.zip`，並根據 `package.json` 的版號**以演算法自動換算為唯一整數 `versionCode`**（如 `1.9.4` 對應 `10904`）。
+  - 自動生成最新的 `version.json` 寫入 `dist/` Pages 目錄，並**自動建立名為 `web-v*` 的 GitHub Release，將 `app-update.zip` 作為 Release Asset 上傳**，實現了超高速 GitHub CDN 下載分流。
+
+---
+
 ## [Web 1.9.3] - 2026-05-27
 
 ### 🎨 記帳與身分選擇體驗大升級

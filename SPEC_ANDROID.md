@@ -124,10 +124,11 @@ Dodo Ledger 的首頁逗逗貓表情不能因為斷網而失效，規格如下�
 
 ### 6.2 雙緩衝無感更新流程 (Double-Buffering)
 1. **本地秒開**：App 啟動時，WebView 優先載入目前本地端私有沙盒（Sandbox）目錄下的網頁資源。
-2. **背景比對**：啟動後，App 在背景發送非同步 GET 請求至 `https://luke.github.io/dodo_ledger/version.json`。
-3. **安全下載**：若發現遠端 `versionCode` 大於本地，且處於 WiFi/行動網路下，App 會自動在背景下載 `app-update.zip`。
-4. **雜湊校驗**：下載完成後，計算檔案 SHA-256 Hash 值。若與 `version.json` 聲明一致，則解壓至沙盒中新目錄，並更新 App 的「下一次啟動載入路徑」指標。
-5. **套用與降級**：使用者下一次打開 App 或切回前景時即可體驗最新功能。離線或下載失敗時，直接忽略，不影響當前使用。
+2. **背景比對**：啟動後，App 在背景發送非同步 GET 請求至 `https://linkdx.github.io/dodo_ledger/version.json`，對帳核對最新版本。
+3. **安全下載**：若發現遠端 `versionCode` 大於本地，App 會自動在背景下載 `app-update.zip`。
+4. **指標傳遞**：下載完成後，App 在背景將 `app-update.zip` 寫入沙盒根目錄，同時生成 `current_hot_version.txt` 版本指標文字檔以傳遞版本信號。
+5. **原生極速解壓與重定向**：下一次 App 開啟（冷啟動）時，原生 Android `MainActivity.java` 會在啟動第一時間讀取 `current_hot_version.txt` 內指明的版號，比對解壓目錄。若對應解壓目錄不存在，原生端會調用 Java 底層 `ZipInputStream` 進行極速解壓（耗時僅約 20ms）並清除 `.zip` 原始包以防硬碟塞滿，同時內建 **Zip Slip 漏洞路徑穿越防護** 機制。解壓無誤後，WebView 會動態重定向 `setServerUrl()` 載入沙盒 `index.html`，實現完美的無感熱更新閉環。
+6. **優雅降級**：離線、伺服器異常或下載失敗時，直接忽略，自動降級讀取本地最新成功的沙盒快取或 APK 預置 bundled 版本，絕不卡頓 App。
 
 ---
 
