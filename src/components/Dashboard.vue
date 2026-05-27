@@ -27,6 +27,7 @@ const {
   budgetRatio,
   dodoCatMood,
   dodoCatSpeech,
+  catProfile,
   interactWithCat
 } = useLedger()
 
@@ -90,15 +91,42 @@ const getTxAmountStyle = (tx: any) => {
 
     <!-- 1. 🐱 逗逗貓療癒生活看板 (最上方 30-40% 畫面高) -->
     <div class="mascot-board card-jelly">
+      <!-- 貓咪等級與精力狀態列 -->
+      <div v-if="catProfile" class="cat-status-overlay pop-jelly">
+        <div class="level-badge">Lv.{{ catProfile.level }}</div>
+        <div class="status-bars">
+          <div class="energy-bar">
+            <div class="bar-label">精力 {{ catProfile.energy.current }}/{{ catProfile.energy.max }}</div>
+            <div class="bar-track">
+              <div class="bar-fill energy-fill" :style="{ width: `${(catProfile.energy.current / catProfile.energy.max) * 100}%` }"></div>
+            </div>
+          </div>
+          <div class="xp-bar">
+            <div class="bar-label">XP {{ catProfile.currentXP }}/{{ catProfile.maxXP }}</div>
+            <div class="bar-track">
+              <div class="bar-fill xp-fill" :style="{ width: `${(catProfile.currentXP / catProfile.maxXP) * 100}%` }"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <DodoCat :mood="dodoCatMood" :speech="dodoCatSpeech" @pet="interactWithCat('pet')" />
       
       <!-- 🐾 逗逗貓趣味互動餵食箱 -->
       <div class="cat-interaction-bar pop-jelly">
-        <button class="btn-interact btn-jelly" @click="interactWithCat('feed_fish')">
-          🐟 餵魚乾
+        <button 
+          class="btn-interact btn-jelly" 
+          :class="{ 'btn-disabled': catProfile && catProfile.energy.current < 3 }"
+          @click="interactWithCat('feed_fish')"
+        >
+          🐟 餵魚乾 <span class="cost-tag">-3</span>
         </button>
-        <button class="btn-interact btn-jelly" @click="interactWithCat('feed_can')">
-          🥫 餵罐罐
+        <button 
+          class="btn-interact btn-jelly" 
+          :class="{ 'btn-disabled': catProfile && catProfile.energy.current < 5 }"
+          @click="interactWithCat('feed_can')"
+        >
+          🥫 餵罐罐 <span class="cost-tag">-5</span>
         </button>
       </div>
     </div>
@@ -320,6 +348,79 @@ const getTxAmountStyle = (tx: any) => {
   display: flex;
   gap: 4px;
   z-index: 30;
+}
+
+/* 🐾 貓咪狀態疊加層 */
+.cat-status-overlay {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: rgba(255, 255, 255, 0.8);
+  padding: 6px 10px;
+  border-radius: 12px;
+  border: 1.5px solid var(--color-border);
+  z-index: 30;
+  backdrop-filter: blur(4px);
+}
+
+.level-badge {
+  background-color: var(--color-accent-gold);
+  color: var(--color-text-dark);
+  font-weight: 800;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 8px;
+  border: 1.5px solid var(--color-border);
+}
+
+.status-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 80px;
+}
+
+.bar-label {
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--color-text-muted);
+  line-height: 1;
+  display: flex;
+  justify-content: space-between;
+}
+
+.bar-track {
+  height: 6px;
+  background-color: #E0E0E0;
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease-out;
+}
+
+.energy-fill { background-color: var(--color-income); }
+.xp-fill { background-color: #C3B1E1; } /* 薰衣草紫 */
+
+.cost-tag {
+  font-size: 10px;
+  background-color: rgba(0,0,0,0.1);
+  padding: 0px 4px;
+  border-radius: 4px;
+  margin-left: 2px;
+}
+
+.btn-disabled {
+  opacity: 0.5;
+  filter: grayscale(0.8);
+  cursor: not-allowed;
 }
 
 .btn-interact {

@@ -211,3 +211,13 @@
 - **密碼一致性**：App 進入密碼、Android 金鑰密碼、GitHub Secret `DODO_SIGNING_PASSWORD` 三者刻意設為同一值，降低管理複雜度。
 - **`npm run prepare` 的金鑰重建邏輯**：若偵測到密碼變更或金鑰缺失，自動備份舊金鑰並用新密碼重新產生 `dodo-shared.keystore`，確保金鑰與密碼永遠同步一致。
 
+### 3.5 CHANGELOG 撰寫規範
+- **版本號標題格式**：應根據修改範圍決定標題內容，嚴格遵循以下格式：
+  - **僅網頁端更新**：`## [Web X.Y.Z] - YYYY-MM-DD`
+  - **僅行動端更新**：`## [Android A.B.C / Build N] - YYYY-MM-DD`
+  - **雙端同步更新**：`## [Web X.Y.Z / Android A.B.C / Build N] - YYYY-MM-DD`
+- **判定原則**：
+  - 若修改涉及 `src/`、`public/` 或 `package.json`（Web 版本號），則必須包含 **Web** 標籤。
+  - 若修改涉及 `android/`、`capacitor.config.ts` 或 `android-version.json`（Android 版本號/Build），則必須包含 **Android** 標籤。
+  - 若純粹是邏輯更新（如本次的貓咪系統）且同時推動了 Web 與 Android 的版本號更新，則使用「雙端同步更新」格式。
+

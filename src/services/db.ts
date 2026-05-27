@@ -1,6 +1,6 @@
-import type { Account, Transaction, RecurringTransaction, UserProfile, SystemLog, Category } from '../types'
+import type { Account, Transaction, RecurringTransaction, UserProfile, SystemLog, Category, DodoCatProfile } from '../types'
 import { initializeApp } from 'firebase/app'
-import { doc, collection, getDocs, writeBatch, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore'
+import { doc, collection, getDocs, getDoc, setDoc, writeBatch, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore'
 import { FIREBASE_CONFIG } from '../config/firebase'
 
 // 1. 抽象資料庫服務介面 (多人共同記帳模型，維護同一個資產紀錄)
@@ -22,6 +22,10 @@ export interface DatabaseService {
 
   getLogs(): Promise<SystemLog[]>;
   saveLogs(logs: SystemLog[]): Promise<void>;
+
+  // 🐱 逗逗貓專用 (User 獨立)
+  getCatProfile(userId: string): Promise<DodoCatProfile | null>;
+  saveCatProfile(userId: string, profile: DodoCatProfile): Promise<void>;
 }
 
 
@@ -33,6 +37,7 @@ export class MockDatabaseService implements DatabaseService {
   private CATEGORIES_KEY = 'dodo_ledger_shared_categories'
   private PROFILES_KEY = 'dodo_ledger_shared_profiles'
   private LOGS_KEY = 'dodo_ledger_shared_logs'
+  private CAT_PROFILE_PREFIX = 'dodo_ledger_cat_profile_'
 
   private readKey<T>(key: string): T[] {
     if (typeof localStorage === 'undefined') return []
@@ -63,6 +68,15 @@ export class MockDatabaseService implements DatabaseService {
 
   async getLogs(): Promise<SystemLog[]> { return this.readKey(this.LOGS_KEY) }
   async saveLogs(logs: SystemLog[]): Promise<void> { this.writeKey(this.LOGS_KEY, logs) }
+
+  async getCatProfile(userId: string): Promise<DodoCatProfile | null> {
+    const data = localStorage.getItem(this.CAT_PROFILE_PREFIX + userId)
+    if (!data) return null
+    try { return JSON.parse(data) } catch { return null }
+  }
+  async saveCatProfile(userId: string, profile: DodoCatProfile): Promise<void> {
+    localStorage.setItem(this.CAT_PROFILE_PREFIX + userId, JSON.stringify(profile))
+  }
 }
 
 // 工具函式：遞迴移除所有 undefined 欄位，避免 Firestore 拒絕寫入
@@ -170,6 +184,26 @@ export class FirestoreDatabaseService implements DatabaseService {
 
   async getLogs(): Promise<SystemLog[]> { return this.readCollection('logs') }
   async saveLogs(logs: SystemLog[]): Promise<void> { await this.writeCollection('logs', logs) }
+
+  async getCatProfile(userId: string): Promise<DodoCatProfile | null> {
+    try {
+      const docRef = doc(this.col('catProfiles'), userId)
+      const snap = await getDoc(docRef)
+      return snap.exists() ? snap.data() as DodoCatProfile : null
+    } catch (e) {
+      console.error(`[Dodo Ledger] 讀取貓咪設定檔失敗 (userId: ${userId})：`, e)
+      return null
+    }
+  }
+
+  async saveCatProfile(userId: string, profile: DodoCatProfile): Promise<void> {
+    try {
+      const docRef = doc(this.col('catProfiles'), userId)
+      await setDoc(docRef, stripUndefined(profile))
+    } catch (e) {
+      console.error(`[Dodo Ledger] 儲存貓咪設定檔失敗 (userId: ${userId})：`, e)
+    }
+  }
 }
 
 // 4. 自動連線與資料庫選擇核心

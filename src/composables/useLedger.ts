@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import type { Account, Transaction, RecurringTransaction, CatMood, Category } from '../types'
+import type { Account, Transaction, RecurringTransaction, CatMood, Category, DodoCatProfile } from '../types'
 import { useAuth } from './useAuth'
 import { getDatabaseService, addSystemLog } from '../services/db'
 import { DEFAULT_CATEGORIES } from './useAuth'
@@ -12,10 +12,35 @@ const categories = ref<Category[]>([])
 const triggeredReports = ref<string[]>([]) // 逗逗貓待報告的週期記帳清單
 const isDataLoaded = ref(false)
 
-// 🐱 逗逗貓臨時互動狀態
+// 🐱 逗逗貓核心狀態
+const catProfile = ref<DodoCatProfile | null>(null)
 const temporaryMood = ref<CatMood | null>(null)
 const temporarySpeech = ref<string | null>(null)
 let interactionTimeoutId: any = null
+let lastInteractTimestamp = 0 // 防連點
+
+// 預設貓咪狀態
+const DEFAULT_CAT_PROFILE: DodoCatProfile = {
+  level: 1,
+  currentXP: 0,
+  maxXP: 100,
+  energy: {
+    current: 10,
+    max: 10,
+    lastRefillAt: Date.now()
+  },
+  stats: {
+    totalPets: 0,
+    totalFeeds: 0,
+    totalFish: 0,
+    totalCans: 0,
+    streakDays: 0,
+    lastInteractDate: '',
+    dailyRecoveryCount: 0,
+    lastRecoveryDate: ''
+  },
+  unlockedAchievementIds: []
+}
 
 export function useLedger() {
   const { currentProfile } = useAuth()
@@ -24,12 +49,14 @@ export function useLedger() {
   // 1. 📂 顯式資料載入方法
   const loadLedgerData = async () => {
     isDataLoaded.value = false
+    const userId = currentProfile.value?.id || 'default_user'
     
-    const [accts, txs, recs, cats] = await Promise.all([
+    const [accts, txs, recs, cats, catProf] = await Promise.all([
       db.getAccounts(),
       db.getTransactions(),
       db.getRecurring(),
-      db.getCategories()
+      db.getCategories(),
+      db.getCatProfile(userId)
     ])
 
     accounts.value = accts
@@ -44,10 +71,41 @@ export function useLedger() {
       categories.value = cats
     }
 
+    // 貓咪狀態處理
+    if (!catProf) {
+      catProfile.value = JSON.parse(JSON.stringify(DEFAULT_CAT_PROFILE))
+      await db.saveCatProfile(userId, catProfile.value!)
+    } else {
+      catProfile.value = catProf
+      // 執行自然恢復精力檢查
+      checkNaturalEnergyRecovery()
+    }
+
     isDataLoaded.value = true
     
     // 觸發週期性自動記帳的 Lazy-check
     await checkAndTriggerRecurring()
+  }
+
+  // 1.1 精力自然恢復邏輯 (每 30 分鐘 1 點)
+  const checkNaturalEnergyRecovery = () => {
+    if (!catProfile.value) return
+    const now = Date.now()
+    const lastRefill = catProfile.value.energy.lastRefillAt
+    const diffMs = now - lastRefill
+    const intervalMs = 30 * 60 * 1000 // 30 分鐘
+    
+    if (diffMs >= intervalMs) {
+      const recoveryPoints = Math.floor(diffMs / intervalMs)
+      if (recoveryPoints > 0) {
+        catProfile.value.energy.current = Math.min(
+          catProfile.value.energy.max,
+          catProfile.value.energy.current + recoveryPoints
+        )
+        catProfile.value.energy.lastRefillAt = lastRefill + (recoveryPoints * intervalMs)
+        syncCatProfile()
+      }
+    }
   }
 
   // 2. 清空全域資料方法 (一般共同記帳下不需要清空帳本，僅重置加載狀態)
@@ -57,6 +115,7 @@ export function useLedger() {
     recurringTransactions.value = []
     categories.value = []
     triggeredReports.value = []
+    catProfile.value = null
     isDataLoaded.value = false
   }
 
@@ -75,6 +134,13 @@ export function useLedger() {
 
   const syncCategories = async () => {
     await db.saveCategories(categories.value)
+  }
+
+  const syncCatProfile = async () => {
+    const userId = currentProfile.value?.id || 'default_user'
+    if (catProfile.value) {
+      await db.saveCatProfile(userId, catProfile.value)
+    }
   }
 
   // 4. 核心運算看板欄位 (Computed)
@@ -321,6 +387,23 @@ export function useLedger() {
 
     await syncAccounts()
     await syncTransactions()
+
+    // 🐾 記帳獎勵：恢復精力與 XP
+    if (catProfile.value) {
+      const today = new Date().toISOString().split('T')[0]
+      if (catProfile.value.stats.lastRecoveryDate !== today) {
+        catProfile.value.stats.lastRecoveryDate = today
+        catProfile.value.stats.dailyRecoveryCount = 0
+      }
+
+      if (catProfile.value.stats.dailyRecoveryCount < 5) {
+        catProfile.value.energy.current = Math.min(catProfile.value.energy.max, catProfile.value.energy.current + 2)
+        catProfile.value.stats.dailyRecoveryCount++
+      }
+      
+      await awardXP(100)
+      await syncCatProfile()
+    }
 
     const fromAcctName = accounts.value.find(a => a.id === txData.fromAccountId)?.name || '未知帳戶'
     const toAcctName = accounts.value.find(a => a.id === txData.toAccountId)?.name || '未知帳戶'
@@ -708,48 +791,146 @@ export function useLedger() {
   }
 
   // 13. 🐱 逗逗貓療癒生活看板趣味互動
-  const interactWithCat = (action: string) => {
-    if (interactionTimeoutId) {
-      clearTimeout(interactionTimeoutId)
+  const interactWithCat = async (action: string) => {
+    if (!catProfile.value) return
+    
+    const now = Date.now()
+    const today = new Date().toISOString().split('T')[0]
+    
+    // a. 冷卻時間判定 (摸摸 3s, 餵食 10s)
+    const cooldown = (action === 'pet') ? 3000 : 10000
+    if (now - lastInteractTimestamp < cooldown) {
+      temporaryMood.value = 'nervous'
+      temporarySpeech.value = '喵嗚～主人點太快了，逗逗貓還沒準備好喵！(・_・;)'
+      resetTemporaryState()
+      return
     }
 
+    // b. 精力消耗判定
+    const energyCost = action === 'pet' ? 1 : action === 'feed_fish' ? 3 : 5
+    if (catProfile.value.energy.current < energyCost) {
+      temporaryMood.value = 'sleeping'
+      temporarySpeech.value = '呼喵～逗逗貓累了，休息一下再玩吧喵……(ᴗ̤ . ᴗ̤ )'
+      resetTemporaryState()
+      return
+    }
+
+    // c. 執行動作
+    lastInteractTimestamp = now
+    catProfile.value.energy.current -= energyCost
+    
+    let xpGain = 0
+    let speech = ''
+    let mood: CatMood = 'happy'
+
     if (action === 'pet') {
-      const petMoods: CatMood[] = ['happy', 'sleeping', 'happy']
-      const randomMood = petMoods[Math.floor(Math.random() * petMoods.length)]
+      catProfile.value.stats.totalPets++
+      xpGain = 5
       const petSpeeches = [
         '呼嚕呼嚕…主人摸得我好舒服喔！🐾 喵嗚～',
         '主人今天也有乖乖記帳，真是理財小能手喵！(=^·^=)',
         '喵～摸摸這裡！逗逗貓今天也最喜歡主人了喔！(❀◕ ▾ ◕)',
-        '喵嗚～今天過得怎麼樣？要多喝水、好好休息喔喵！',
         '呼嚕呼嚕……(ᴗ̤ . ᴗ̤ ) 差點舒服到要睡著了喵……🐾'
       ]
-      const randomSpeech = petSpeeches[Math.floor(Math.random() * petSpeeches.length)]
-      
-      temporaryMood.value = randomMood
-      temporarySpeech.value = randomSpeech
+      speech = petSpeeches[Math.floor(Math.random() * petSpeeches.length)]
     } else if (action === 'feed_fish' || action === 'feed_can') {
-      // 增加 LocalStorage 餵食次數
-      const key = 'dodo_ledger_feed_count'
-      let count = 0
-      if (typeof localStorage !== 'undefined') {
-        count = Number(localStorage.getItem(key) || '0') + 1
-        localStorage.setItem(key, String(count))
-      }
-
-      temporaryMood.value = 'happy'
+      catProfile.value.stats.totalFeeds++
       if (action === 'feed_fish') {
-        temporarySpeech.value = `嗷嗚嗷嗚！🐟 小魚乾真美味喵！主人餵了我第 ${count} 次，逗逗貓幸福度爆表了喵！(>◡<)`
+        catProfile.value.stats.totalFish++
+        xpGain = 20
+        speech = `嗷嗚嗷嗚！🐟 小魚乾真美味喵！這是第 ${catProfile.value.stats.totalFish} 隻小魚，幸福滿滿喵！(>◡<)`
       } else {
-        temporarySpeech.value = `喵吼！🥫 頂級貓罐頭萬歲！主人太寵我了喵！這是第 ${count} 次美味大餐，謝謝主人！🐾`
+        catProfile.value.stats.totalCans++
+        xpGain = 50
+        speech = `喵吼！🥫 頂級罐罐萬歲！主人太寵我了喵！這是我吃的第 ${catProfile.value.stats.totalCans} 個罐罐！🐾`
+        
+        // 隱藏成就：破產求生 (資產為負且餵罐罐)
+        if (netWorth.value < 0 && !catProfile.value.unlockedAchievementIds.includes('survival_pro')) {
+          unlockAchievement('survival_pro', '破產求生', '再窮也不能窮貓咪！在負債時依然餵食頂級罐罐。')
+        }
       }
     }
 
-    // 4 秒後自動回復原本狀態
+    // d. 陪伴機制 XP 加成 (資產為負時 XP 1.2 倍)
+    if (netWorth.value < 0) xpGain = Math.round(xpGain * 1.2)
+    
+    // e. 紀錄連續天數
+    if (catProfile.value.stats.lastInteractDate !== today) {
+      if (catProfile.value.stats.lastInteractDate === getYesterdayDate()) {
+        catProfile.value.stats.streakDays++
+      } else {
+        catProfile.value.stats.streakDays = 1
+      }
+      catProfile.value.stats.lastInteractDate = today
+    }
+
+    await awardXP(xpGain)
+    
+    temporaryMood.value = mood
+    temporarySpeech.value = speech
+    resetTemporaryState()
+    await syncCatProfile()
+    
+    // 檢查次數成就
+    checkCountAchievements()
+  }
+
+  // 輔助：獎勵 XP 與升級邏輯
+  const awardXP = async (amount: number) => {
+    if (!catProfile.value) return
+    catProfile.value.currentXP += amount
+    
+    while (catProfile.value.currentXP >= catProfile.value.maxXP) {
+      catProfile.value.currentXP -= catProfile.value.maxXP
+      catProfile.value.level++
+      catProfile.value.maxXP = Math.round(Math.pow(catProfile.value.level, 1.5) * 100)
+      
+      // 每 5 級增加精力上限
+      if (catProfile.value.level % 5 === 0) {
+        catProfile.value.energy.max = Math.min(30, catProfile.value.energy.max + 1)
+      }
+      
+      // 升級時補滿精力
+      catProfile.value.energy.current = catProfile.value.energy.max
+      
+      temporarySpeech.value = `喵嗚！恭喜升級！逗逗貓變強了喵！目前 Lv.${catProfile.value.level} 🐾`
+      temporaryMood.value = 'happy'
+    }
+  }
+
+  // 輔助：解鎖成就
+  const unlockAchievement = (id: string, title: string, desc: string) => {
+    if (!catProfile.value || catProfile.value.unlockedAchievementIds.includes(id)) return
+    catProfile.value.unlockedAchievementIds.push(id)
+    // 這裡未來可以噴出一個 Toast，目前先 Log 並觸發對話
+    temporarySpeech.value = `🎉 恭喜解鎖成就：【${title}】！${desc} 喵！`
+    console.log(`🎉 解鎖成就：【${title}】 - ${desc}`)
+  }
+
+  // 輔助：檢查次數類成就
+  const checkCountAchievements = () => {
+    if (!catProfile.value) return
+    const { totalPets, totalFeeds, streakDays } = catProfile.value.stats
+    
+    if (totalPets >= 10) unlockAchievement('pet_10', '初級鏟屎官', '累計摸摸 10 次。')
+    if (totalPets >= 100) unlockAchievement('pet_100', '貓咪按摩師', '累計摸摸 100 次。')
+    if (totalFeeds >= 20) unlockAchievement('feed_20', '見習飼養員', '累計餵食 20 次。')
+    if (streakDays >= 7) unlockAchievement('streak_7', '全職貓奴', '連續 7 天陪伴逗逗貓。')
+  }
+
+  const resetTemporaryState = () => {
+    if (interactionTimeoutId) clearTimeout(interactionTimeoutId)
     interactionTimeoutId = setTimeout(() => {
       temporaryMood.value = null
       temporarySpeech.value = null
       interactionTimeoutId = null
     }, 4000)
+  }
+
+  const getYesterdayDate = () => {
+    const d = new Date()
+    d.setDate(d.getDate() - 1)
+    return d.toISOString().split('T')[0]
   }
 
   return {
@@ -769,6 +950,7 @@ export function useLedger() {
     
     dodoCatMood,
     dodoCatSpeech,
+    catProfile: computed(() => catProfile.value),
     temporaryMood: computed(() => temporaryMood.value),
     temporarySpeech: computed(() => temporarySpeech.value),
     

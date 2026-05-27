@@ -111,3 +111,45 @@ export interface SystemLog {
   date: number;
 }
 
+// ─── 逗逗貓互動與成就系統 ───
+
+export interface Achievement {
+  id: string;
+  title: string;
+  description: string;
+  unlockedAt?: number;
+  icon?: string;
+}
+
+export interface CatStats {
+  totalPets: number;
+  totalFeeds: number;
+  totalFish: number;
+  totalCans: number;
+  streakDays: number;
+  lastInteractDate: string; // YYYY-MM-DD
+  dailyRecoveryCount: number;
+  lastRecoveryDate: string;  // YYYY-MM-DD
+}
+
+export interface DodoCatProfile {
+  level: number;
+  currentXP: number;
+  maxXP: number;
+  
+  energy: {
+    current: number;
+    max: number;
+    lastRefillAt: number;
+  };
+  
+  stats: CatStats;
+  unlockedAchievementIds: string[];
+  
+  // 未來擴充
+  equipment?: {
+    collarId?: string;
+    hatId?: string;
+  };
+}
+
