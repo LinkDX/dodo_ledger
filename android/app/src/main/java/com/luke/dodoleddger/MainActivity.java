@@ -59,8 +59,22 @@ public class MainActivity extends BridgeActivity {
                     // 4. 🚀 再次確認 index.html 存在，重定向 WebView 加載路徑！
                     if (indexFile.exists()) {
                         String localPath = "file://" + indexFile.getAbsolutePath();
-                        this.bridge.setServerUrl(localPath);
-                        Log.d(TAG, "✨ [熱更新啟動成功] WebView 已成功重定向加載沙盒路徑: " + localPath);
+                        
+                        // 💡 究極自愈反射大招：動態強行修改 Capacitor Bridge 的加載與本地 URL 欄位，徹底解決不同版本找不到 setServerUrl() 的編譯錯誤！
+                        try {
+                            java.lang.reflect.Field appUrlField = com.getcapacitor.Bridge.class.getDeclaredField("appUrl");
+                            appUrlField.setAccessible(true);
+                            appUrlField.set(this.bridge, localPath);
+
+                            java.lang.reflect.Field localUrlField = com.getcapacitor.Bridge.class.getDeclaredField("localUrl");
+                            localUrlField.setAccessible(true);
+                            localUrlField.set(this.bridge, localPath);
+                            
+                            Log.d(TAG, "✨ [熱更新反射注入成功] WebView 已強行重定向加載沙盒路徑: " + localPath);
+                        } catch (Exception ex) {
+                            Log.e(TAG, "❌ 反射注入失敗，嘗試使用 webview loadUrl: " + ex.getMessage());
+                            this.bridge.getWebView().loadUrl(localPath);
+                        }
                     } else {
                         Log.w(TAG, "⚠️ 找不到沙盒 index.html，回退加載 APK 內建預置版本。");
                     }
