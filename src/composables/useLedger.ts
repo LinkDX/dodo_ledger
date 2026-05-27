@@ -18,6 +18,7 @@ const temporaryMood = ref<CatMood | null>(null)
 const temporarySpeech = ref<string | null>(null)
 let interactionTimeoutId: any = null
 let lastInteractTimestamp = 0 // 防連點
+let catProfileUnsubscribe: (() => void) | null = null
 
 // 預設貓咪狀態
 const DEFAULT_CAT_PROFILE: DodoCatProfile = {
@@ -51,6 +52,12 @@ export function useLedger() {
     isDataLoaded.value = false
     const userId = currentProfile.value?.id || 'default_user'
     
+    // 清除舊的訂閱
+    if (catProfileUnsubscribe) {
+      catProfileUnsubscribe()
+      catProfileUnsubscribe = null
+    }
+
     const [accts, txs, recs, cats, catProf] = await Promise.all([
       db.getAccounts(),
       db.getTransactions(),
@@ -81,6 +88,15 @@ export function useLedger() {
       checkNaturalEnergyRecovery()
     }
 
+    // 🚀 啟動即時同步訂閱，確保多裝置等級 100% 一致
+    catProfileUnsubscribe = db.subscribeCatProfile(userId, (newProfile) => {
+      // 僅在版本不同時更新，避免無窮迴圈
+      if (JSON.stringify(newProfile) !== JSON.stringify(catProfile.value)) {
+        console.log('[Dodo Ledger] 🐱 偵測到雲端貓咪狀態更新，已自動同步等級與 XP！')
+        catProfile.value = newProfile
+      }
+    })
+
     isDataLoaded.value = true
     
     // 觸發週期性自動記帳的 Lazy-check
@@ -110,6 +126,10 @@ export function useLedger() {
 
   // 2. 清空全域資料方法 (一般共同記帳下不需要清空帳本，僅重置加載狀態)
   const clearLedgerData = () => {
+    if (catProfileUnsubscribe) {
+      catProfileUnsubscribe()
+      catProfileUnsubscribe = null
+    }
     accounts.value = []
     transactions.value = []
     recurringTransactions.value = []

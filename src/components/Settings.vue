@@ -57,7 +57,7 @@ const handleResetHotUpdate = () => {
 
 // ─── 版本資訊與進階管理員彩蛋 ───
 const appVersion = '1.0.0'
-const webVersion = '1.9.6'
+const webVersion = '1.9.7'
 const webClickCount = ref(0)
 const isAdminMode = ref(false)
 
@@ -352,6 +352,12 @@ const formatCurrency = (val: number) => {
               <p class="shield-desc">
                 偵測到專案內置的 Firebase 金鑰設定。您的記帳資料已自動在 Firebase Firestore 進行安全的雲端即時同步備份與多人共同記帳保護，未來的 Android App 也將能無縫共享資料喔喵！🐾
               </p>
+              
+              <!-- 調試資訊 -->
+              <div class="debug-id-info">
+                <span class="debug-label">當前成員 ID：</span>
+                <span class="debug-value">{{ currentProfile?.id || 'unknown' }}</span>
+              </div>
             </div>
           </div>
 
@@ -921,6 +927,29 @@ const formatCurrency = (val: number) => {
   line-height: 1.5;
   color: var(--color-text-muted);
   margin-top: 6px;
+}
+
+.debug-id-info {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--color-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+}
+
+.debug-label {
+  color: var(--color-text-muted);
+  font-weight: 800;
+}
+
+.debug-value {
+  font-family: monospace;
+  background-color: var(--color-bg-warm);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--color-text-dark);
 }
 
 .btn-disconnect {

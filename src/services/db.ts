@@ -1,6 +1,6 @@
 import type { Account, Transaction, RecurringTransaction, UserProfile, SystemLog, Category, DodoCatProfile } from '../types'
 import { initializeApp } from 'firebase/app'
-import { doc, collection, getDocs, getDoc, setDoc, writeBatch, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore'
+import { doc, collection, getDocs, getDoc, setDoc, writeBatch, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, onSnapshot } from 'firebase/firestore'
 import { FIREBASE_CONFIG } from '../config/firebase'
 
 // 1. 抽象資料庫服務介面 (多人共同記帳模型，維護同一個資產紀錄)
@@ -26,6 +26,7 @@ export interface DatabaseService {
   // 🐱 逗逗貓專用 (User 獨立)
   getCatProfile(userId: string): Promise<DodoCatProfile | null>;
   saveCatProfile(userId: string, profile: DodoCatProfile): Promise<void>;
+  subscribeCatProfile(userId: string, callback: (profile: DodoCatProfile) => void): () => void;
 }
 
 
@@ -76,6 +77,9 @@ export class MockDatabaseService implements DatabaseService {
   }
   async saveCatProfile(userId: string, profile: DodoCatProfile): Promise<void> {
     localStorage.setItem(this.CAT_PROFILE_PREFIX + userId, JSON.stringify(profile))
+  }
+  subscribeCatProfile(_userId: string, _callback: (profile: DodoCatProfile) => void): () => void {
+    return () => {} // 本地模式暫不支援即時監聽
   }
 }
 
@@ -203,6 +207,15 @@ export class FirestoreDatabaseService implements DatabaseService {
     } catch (e) {
       console.error(`[Dodo Ledger] 儲存貓咪設定檔失敗 (userId: ${userId})：`, e)
     }
+  }
+
+  subscribeCatProfile(userId: string, callback: (profile: DodoCatProfile) => void): () => void {
+    const docRef = doc(this.col('catProfiles'), userId)
+    return onSnapshot(docRef, (snap: any) => {
+      if (snap.exists()) {
+        callback(snap.data() as DodoCatProfile)
+      }
+    })
   }
 }
 

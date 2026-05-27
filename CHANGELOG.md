@@ -2,6 +2,13 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Web 1.9.7] - 2026-05-27
+
+### 🐱 貓咪狀態即時同步 (Real-time Cat Sync)
+- **實作 Firestore 即時監聽**：為貓咪設定檔 (`CatProfile`) 導入 `onSnapshot` 監聽，解決多裝置間等級、經驗值 (XP) 與精力值不一致的問題。現在在電腦摸貓，手機也會即時跳動！
+- **新增調試資訊**：於「設定」頁面顯示當前「成員 ID」，方便使用者確認是否正確切換至雲端同步身分。
+- **優化同步邏輯**：在 `useLedger.ts` 中加入自動訂閱與取消訂閱機制，確保身分切換時資料 100% 準確。
+
 ## [Web 1.9.6] - 2026-05-27
 
 ### 📡 熱更新監控閣優化 (Hot Update Improvements)
