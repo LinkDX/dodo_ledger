@@ -2,12 +2,17 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
-## [Android 1.0.6 / Build 7] - 2026-05-27
+## [Web 2.0.0 / Android 1.0.6 / Build 7] - 2026-05-27
+
+### 🏆 逗逗貓成就徽章牆 UI 實作 (Achievements Wall)
+- **「🏆 成就」按鈕整合**：於 Dashboard 的「逗逗貓趣味互動工具列」右側無縫整合了「🏆 成就」按鈕，延續 Q 彈果凍（btn-jelly）動畫風格與溫馨馬卡龍鵝黃設計。
+- **成就徽章彈窗 (Modal)**：點擊後會彈出一個極具果凍感、帶有淡入彈出（pop-jelly & fade-modal）動畫的「成就徽章牆」。
+- **達成狀態即時呈現**：彈窗會對接底層資料庫的解鎖紀錄。已解鎖的成就（如「破產求生」、「全職貓奴」等）會呈現彩色呼吸跳動（badgePulse）效果；未解鎖的成就則會呈現灰色鎖定狀態並標示 🔒，帶給使用者極佳的遊戲化互動反饋！
 
 ### 🚑 熱更新與 APK 覆蓋安裝版本衝突修復
 - **覆蓋安裝熱更新清除機制**：在 `MainActivity.java` 引入 `SharedPreferences` 偵測機制。當發現當前 APK 的 `versionCode` 大於上一次儲存的 `versionCode` 時，判定為覆蓋安裝（或首次安裝），主動清除私有沙盒內所有舊版的熱更新檔案（刪除 `current_hot_version.txt` 與所有 `update_pack_*` 資料夾與壓縮包），確保 WebView 直接載入 APK 內建最新的 Web 資源。
-- **內置版本號雙重防護**：於 Web 端 `useLiveUpdates.ts` 內置比對邏輯。當當前內置 Web 版本（`package.json` 的 `builtInVersionCode`）高於 `localStorage` 的 `dodo_app_hot_version_code` 紀錄時，自動升級 `localStorage` 的紀錄為當前內置版本。這能保證監控閣面板版本號一致，同時避免下載比內置資源更舊的遠端更新包。
-- **需重新安裝 APK**：由於此核心優化涉及 Android 原生層 (`MainActivity.java`)，無法透過熱更新推送，使用者必須重新安裝 `1.0.6` 版本 APK 才能啟用「APK 覆蓋安裝時自動重設沙盒」的自愈機制，並徹底解決此版本號衝突問題。
+- **內置版本號雙重防護**：於 Web 端 `useLiveUpdates.ts` 內置比對邏輯。當當前內置 Web版本（`package.json` 的 `builtInVersionCode`）高於 `localStorage` 的 `dodo_app_hot_version_code` 紀錄時，自動升級 `localStorage` 的紀錄為當前內置版本。這能保證監控閣面板版本號一致，同時避免下載比內置資源更舊的遠端更新包。
+- **需重新安裝 APK**：由於此原生層修復位於 Android 原生層 (`MainActivity.java`)，無法透過熱更新推送，使用者必須重新安裝 `1.0.6` 版本 APK 才能啟用「APK 覆蓋安裝時自動重設沙盒」的自愈機制，並徹底解決此版本號衝突問題。
 
 ## [Android 1.0.5 / Build 6] - 2026-05-27
 

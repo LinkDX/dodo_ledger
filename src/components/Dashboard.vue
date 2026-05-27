@@ -62,6 +62,22 @@ const getTxAmountStyle = (tx: any) => {
   if (tx.type === 'income') return { color: '#2EB086', prefix: '+' }
   return { color: '#3A86C8', prefix: '' }
 }
+
+// 🏆 成就徽章牆控制與定義
+const showAchievements = ref(false)
+
+const achievementList = [
+  { id: 'survival_pro', title: '破產求生', desc: '再窮也不能窮貓咪！在負債（淨資產為負）時依然餵食頂級罐罐。喵！', emoji: '🥫' },
+  { id: 'pet_10', title: '初級鏟屎官', desc: '累計摸摸逗逗貓 10 次。', emoji: '👋' },
+  { id: 'pet_100', title: '貓咪按摩師', desc: '累計摸摸逗逗貓 100 次。', emoji: '💆' },
+  { id: 'feed_20', title: '見習飼養員', desc: '累計餵食（魚乾或罐罐） 20 次。', emoji: '🐟' },
+  { id: 'streak_7', title: '全職貓奴', desc: '連續 7 天開啟 App 並陪伴逗逗貓。', emoji: '📅' }
+]
+
+const isAchievementUnlocked = (id: string) => {
+  if (!catProfile.value || !catProfile.value.unlockedAchievementIds) return false
+  return catProfile.value.unlockedAchievementIds.includes(id)
+}
 </script>
 
 <template>
@@ -127,6 +143,12 @@ const getTxAmountStyle = (tx: any) => {
           @click="interactWithCat('feed_can')"
         >
           🥫 餵罐罐 <span class="cost-tag">-5</span>
+        </button>
+        <button 
+          class="btn-interact btn-achievement btn-jelly" 
+          @click="showAchievements = true"
+        >
+          🏆 成就
         </button>
       </div>
     </div>
@@ -254,6 +276,39 @@ const getTxAmountStyle = (tx: any) => {
         </div>
       </div>
     </div>
+
+    <!-- 🏆 成就徽章彈出面板 -->
+    <Transition name="fade-modal">
+      <div v-if="showAchievements" class="modal-overlay" @click.self="showAchievements = false">
+        <div class="achievement-modal card-jelly pop-jelly">
+          <div class="modal-header">
+            <h3 class="modal-title">🏆 逗逗貓成就徽章牆</h3>
+            <button class="btn-close-circle btn-jelly" @click="showAchievements = false">×</button>
+          </div>
+          
+          <div class="achievements-list">
+            <div 
+              v-for="ach in achievementList" 
+              :key="ach.id" 
+              class="achievement-item card-jelly"
+              :class="{ 'ach-locked': !isAchievementUnlocked(ach.id) }"
+            >
+              <div class="ach-badge-icon">
+                <span class="ach-emoji">{{ isAchievementUnlocked(ach.id) ? ach.emoji : '🔒' }}</span>
+              </div>
+              <div class="ach-info">
+                <div class="ach-name">
+                  {{ ach.title }}
+                  <span v-if="!isAchievementUnlocked(ach.id)" class="ach-locked-tag">鎖定中</span>
+                  <span v-else class="ach-unlocked-tag">已達成 🎉</span>
+                </div>
+                <div class="ach-desc">{{ ach.desc }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -704,5 +759,207 @@ const getTxAmountStyle = (tx: any) => {
   padding: 1px 6px !important;
   border-radius: 10px;
   line-height: 1.4;
+}
+
+/* 🏆 成就按鈕樣式 */
+.btn-achievement {
+  background-color: #FFF2CC !important; /* 軟萌鵝黃 */
+  color: var(--color-text-dark) !important;
+}
+
+.btn-achievement:hover {
+  background-color: var(--color-accent-gold) !important;
+}
+
+/* 成就彈窗 Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(44, 30, 27, 0.4); /* 手繪風深褐色透明背景 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 200;
+  backdrop-filter: blur(4px);
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+/* 成就彈窗本體 */
+.achievement-modal {
+  background-color: var(--color-bg-warm);
+  width: 100%;
+  max-width: 420px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  padding: 20px !important;
+  overflow: visible;
+  position: relative;
+}
+
+/* 彈窗 Header */
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  border-bottom: 2px dashed var(--color-border);
+  padding-bottom: 10px;
+}
+
+.modal-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--color-text-dark);
+  margin: 0;
+}
+
+.btn-close-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50% !important;
+  border: var(--border-width) solid var(--color-border) !important;
+  background-color: var(--color-expense) !important;
+  color: var(--color-text-dark) !important;
+  font-size: 18px !important;
+  font-weight: 800 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0 !important;
+  box-shadow: 1.5px 1.5px 0px 0px #2C1E1B !important;
+}
+
+.btn-close-circle:active {
+  transform: scale(0.9) !important;
+}
+
+/* 成就列表滾動區 */
+.achievements-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* 成就單個卡片 */
+.achievement-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px !important;
+  background-color: #FFFFFF !important;
+  box-shadow: var(--shadow-jelly-sm) !important;
+  transition: all 0.2s ease;
+}
+
+/* 鎖定狀態 */
+.ach-locked {
+  background-color: #F5F5F5 !important;
+  opacity: 0.75;
+  filter: grayscale(0.9);
+}
+
+/* 徽章圖示 */
+.ach-badge-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: var(--border-width) solid var(--color-border);
+  background-color: var(--color-bg-warm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+  box-shadow: 1px 1px 0px 0px #2C1E1B;
+}
+
+.achievement-item:not(.ach-locked) .ach-badge-icon {
+  background-color: #FFF2CC;
+  animation: badgePulse 2s infinite ease-in-out;
+}
+
+@keyframes badgePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+/* 成就文字資訊 */
+.ach-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.ach-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--color-text-dark);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ach-desc {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+/* 標籤 */
+.ach-unlocked-tag {
+  font-size: 10px;
+  background-color: var(--color-income);
+  color: var(--color-text-dark);
+  padding: 1px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+}
+
+.ach-locked-tag {
+  font-size: 10px;
+  background-color: #E0E0E0;
+  color: #757575;
+  padding: 1px 6px;
+  border-radius: 6px;
+  border: 1px solid #BDBDBD;
+}
+
+/* 彈窗過渡動畫 */
+.fade-modal-enter-active,
+.fade-modal-leave-active {
+  transition: opacity 0.25s ease;
+}
+
+.fade-modal-enter-from,
+.fade-modal-leave-to {
+  opacity: 0;
+}
+
+.fade-modal-enter-active .achievement-modal {
+  animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.fade-modal-leave-active .achievement-modal {
+  animation: popOut 0.2s ease-in;
+}
+
+@keyframes popIn {
+  0% { transform: scale(0.85); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes popOut {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0; }
 }
 </style>
