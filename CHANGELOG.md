@@ -25,6 +25,15 @@
 - **CI/CD 工作流 Web 自動 Release 升級**：
   - 升級了 `.github/workflows/deploy.yml` 部署管線，在每次推送發布網頁端時，自動將 `dist/` 網頁檔壓縮成 `app-update.zip`，並根據 `package.json` 的版號**以演算法自動換算為唯一整數 `versionCode`**（如 `1.9.4` 對應 `10904`）。
   - 自動生成最新的 `version.json` 寫入 `dist/` Pages 目錄，並**自動建立名為 `web-v*` 的 GitHub Release，將 `app-update.zip` 作為 Release Asset 上傳**，實現了超高速 GitHub CDN 下載分流。
+- **🔒 Android APK 簽名金鑰安全隔離與互動式密碼一致性方案**：
+  - **共享簽名金鑰納入 Git 版控**：建立 `android/app/dodo-shared.keystore` 並 commit 至 Repo，確保本地與 CI/CD 管線使用同一把金鑰，從根本解決新舊 APK 簽名衝突導致的「無法覆蓋安裝」問題。
+  - **密碼完全從程式碼抽離**：修改 `android/app/build.gradle` 的 `signingConfigs.shared`，完全移除所有硬編碼密碼，改為優先讀取系統環境變數（`DODO_STORE_PASSWORD`/`DODO_KEY_PASSWORD`），其次讀取 Git 排除的 `android/local.properties`。
+  - **新增 `npm run prepare` 生命週期自癒腳本** (`scripts/prepare.cjs`)：每次 `npm install` 後自動執行，功能包含：
+    1. **互動式密碼設定**（本地 TTY 環境）：詢問 App 進入密碼，同時作為 Android 金鑰密碼，計算 SHA-256 Hash 寫入 `.env.local`，明文密碼同步寫入 `android/local.properties`。
+    2. **金鑰自動備份與重新產生**：偵測到密碼變更或金鑰缺失時，自動備份舊金鑰並用新密碼重新產生 `dodo-shared.keystore`。
+    3. **`package-lock.json` 自動自癒**：自動掃描並將私有 registry `npm.synology.inc` 替換為官方 `registry.npmjs.org`，杜絕 CI/CD 因私有網址而失敗。
+  - **CI/CD 單一 Secret 設計**：將 `android.yml` 的 Gradle 編譯步驟統一為單一 `DODO_SIGNING_PASSWORD` secret，同時注入 store/key 兩個密碼，GitHub Secrets 設定極簡化。
+  - **`npm run prepare-deploy` 同步修正**：顯示的 `DODO_SIGNING_PASSWORD` 值改為沿用使用者實際輸入的進入密碼，keystore 生成也改用同一組密碼，消除所有殘留硬編碼。
 
 ---
 

@@ -179,28 +179,35 @@
 - **日誌寫入時機**：務必在所有核心財務操作的 Vue Composable 方法中（記帳、刪除、還款、週期性自動執行）與身分管理（新增、刪除身分、預算變更、記帳分類變更）中，第一時間呼叫 `addSystemLog`。
 - **CLI 稽核運行**：稽核日誌工具 `./view-logs` 採用輕量化的 Firestore REST API，免去了在終端機安裝龐大 Firebase SDK 的複雜度。後續維護或移植時，請保持此 RESTful 高效連線設計，避免引入不必要的 Node 相依性套件。
 
-### 3.3 package-lock.json 官方 Registry 規範（強制事項）
+### 3.3 package-lock.json 官方 Registry 規範（已自動化）
 
-> [!CAUTION]
-> 這是本專案最頻繁發生的 CI 失敗原因。**每次安裝新 npm 套件後都必須執行修正。**
+> [!NOTE]
+> **此步驟已由 `npm run prepare` 生命週期腳本自動處理。** 每次 `npm install` 後，`scripts/prepare.cjs` 會自動掃描並修復 `package-lock.json` 中的私有 registry 污染，無需手動執行 `sed` 指令。
 
 - **根本原因**：開發機環境設定了私有 npm registry（`npm.synology.inc`），每次 `npm install` 都會將新套件的下載路徑寫入 `package-lock.json` 為私有網址。GitHub Actions Runner 無法連線此私有位址，導致 `ENOTFOUND` 錯誤。
-- **觸發情境**：以下任一操作都會污染 `package-lock.json`：
-  - `npm install`（更新所有相依套件）
-  - `npm install <package>`（安裝單一新套件，如 `sharp`、`@capacitor/xxx`）
-  - `npm install -g <package>`（全域安裝後影響 lock 結構）
-- **修正指令**：每次 commit 前，**必須執行**：
+- **自動修復機制**：`scripts/prepare.cjs` 在每次 `npm install` 結束後自動執行，以字串全域替換方式將所有 `https://npm.synology.inc` 修正為 `https://registry.npmjs.org`。
+- **手動驗證指令**（如需確認）：
   ```bash
-  sed -i 's|https://npm.synology.inc|https://registry.npmjs.org|g' package-lock.json
-  ```
-- **驗證指令**：確認輸出為 `0` 代表已清乾淨：
-  ```bash
-  grep -c "synology" package-lock.json
+  grep -c "synology" package-lock.json  # 輸出為 0 代表乾淨
   ```
 - **建議工作流程**：
   ```bash
   npm install <new-package> --legacy-peer-deps
-  sed -i 's|https://npm.synology.inc|https://registry.npmjs.org|g' package-lock.json
+  # prepare 腳本已自動修復 registry，直接 commit 即可
   git add package.json package-lock.json
-  git commit -m "chore: 安裝 <new-package> 並修正 registry"
+  git commit -m "chore: 安裝 <new-package>"
   ```
+
+### 3.4 Android APK 簽名安全隔離架構
+
+> [!IMPORTANT]
+> 本專案採用「金鑰 commit 入倉庫，密碼隔離於環境變數」的方案，確保所有版本 APK 使用同一把金鑰簽名，解決覆蓋安裝衝突問題，同時保障密碼安全。
+
+- **共享金鑰**：`android/app/dodo-shared.keystore` 已 commit 至 Git，本地與 CI/CD 使用同一把，消滅「無法覆蓋安裝」問題。
+- **密碼三層隔離**：
+  - **本地端**：`npm install` 時互動式詢問進入密碼，`prepare.cjs` 自動同步至 `android/local.properties`（Git 排除）。
+  - **CI/CD 端**：透過單一 GitHub Secret `DODO_SIGNING_PASSWORD` 注入，同時作為 store/key 兩個密碼。
+  - **程式碼中**：`build.gradle` 完全無任何硬編碼密碼，100% 由環境變數或 `local.properties` 動態讀取。
+- **密碼一致性**：App 進入密碼、Android 金鑰密碼、`DODO_SIGNING_PASSWORD` 三者刻意設為同一值，降低管理複雜度。
+- **`npm run prepare` 的金鑰重建邏輯**：若偵測到密碼變更或金鑰缺失，自動備份舊金鑰並用新密碼重新產生 `dodo-shared.keystore`，確保金鑰與密碼永遠同步一致。
+

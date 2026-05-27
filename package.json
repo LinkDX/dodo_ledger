@@ -11,6 +11,7 @@
     "test": "vitest",
     "test:run": "vitest run",
     "prepare-deploy": "node scripts/prepare-deploy.cjs",
+    "prepare": "node scripts/prepare.cjs",
     "generate:icons": "node scripts/generate-icons.cjs",
     "generate:splash": "node scripts/generate-splash.cjs"
   },

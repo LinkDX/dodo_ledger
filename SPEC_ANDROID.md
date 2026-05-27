@@ -147,3 +147,60 @@ chmod +x build-apk.sh
 2. 同步資源至 Android 容器 (`npx cap sync android`)。
 3. 呼叫 Gradle 編譯出 Debug APK 檔。
 4. 將產出的 APK 自動複製並重新命名，放置於專案根目錄的 `build-artifacts/dodo-ledger-debug.apk`。
+
+---
+
+## 8. Android APK 簽名安全隔離架構
+
+為了確保「同一把金鑰持續簽名所有版本 APK」且「密碼絕不進入 Git 倉庫」，本專案採用雙層密碼安全隔離方案。
+
+### 8.1 共享簽名金鑰 (Shared Keystore)
+- **金鑰檔案**：`android/app/dodo-shared.keystore`（已 commit 至 Git Repo）
+- **金鑰別名 (Alias)**：`dodo_key`
+- **設計理由**：金鑰本身（二進位）為公開倉庫可見，但其解鎖密碼完全隔離在環境變數中，安全性符合業界標準。相較於金鑰 commit 前的問題（每次本地建置使用不同的 debug key 導致「無法覆蓋安裝 App」），此方案從根本消滅了簽名衝突。
+
+### 8.2 密碼隔離三層架構
+
+```
+本地端                      CI/CD (GitHub Actions)
+─────────────────────────  ──────────────────────────────
+.env.local (Git 排除)       Repository Secrets
+  DODO_STORE_PASSWORD         DODO_SIGNING_PASSWORD
+  DODO_KEY_PASSWORD             ↓ (env 區塊注入)
+       ↓ (prepare.cjs 同步)  DODO_STORE_PASSWORD
+android/local.properties    DODO_KEY_PASSWORD
+  dodo.store.password
+  dodo.key.password
+       ↓ (Gradle 讀取)
+android/app/build.gradle
+  signingConfigs.shared
+```
+
+### 8.3 `npm run prepare` 生命週期自癒腳本規格
+
+`scripts/prepare.cjs` 在每次 `npm install` 後自動觸發，執行以下動作：
+
+| 步驟 | 行為 | 環境 |
+|---|---|---|
+| **1. 密碼初始化** | 若尚未設定，詢問進入密碼；計算 SHA-256 Hash 寫入 `.env.local`，明文同步至 `android/local.properties` | 本地 TTY |
+| **2. 金鑰重建** | 若密碼變更或金鑰缺失，備份舊金鑰並用新密碼重新產生 `dodo-shared.keystore` | 本地 TTY |
+| **3. package-lock 自癒** | 掃描並將私有 registry `npm.synology.inc` 自動替換為官方 `registry.npmjs.org` | 本地 + CI |
+| **4. CI 跳過互動** | 非 TTY 環境（`process.env.CI`）自動跳過詢問，直接讀取環境變數 | CI/CD |
+
+### 8.4 密碼一致性設計
+本專案刻意讓三個密碼完全一致，降低管理複雜度：
+
+| 用途 | 儲存位置 | 格式 |
+|---|---|---|
+| **App 進入鎖定** | `.env.local` → `VITE_APP_PASSWORD_HASH` | SHA-256 單向雜湊 |
+| **Android 金鑰密碼** | `android/local.properties` → `dodo.store.password` | 明文（Git 排除檔） |
+| **CI/CD 簽名密碼** | GitHub Secrets → `DODO_SIGNING_PASSWORD` | 明文（加密 Secret） |
+
+### 8.5 GitHub Actions 所需 Secrets
+
+進行首次設定時，請至 GitHub Repository → Settings → Secrets and variables → Actions，新增以下單一 Secret：
+
+| Secret 名稱 | 值 | 說明 |
+|---|---|---|
+| `DODO_SIGNING_PASSWORD` | 您的進入密碼 | 同時作為 keystore 與 key 的解鎖密碼 |
+

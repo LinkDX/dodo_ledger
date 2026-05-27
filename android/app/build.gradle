@@ -8,6 +8,25 @@ def androidVersion = new JsonSlurper().parseText(androidVersionFile.text)
 android {
     namespace "com.luke.dodoleddger"
     compileSdk rootProject.ext.compileSdkVersion
+
+    // 讀取 local.properties 檔案 (已被 Git 排除，安全無虞)
+    def localProperties = new Properties()
+    def localPropertiesFile = rootProject.file('local.properties')
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.withReader('UTF-8') { reader ->
+            localProperties.load(reader)
+        }
+    }
+
+    signingConfigs {
+        shared {
+            storeFile file('dodo-shared.keystore')
+            storePassword System.getenv("DODO_STORE_PASSWORD") ?: localProperties.getProperty("dodo.store.password")
+            keyAlias 'dodo_key'
+            keyPassword System.getenv("DODO_KEY_PASSWORD") ?: localProperties.getProperty("dodo.key.password")
+        }
+    }
+
     defaultConfig {
         applicationId "com.luke.dodoleddger"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -25,7 +44,10 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.shared
+        }
+        debug {
+            signingConfig signingConfigs.shared
         }
     }
 }
