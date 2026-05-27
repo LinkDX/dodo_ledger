@@ -291,42 +291,35 @@ const handleSubmit = async () => {
       <p class="page-subtitle">請選擇您的消費分類，並在下方鍵盤輸入金額喔！</p>
     </div>
 
-    <!-- 1. 交易類型切換 (支出/收入) -->
+    <!-- 1. 頂部控制面板：交易類型切換 (支出/收入) 與 記帳日期 並排 -->
     <div class="tx-type-switch-container card-jelly">
-      <button 
-        class="btn-jelly btn-switch" 
-        :class="{ active: txType === 'expense', 'btn-expense-active': txType === 'expense' }"
-        @click="txType = 'expense'"
-      >
-        💸 支出模式
-      </button>
-      <button 
-        class="btn-jelly btn-switch" 
-        :class="{ active: txType === 'income', 'btn-income-active': txType === 'income' }"
-        @click="txType = 'income'"
-      >
-        💰 收入模式
-      </button>
-    </div>
-
-    <!-- 2. 收支參數設定區 (帳戶、日期、備註) -->
-    <div class="form-core-details card-jelly">
-      <!-- 帳戶選取 -->
-      <div class="form-group">
-        <label class="label-cute">選擇支付 / 收款帳戶</label>
-        <AccountPicker v-model="selectedAccountId" :accounts="availableAccounts" />
+      <div class="switch-buttons-group">
+        <button 
+          class="btn-jelly btn-switch" 
+          :class="{ active: txType === 'expense', 'btn-expense-active': txType === 'expense' }"
+          @click="txType = 'expense'"
+        >
+          💸 支出
+        </button>
+        <button 
+          class="btn-jelly btn-switch" 
+          :class="{ active: txType === 'income', 'btn-income-active': txType === 'income' }"
+          @click="txType = 'income'"
+        >
+          💰 收入
+        </button>
       </div>
-
-      <!-- 日期選擇 -->
-      <div class="form-group">
-        <label class="label-cute">記帳日期</label>
+      <div class="header-date-picker">
         <DatePicker v-model="dateStr" />
       </div>
+    </div>
 
-      <!-- 備註輸入 -->
-      <div class="form-group">
-        <label class="label-cute">交易備註</label>
-        <input v-model="note" type="text" placeholder="例如：午餐麥當勞、買逗逗貓罐罐..." class="input-jelly" maxlength="30" />
+    <!-- 2. 收支參數設定區 (帳戶獨佔滿寬，防止帳戶增加壓扁日期) -->
+    <div class="form-core-details card-jelly">
+      <!-- 帳戶選取 -->
+      <div class="form-group margin-zero">
+        <label class="label-cute">選擇支付 / 收款帳戶</label>
+        <AccountPicker v-model="selectedAccountId" :accounts="availableAccounts" />
       </div>
 
       <!-- 信用卡分期配置 (自適應展開) -->
@@ -448,6 +441,20 @@ const handleSubmit = async () => {
       </div>
     </div>
 
+    <!-- 5. 交易備註輸入區（放到最底，不用滑動即可看到鍵盤） -->
+    <div class="bottom-note-panel card-jelly">
+      <div class="form-group margin-zero">
+        <label class="label-cute">交易備註 (可選)</label>
+        <input 
+          v-model="note" 
+          type="text" 
+          placeholder="例如：午餐麥當勞、買逗逗貓罐罐..." 
+          class="input-jelly note-input-bottom" 
+          maxlength="30" 
+        />
+      </div>
+    </div>
+
     <!-- 內部精美 Alert 提示框 -->
     <Transition name="fade-alert">
       <div v-if="alertState.show" class="custom-alert-overlay" @click="alertState.show = false">
@@ -469,38 +476,47 @@ const handleSubmit = async () => {
 
 <style scoped>
 .transaction-form-page {
-  padding: 16px;
+  padding: 12px;
   padding-bottom: 90px;
 }
 
 .page-header {
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 
 .page-title {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 800;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .page-subtitle {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--color-text-muted);
 }
 
-/* 交易類型切換 */
+/* 頂部控制面板 (收支類型與日期並排) */
 .tx-type-switch-container {
   display: flex;
-  gap: 12px;
-  padding: 12px !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px !important;
   background-color: #FFFFFF;
+  margin-bottom: 8px !important;
+}
+
+.switch-buttons-group {
+  display: flex;
+  gap: 6px;
+  flex: 1.4; /* 收支切換佔用較多空間 */
 }
 
 .btn-switch {
   flex: 1;
-  font-size: 14px;
-  padding: 12px !important;
+  font-size: 13px;
+  padding: 7px !important;
   background-color: var(--color-bg-warm) !important;
 }
 
@@ -514,22 +530,43 @@ const handleSubmit = async () => {
   border-width: 3px;
 }
 
+.header-date-picker {
+  flex: 1.1; /* 日期選擇佔用適中空間 */
+  min-width: 110px;
+}
+
+/* 日期選擇器深度穿透樣式微調，以自然融入頂欄 */
+.header-date-picker :deep(.picker-trigger) {
+  padding: 7px 10px !important;
+  font-size: 11px !important;
+  border-radius: var(--border-radius-sm) !important;
+}
+
+.header-date-picker :deep(.trigger-left) {
+  gap: 4px !important;
+}
+
 /* 表單設定區 */
 .form-core-details {
-  padding: 16px !important;
+  padding: 10px 12px !important;
+  margin-bottom: 10px !important;
 }
 
 .form-group {
   flex: 1;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
+}
+
+.margin-zero {
+  margin-bottom: 0 !important;
 }
 
 .label-cute {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   display: block;
-  margin-bottom: 6px;
-  padding-left: 4px;
+  margin-bottom: 4px;
+  padding-left: 2px;
 }
 
 .select-cute {
@@ -540,8 +577,8 @@ const handleSubmit = async () => {
 /* 信用卡分期模組 */
 .credit-installment-box {
   background-color: var(--color-bg-warm) !important;
-  padding: 12px !important;
-  margin-top: 10px;
+  padding: 10px !important;
+  margin-top: 8px;
   margin-bottom: 0 !important;
   box-shadow: var(--shadow-jelly-sm) !important;
 }
@@ -549,12 +586,12 @@ const handleSubmit = async () => {
 .checkbox-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .cute-checkbox {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   cursor: pointer;
   accent-color: var(--color-border);
 }
@@ -565,27 +602,27 @@ const handleSubmit = async () => {
 }
 
 .installment-slider-group {
-  margin-top: 12px;
+  margin-top: 10px;
   border-top: 1.5px dashed var(--color-border);
-  padding-top: 10px;
+  padding-top: 8px;
 }
 
 .term-bold {
   color: #FF5A5A;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 800;
 }
 
 .term-selector-row {
   display: flex;
-  gap: 8px;
-  margin-top: 6px;
+  gap: 6px;
+  margin-top: 4px;
 }
 
 .btn-term-select {
   flex: 1;
-  padding: 6px !important;
-  font-size: 11px;
+  padding: 5px !important;
+  font-size: 10px;
   background-color: #FFFFFF !important;
 }
 
@@ -598,25 +635,26 @@ const handleSubmit = async () => {
   font-size: 9px;
   font-weight: 700;
   color: var(--color-text-muted);
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 /* 雙層分類面板 */
 .categories-panel {
-  padding: 16px !important;
+  padding: 10px 12px !important;
+  margin-bottom: 10px !important;
 }
 
 .panel-subtitle {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .main-categories-list {
   display: flex;
   overflow-x: auto;
-  gap: 8px;
-  padding: 6px 4px 8px 4px; /* 增加邊距防止 hover 浮起時邊緣被切 */
+  gap: 6px;
+  padding: 4px 2px 6px 2px;
   width: 100%;
 }
 
@@ -625,9 +663,9 @@ const handleSubmit = async () => {
   display: flex !important;
   flex-direction: row;
   align-items: center;
-  gap: 6px;
-  padding: 8px 12px !important;
-  font-size: 12px;
+  gap: 5px;
+  padding: 6px 10px !important;
+  font-size: 11px;
   background-color: var(--color-bg-warm) !important;
   margin-bottom: 0 !important;
 }
@@ -638,39 +676,39 @@ const handleSubmit = async () => {
 }
 
 .cat-icon-emoji {
-  font-size: 14px;
+  font-size: 13px;
 }
 
 /* 子分類膠囊區 */
 .sub-categories-wrapper {
   background-color: var(--color-bg-warm) !important;
-  padding: 10px !important;
-  margin-top: 10px;
+  padding: 6px 8px !important;
+  margin-top: 6px;
   margin-bottom: 0 !important;
   box-shadow: var(--shadow-jelly-sm) !important;
 }
 
 .sub-cat-hint {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 800;
   color: var(--color-text-muted);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .sub-categories-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .btn-sub-tag {
-  padding: 4px 10px !important;
-  font-size: 11px;
+  padding: 3px 8px !important;
+  font-size: 10px;
   background-color: #FFFFFF !important;
   border-radius: 20px !important;
   display: flex !important;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   box-shadow: var(--shadow-jelly-sm-sm) !important;
 }
 
@@ -686,8 +724,8 @@ const handleSubmit = async () => {
 
 /* 計算機與鍵盤 */
 .calculator-panel {
-  padding: 14px !important;
-  background-color: var(--color-text-dark) !important; /* 深黑底，凸顯數字鍵盤 */
+  padding: 10px !important;
+  background-color: var(--color-text-dark) !important;
   border-color: var(--color-border);
 }
 
@@ -695,14 +733,14 @@ const handleSubmit = async () => {
   background-color: #FFFDF9;
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--border-radius-md);
-  padding: 12px;
+  padding: 8px 10px;
   text-align: right;
-  margin-bottom: 14px;
+  margin-bottom: 8px;
   box-shadow: var(--shadow-jelly-sm);
 }
 
 .formula-line {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--color-text-muted);
   display: flex;
@@ -712,13 +750,13 @@ const handleSubmit = async () => {
 }
 
 .result-line {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 800;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .currency-label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   color: var(--color-text-muted);
   border: 1px solid var(--color-border);
@@ -730,12 +768,12 @@ const handleSubmit = async () => {
 .calc-keyboard-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+  gap: 6px;
 }
 
 .key-btn {
-  height: 48px;
-  font-size: 18px;
+  height: 42px;
+  font-size: 17px;
   font-weight: 800;
   background-color: #FFFFFF !important;
   border-color: var(--color-border) !important;
@@ -756,7 +794,7 @@ const handleSubmit = async () => {
 
 .key-confirm {
   background-color: var(--color-income) !important;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .key-confirm:disabled {
@@ -764,6 +802,18 @@ const handleSubmit = async () => {
   cursor: not-allowed;
   transform: none !important;
   box-shadow: var(--shadow-jelly-sm) !important;
+}
+
+/* 底部交易備註面板 */
+.bottom-note-panel {
+  margin-top: 10px;
+  padding: 8px 12px !important;
+  background-color: #FFFFFF;
+}
+
+.note-input-bottom {
+  height: 38px;
+  font-size: 13px;
 }
 
 /* 內部 Alert 樣式 */
