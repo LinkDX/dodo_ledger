@@ -107,6 +107,26 @@ const catMiau = computed(() => {
           opacity="0.6"
         />
 
+        <!-- 薰衣草領圈 (戴在大頭下巴邊緣下方，位於頭部主體下方、身體上方，呈現完美的項圈空間環繞層次) -->
+        <path
+          d="M 56 132 Q 100 164 144 132"
+          fill="none"
+          stroke="#2C1E1B"
+          stroke-width="12"
+          stroke-linecap="round"
+        />
+        <path
+          d="M 56 132 Q 100 164 144 132"
+          fill="none"
+          stroke="#C3B1E1"
+          stroke-width="6"
+          stroke-linecap="round"
+        />
+        <!-- 領圈黃金鈴鐺 (完美垂掛在下巴最下緣胸前) -->
+        <circle cx="100" cy="162" r="6.5" fill="#F4C842" stroke="#2C1E1B" stroke-width="2.5" />
+        <line x1="93.5" y1="159.5" x2="106.5" y2="159.5" stroke="#2C1E1B" stroke-width="1.8" />
+        <circle cx="100" cy="165.5" r="1.8" fill="#2C1E1B" />
+
         <!-- 貓頭部 -->
         <ellipse
           cx="100"
@@ -121,26 +141,6 @@ const catMiau = computed(() => {
         <!-- 貓腮紅 (軟萌粉紅) -->
         <ellipse cx="65" cy="122" rx="8" ry="5" fill="#FFB4B4" opacity="0.6" />
         <ellipse cx="135" cy="122" rx="8" ry="5" fill="#FFB4B4" opacity="0.6" />
-
-        <!-- 薰衣草領圈 (戴在大頭下巴邊緣下方，形成完美的項圈空間層次) -->
-        <path
-          d="M 68 144 Q 100 162 132 144"
-          fill="none"
-          stroke="#2C1E1B"
-          stroke-width="12"
-          stroke-linecap="round"
-        />
-        <path
-          d="M 68 144 Q 100 162 132 144"
-          fill="none"
-          stroke="#C3B1E1"
-          stroke-width="6"
-          stroke-linecap="round"
-        />
-        <!-- 領圈黃金鈴鐺 (垂掛在胸前) -->
-        <circle cx="100" cy="158" r="7" fill="#F4C842" stroke="#2C1E1B" stroke-width="2.5" />
-        <line x1="93.5" y1="155.5" x2="106.5" y2="155.5" stroke="#2C1E1B" stroke-width="1.8" />
-        <circle cx="100" cy="161.5" r="1.8" fill="#2C1E1B" />
 
         <!-- ─── 表情包切換 ─── -->
 
