@@ -340,6 +340,9 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
           </div>
         </div>
 
+        <!-- 🏆 手繪風虛線連接器，善加利用並美化中間空白空間 -->
+        <div class="tx-item-connector"></div>
+
         <!-- 右側：金額 + 日期 + 操作 -->
         <div class="tx-right">
           <span class="tx-amount" :style="{ color: getTxStyle(tx).color }">
@@ -902,5 +905,15 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
   padding: 3px 10px;
   border-radius: 20px;
   border: 1.5px solid var(--color-border);
+}
+
+/* 🏆 交易項目手繪風虛線連接器，美化並填補中間空白 */
+.tx-item-connector {
+  flex: 1;
+  margin: 0 10px;
+  border-bottom: 2px dashed rgba(44, 30, 27, 0.12); /* 自然融入的手繪暖灰色虛線 */
+  align-self: center;
+  height: 0;
+  min-width: 15px; /* 防止小螢幕上被擠壓消失 */
 }
 </style>
