@@ -544,7 +544,7 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
 .tx-list-area {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 /* 空狀態 */
@@ -610,12 +610,12 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
 .tx-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
 }
 
 .tx-category {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 800;
   white-space: nowrap;
   overflow: hidden;
@@ -623,22 +623,23 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
 }
 
 .tx-note {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
-  color: var(--color-text-muted);
+  color: var(--color-text-dark); /* 稍微加深顏色提升易讀性 */
+  opacity: 0.8;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .tx-account-info {
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--color-text-muted);
 }
 
 .creator-tag {
-  font-size: 9px !important;
+  font-size: 10px !important;
   padding: 1px 6px !important;
   width: fit-content;
 }
@@ -648,19 +649,19 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 2px;
+  gap: 3px;
   flex-shrink: 0;
   margin-left: 10px;
 }
 
 .tx-amount {
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 800;
   letter-spacing: -0.3px;
 }
 
 .tx-date {
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--color-text-muted);
 }

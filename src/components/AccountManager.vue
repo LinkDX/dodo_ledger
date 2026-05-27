@@ -1064,7 +1064,7 @@ const switchToCredit = () => {
 .accounts-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .empty-placeholder {
@@ -1086,7 +1086,7 @@ const switchToCredit = () => {
 
 /* 繪本插畫風格帳戶卡片 */
 .account-card {
-  padding: 18px !important;
+  padding: 14px 16px !important;
   margin-bottom: 0 !important;
   display: flex;
   flex-direction: column;
@@ -1109,7 +1109,7 @@ const switchToCredit = () => {
 }
 
 .type-text {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 800;
 }
 
@@ -1201,9 +1201,9 @@ const switchToCredit = () => {
 }
 
 .card-name {
-  font-size: 18px;
+  font-size: 19px;
   font-weight: 800;
-  margin-top: 12px;
+  margin-top: 8px;
 }
 
 .card-balance-block {
@@ -1214,7 +1214,7 @@ const switchToCredit = () => {
 }
 
 .currency-tag {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 800;
   color: var(--color-text-muted);
   border: 1.5px solid var(--color-border);
@@ -1242,13 +1242,13 @@ const switchToCredit = () => {
 }
 
 .debt-amount {
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 800;
   color: #C66230;
 }
 
 .limit-amount {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 800;
   margin-top: 2px;
 }
@@ -1265,10 +1265,10 @@ const switchToCredit = () => {
 }
 
 .card-details-small {
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--color-text-muted);
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
 /* 馬卡龍卡片背景色配色系統 */
