@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
 import { useLedger } from '../composables/useLedger'
+import { useConfirm } from '../composables/useConfirm'
 import { 
   FolderPlus, 
   Trash2, 
@@ -8,6 +9,7 @@ import {
 } from 'lucide-vue-next'
 
 const { categories, addCategory, deleteCategory, addSubCategory, deleteSubCategory } = useLedger()
+const { showConfirm } = useConfirm()
 
 // 🐾 記帳分類手動管理狀態與方法
 const activeCatType = ref<'expense' | 'income'>('expense')
@@ -53,7 +55,7 @@ const handleDeleteMainCategory = async (catId: string) => {
   const cat = categories.value.find(c => c.id === catId)
   if (!cat) return
   
-  if (!confirm(`確定要刪除「${cat.name}」主分類及其底下所有子分類嗎喵？（已記帳交易不受影響）`)) {
+  if (!(await showConfirm(`確定要刪除「${cat.name}」主分類及其底下所有子分類嗎喵？（已記帳交易不受影響）`, '🗑️ 刪除主分類'))) {
     return
   }
   

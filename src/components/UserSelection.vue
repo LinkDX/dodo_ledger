@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useAuth } from '../composables/useAuth'
+import { useConfirm } from '../composables/useConfirm'
 import DodoCat from './DodoCat.vue'
 import { Sparkles, Plus, Check, Trash2 } from 'lucide-vue-next'
 
 const { profiles, createProfile, deleteProfile, isLoading } = useAuth()
+const { showConfirm } = useConfirm()
 
 // 可愛頭像候選清單 (以馬卡龍色貓咪背景為主)
 const avatars = [
@@ -36,7 +38,7 @@ const handleCreate = () => {
 }
 
 const handleDeleteProfile = async (id: string, name: string) => {
-  if (window.confirm(`🐱 您確定要刪除身分「${name}」嗎？\n這將會清除與該身分相關的本地快取喔喵！`)) {
+  if (await showConfirm(`您確定要刪除身分「${name}」嗎？\n這將會清除與該身分相關的本地快取喔喵！`, '🗑️ 刪除身分')) {
     await deleteProfile(id)
   }
 }

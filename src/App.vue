@@ -13,6 +13,7 @@ import CategoryManager from './components/CategoryManager.vue'
 import Analytics from './components/Analytics.vue'
 import Settings from './components/Settings.vue'
 import AppLock from './components/AppLock.vue'
+import CuteConfirmDialog from './components/CuteConfirmDialog.vue'
 import { 
   Home, 
   Wallet, 
@@ -174,6 +175,7 @@ onMounted(() => {
         <span>設定</span>
       </button>
     </nav>
+    <CuteConfirmDialog />
   </div>
 </template>
 

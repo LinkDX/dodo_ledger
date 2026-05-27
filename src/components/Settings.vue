@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import { useAuth } from '../composables/useAuth'
 import androidVersion from '../../android-version.json'
+import { useConfirm } from '../composables/useConfirm'
 import pkg from '../../package.json'
 import { getDatabaseService, FirestoreDatabaseService } from '../services/db'
 import type { SystemLog } from '../types'
@@ -18,6 +19,7 @@ import {
 } from 'lucide-vue-next'
 
 const { currentProfile, updateProfileSettings, updateProfileAvatar } = useAuth()
+const { showConfirm } = useConfirm()
 
 // 🔒 Dodo Gatekeeper - 密碼鎖防護邏輯
 import { useAppLock } from '../composables/useAppLock'
@@ -49,8 +51,8 @@ const handleManualHotUpdate = async () => {
   localHotVersion.value = localStorage.getItem('dodo_app_hot_version_code') || '100'
 }
 
-const handleResetHotUpdate = () => {
-  if (confirm('🐱 喵？確定要清除所有熱更新快取並回退到 APK 內建版本嗎？')) {
+const handleResetHotUpdate = async () => {
+  if (await showConfirm('確定要清除所有熱更新快取並回退到 APK 內建版本嗎？', '🔄 回退內建版本')) {
     localStorage.removeItem('dodo_app_hot_version_code')
     localHotVersion.value = '100'
     alert('✨ 已清除快取！請「重啟 App」以恢復至原始版本。🐾')

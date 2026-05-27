@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useLedger } from '../composables/useLedger'
+import { useConfirm } from '../composables/useConfirm'
 import {
   Trash2,
   PlusCircle,
@@ -18,6 +19,7 @@ const emit = defineEmits<{
 }>()
 
 const { transactions, accounts, categories: allCategories, deleteTransaction, editTransaction } = useLedger()
+const { showConfirm } = useConfirm()
 
 // 篩選類型
 type FilterType = 'all' | 'expense' | 'income' | 'transfer'
@@ -144,7 +146,7 @@ const getTxStyle = (tx: any) => {
 }
 
 const handleDelete = async (txId: string) => {
-  if (confirm('確定要刪除這筆記帳紀錄嗎？此操作無法復原！')) {
+  if (await showConfirm('確定要刪除這筆記帳紀錄嗎？此操作無法復原！', '🗑️ 刪除交易紀錄')) {
     await deleteTransaction(txId)
   }
 }
