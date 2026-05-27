@@ -57,8 +57,7 @@ jobs:
 
       - name: Build Release APK with Gradle
         env:
-          DODO_STORE_PASSWORD: ${{ secrets.DODO_SIGNING_PASSWORD }}
-          DODO_KEY_PASSWORD: ${{ secrets.DODO_SIGNING_PASSWORD }}
+          DODO_SIGNING_PASSWORD: ${{ secrets.DODO_SIGNING_PASSWORD }}
         run: |
           chmod +x android/gradlew
           ./android/gradlew -p ./android assembleRelease

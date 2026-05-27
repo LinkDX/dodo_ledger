@@ -21,9 +21,9 @@ android {
     signingConfigs {
         shared {
             storeFile file('dodo-shared.keystore')
-            storePassword System.getenv("DODO_STORE_PASSWORD") ?: localProperties.getProperty("dodo.store.password")
+            storePassword System.getenv("DODO_SIGNING_PASSWORD") ?: localProperties.getProperty("dodo.signing.password")
             keyAlias 'dodo_key'
-            keyPassword System.getenv("DODO_KEY_PASSWORD") ?: localProperties.getProperty("dodo.key.password")
+            keyPassword System.getenv("DODO_SIGNING_PASSWORD") ?: localProperties.getProperty("dodo.signing.password")
         }
     }
 

@@ -40,8 +40,7 @@ if (fs.existsSync(envLocalPath)) {
 }
 
 // 讀取既有密碼設定
-let storePassword = process.env.DODO_STORE_PASSWORD || envConfig['DODO_STORE_PASSWORD'] || '';
-let keyPassword = process.env.DODO_KEY_PASSWORD || envConfig['DODO_KEY_PASSWORD'] || '';
+let signingPassword = process.env.DODO_SIGNING_PASSWORD || envConfig['DODO_SIGNING_PASSWORD'] || '';
 
 // ==========================================
 // 1. 互動式詢問進入密碼 (限本地互動環境且密碼未設定時)
@@ -54,7 +53,7 @@ function askForPassword() {
     }
 
     // 如果已經有金鑰且已經有密碼，就不需要每次 npm install 都詢問，提升開發體驗
-    if (storePassword && keyPassword && fs.existsSync(keystorePath)) {
+    if (signingPassword && fs.existsSync(keystorePath)) {
       console.log('   ✅ [設定檢測] 本地已設定簽名密碼，且共享金鑰已存在。已啟用「密碼隔離安全方案」。');
       return resolve(null);
     }
@@ -93,12 +92,10 @@ async function run() {
 
   if (pwd) {
     // 使用者輸入了新密碼，更新配置
-    storePassword = pwd;
-    keyPassword = pwd;
+    signingPassword = pwd;
     
     // 計算 SHA-256 並更新到 envConfig
-    envConfig['DODO_STORE_PASSWORD'] = pwd;
-    envConfig['DODO_KEY_PASSWORD'] = pwd;
+    envConfig['DODO_SIGNING_PASSWORD'] = pwd;
     
     const pwdHash = sha256(pwd);
     envConfig['VITE_APP_PASSWORD_HASH'] = pwdHash;
@@ -119,7 +116,7 @@ async function run() {
   // ==========================================
   // 2. 將金鑰密碼安全同步至排除的 android/local.properties 中
   // ==========================================
-  if (storePassword && keyPassword) {
+  if (signingPassword) {
     try {
       let localPropertiesLines = [];
       if (fs.existsSync(localPropertiesPath)) {
@@ -130,12 +127,13 @@ async function run() {
       // 過濾掉舊的密碼設定，避免重複追加
       localPropertiesLines = localPropertiesLines.filter(line => {
         const trimmed = line.trim();
-        return !trimmed.startsWith('dodo.store.password') && !trimmed.startsWith('dodo.key.password');
+        return !trimmed.startsWith('dodo.store.password') && 
+               !trimmed.startsWith('dodo.key.password') && 
+               !trimmed.startsWith('dodo.signing.password');
       });
 
       // 安全追加新密碼
-      localPropertiesLines.push(`dodo.store.password=${storePassword}`);
-      localPropertiesLines.push(`dodo.key.password=${keyPassword}`);
+      localPropertiesLines.push(`dodo.signing.password=${signingPassword}`);
       
       // 清理空行並寫回
       fs.writeFileSync(localPropertiesPath, localPropertiesLines.join('\n').trim() + '\n', 'utf8');
@@ -191,12 +189,12 @@ async function run() {
         fs.mkdirSync(keystoreDir, { recursive: true });
       }
       
-      if (!storePassword || !keyPassword) {
+      if (!signingPassword) {
         throw new Error('未偵測到簽名密碼，無法生成/重建金鑰！');
       }
       
       // 使用解析出的安全密碼調用 keytool，程式碼中 100% 無硬編碼密碼
-      const cmd = `keytool -genkeypair -v -keystore "${keystorePath}" -alias dodo_key -keyalg RSA -keysize 2048 -validity 10000 -storepass "${storePassword}" -keypass "${keyPassword}" -dname "CN=Dodo, OU=Ledger, O=Dodo, L=Taipei, S=Taiwan, C=TW"`;
+      const cmd = `keytool -genkeypair -v -keystore "${keystorePath}" -alias dodo_key -keyalg RSA -keysize 2048 -validity 10000 -storepass "${signingPassword}" -keypass "${signingPassword}" -dname "CN=Dodo, OU=Ledger, O=Dodo, L=Taipei, S=Taiwan, C=TW"`;
       
       execSync(cmd, { stdio: 'ignore' });
       console.log('   ✅ 專案共享簽名金鑰 dodo-shared.keystore 重新產生成功！已存放於: android/app/');

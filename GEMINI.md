@@ -206,8 +206,8 @@
 - **共享金鑰**：`android/app/dodo-shared.keystore` 已 commit 至 Git，本地與 CI/CD 使用同一把，消滅「無法覆蓋安裝」問題。
 - **密碼三層隔離**：
   - **本地端**：`npm install` 時互動式詢問進入密碼，`prepare.cjs` 自動同步至 `android/local.properties`（Git 排除）。
-  - **CI/CD 端**：透過單一 GitHub Secret `DODO_SIGNING_PASSWORD` 注入，同時作為 store/key 兩個密碼。
-  - **程式碼中**：`build.gradle` 完全無任何硬編碼密碼，100% 由環境變數或 `local.properties` 動態讀取。
-- **密碼一致性**：App 進入密碼、Android 金鑰密碼、`DODO_SIGNING_PASSWORD` 三者刻意設為同一值，降低管理複雜度。
+- **CI/CD 端**：透過單一 GitHub Secret `DODO_SIGNING_PASSWORD` 注入，同時作為儲存庫與金鑰兩個密碼。
+- **程式碼中**：`build.gradle` 完全無任何硬編碼密碼，100% 由環境變數 `DODO_SIGNING_PASSWORD` 或 `local.properties` 動態讀取。
+- **密碼一致性**：App 進入密碼、Android 金鑰密碼、GitHub Secret `DODO_SIGNING_PASSWORD` 三者刻意設為同一值，降低管理複雜度。
 - **`npm run prepare` 的金鑰重建邏輯**：若偵測到密碼變更或金鑰缺失，自動備份舊金鑰並用新密碼重新產生 `dodo-shared.keystore`，確保金鑰與密碼永遠同步一致。
 

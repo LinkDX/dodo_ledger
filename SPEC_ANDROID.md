@@ -193,8 +193,9 @@ android/app/build.gradle
 | 用途 | 儲存位置 | 格式 |
 |---|---|---|
 | **App 進入鎖定** | `.env.local` → `VITE_APP_PASSWORD_HASH` | SHA-256 單向雜湊 |
-| **Android 金鑰密碼** | `android/local.properties` → `dodo.store.password` | 明文（Git 排除檔） |
+| **Android 金鑰密碼** | `android/local.properties` → `dodo.signing.password` | 明文（Git 排除檔） |
 | **CI/CD 簽名密碼** | GitHub Secrets → `DODO_SIGNING_PASSWORD` | 明文（加密 Secret） |
+| **金鑰自癒追蹤** | `.env.local` → `DODO_SIGNING_PASSWORD` | 明文（Git 排除檔） |
 
 ### 8.5 GitHub Actions 所需 Secrets
 

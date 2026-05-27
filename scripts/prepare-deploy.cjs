@@ -147,9 +147,36 @@ const processConfig = () => {
   const keystoreDir = path.join(__dirname, '../android/app');
   const keystorePath = path.join(keystoreDir, 'dodo-shared.keystore');
   
-  if (!fs.existsSync(keystorePath)) {
-    console.log('\n  📡 [資安防禦檢測] 偵測到本地尚無專案專屬共享簽名金鑰 dodo-shared.keystore！');
-    console.log('     🐱 逗逗貓小管家正努力在後台調用 keytool 幫您一鍵秒速生成金鑰中，請稍候...');
+  // 偵測密碼是否變更或缺少記錄 (與 .env.local 中的舊 Hash 與密碼記錄比較)
+  let oldHash = '';
+  let hasRawPassword = false;
+  const existingEnvPath = path.join(__dirname, '../.env.local');
+  if (fs.existsSync(existingEnvPath)) {
+    const content = fs.readFileSync(existingEnvPath, 'utf8');
+    const match = content.match(/VITE_APP_PASSWORD_HASH=([a-f0-9]+)/);
+    if (match) oldHash = match[1];
+    hasRawPassword = content.includes('DODO_SIGNING_PASSWORD');
+  }
+  
+  const newHash = globalPassword ? getSha256Hash(globalPassword) : '';
+  const passwordChanged = oldHash && newHash && oldHash !== newHash;
+  // 如果 Hash 存在但沒有原始密碼記錄，代表可能是舊版腳本產生的，為了安全起見，若有輸入新密碼就重新產生
+  const isStale = oldHash && !hasRawPassword && globalPassword;
+
+  if (!fs.existsSync(keystorePath) || passwordChanged || isStale) {
+    if (passwordChanged || isStale) {
+      console.log(`\n  📡 [密碼一致性自癒] 偵測到密碼已變更或缺少同步記錄，正在為您重新產生專案共享簽名金鑰...`);
+      if (fs.existsSync(keystorePath)) {
+        const backupPath = `${keystorePath}.bak`;
+        fs.copyFileSync(keystorePath, backupPath);
+        fs.unlinkSync(keystorePath);
+        console.log(`     已將舊金鑰安全備份至: android/app/dodo-shared.keystore.bak`);
+      }
+    } else {
+      console.log('\n  📡 [資安防禦檢測] 偵測到本地尚無專案專屬共享簽名金鑰 dodo-shared.keystore！');
+      console.log('     🐱 逗逗貓小管家正努力在後台調用 keytool 幫您一鍵秒速生成金鑰中，請稍候...');
+    }
+
     try {
       if (!fs.existsSync(keystoreDir)) {
         fs.mkdirSync(keystoreDir, { recursive: true });
@@ -171,17 +198,49 @@ const processConfig = () => {
   githubSecrets.push({ key: 'DODO_SIGNING_PASSWORD', value: globalPassword || '(請填入您的進入密碼)' });
 
   // 4. 自動寫入本地 .env.local 檔案
+  // 同時寫入原始密碼，以便與 prepare.cjs 保持同步與一致性
+  const envConfig = {};
   const envLocalPath = path.join(__dirname, '../.env.local');
-  try {
-    if (envLines.length > 0) {
-      fs.writeFileSync(envLocalPath, envLines.join('\n') + '\n');
-      console.log(`\n  💾 \x1b[36m已自動一鍵生成本地配置檔案 (.env.local)\x1b[0m`);
-      console.log('     您的本機開發測試已自動套用此安全鎖與雲端設定囉！');
-    } else {
-      if (fs.existsSync(envLocalPath)) {
-        fs.unlinkSync(envLocalPath);
-      }
+  
+  // 先讀取現有設定
+  if (fs.existsSync(envLocalPath)) {
+    try {
+      const content = fs.readFileSync(envLocalPath, 'utf8');
+      content.split('\n').forEach(line => {
+        const parts = line.split('=');
+        if (parts.length >= 2) {
+          const key = parts[0].trim();
+          const val = parts.slice(1).join('=').trim();
+          if (key) envConfig[key] = val;
+        }
+      });
+    } catch (err) {
+      console.warn('     ⚠️ 讀取現有 .env.local 失敗，將重新產生。');
     }
+  }
+
+  // 更新設定
+  if (globalPassword) {
+    const pwdHash = getSha256Hash(globalPassword);
+    envConfig['VITE_APP_PASSWORD_HASH'] = pwdHash;
+    envConfig['DODO_SIGNING_PASSWORD'] = globalPassword;
+  }
+
+  // 從 envLines 提取其他設定 (Firebase 等)
+  envLines.forEach(line => {
+    const parts = line.split('=');
+    if (parts.length >= 2) {
+      const key = parts[0].trim();
+      const val = parts.slice(1).join('=').trim();
+      if (key) envConfig[key] = val;
+    }
+  });
+
+  try {
+    const finalEnvLines = Object.entries(envConfig).map(([k, v]) => `${k}=${v}`).join('\n') + '\n';
+    fs.writeFileSync(envLocalPath, finalEnvLines, 'utf8');
+    console.log(`\n  💾 \x1b[36m已自動一鍵更新本地配置檔案 (.env.local)\x1b[0m`);
+    console.log('     您的本機開發測試已自動套用此安全鎖與雲端設定囉！');
   } catch (err) {
     console.error('     ❌ 寫入 .env.local 失敗：', err.message);
   }

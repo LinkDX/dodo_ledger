@@ -8,6 +8,11 @@
 
 > ⚠️ **此版本更換了 APK 簽名金鑰，請先完整解除安裝舊版，再安裝此版本。** 此後所有後續版本皆以同一把共享金鑰持續簽名，可直接覆蓋安裝，不再需要重裝。
 
+### Fixed
+- **Android 金鑰密碼同步修復**：修正 `scripts/prepare-deploy.cjs` 缺少密碼變更偵測的問題，現在變更密碼後會自動備份舊金鑰並重新產生 `dodo-shared.keystore`。
+- **變數名稱統一化**：全面將金鑰與儲存庫密碼變數統一為 `DODO_SIGNING_PASSWORD` (env) 與 `dodo.signing.password` (properties)，符合 `SPEC_ANDROID.md` 規範。
+- **配置合併邏輯優化**：修復 `.env.local` 會被完整覆蓋的問題，改為智慧合併現有配置，避免遺失 Firebase 等手動設定變數。
+
 - **更換共享簽名金鑰**：重新產生了 `android/app/dodo-shared.keystore`，確保本地開發、CI/CD 管線與所有未來版本皆使用同一把金鑰，徹底解決新舊 APK 因金鑰衝突導致「無法覆蓋安裝」的問題。
 - **簽名密碼與進入密碼統一**：新金鑰的解鎖密碼已與 App 進入鎖定密碼設定為一致，透過 `npm run prepare` 互動式設定流程自動完成，密碼完全不寫入程式碼。
 - **網頁功能同步自 Web 1.9.4**：熱更新引擎閉環、滾動容器 Padding 修復、更換頭像 Dialog 模態彈窗等功能同步搭載。
