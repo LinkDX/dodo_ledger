@@ -368,12 +368,9 @@ const switchToCredit = () => {
           </div>
 
           <!-- 一般帳戶顯示正餘額 -->
-          <template v-else>
-            <div class="card-connector"></div>
-            <div class="general-balance" :class="{ 'negative-val': acct.balance < 0 }">
-              ${{ formatCurrency(acct.balance) }}
-            </div>
-          </template>
+          <div v-else class="general-balance" :class="{ 'negative-val': acct.balance < 0 }">
+            ${{ formatCurrency(acct.balance) }}
+          </div>
         </div>
       </div>
     </div>
@@ -1427,13 +1424,4 @@ const switchToCredit = () => {
   border-width: 3px;
 }
 
-/* 🏆 帳戶卡片餘額虛線連接器，美化並填補中間空白 */
-.card-connector {
-  flex: 1;
-  margin: 0 12px;
-  border-bottom: 2px dashed rgba(44, 30, 27, 0.15); /* 帶有手繪質感的暖灰褐色虛線 */
-  align-self: flex-end;
-  height: 0;
-  margin-bottom: 6px; /* 完美貼合 TWD 和金額的底部基線 */
-}
 </style>
