@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { Capacitor } from '@capacitor/core'
+import { Capacitor, CapacitorHttp } from '@capacitor/core'
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem'
 
 const HOT_VERSION_KEY = 'dodo_app_hot_version_code'
@@ -23,17 +23,20 @@ export function useLiveUpdates() {
       
       console.log('[LiveUpdate] 🔍 正在與 GitHub Pages 進行版本對帳...')
       
-      // 1. 向 GitHub Pages 自建託管端請求最新版本號 (設定 no-store 防緩存)
-      const res = await fetch('https://linkdx.github.io/dodo_ledger/version.json', {
-        cache: 'no-store'
-      })
+      // 1. 向 GitHub Pages 自建託管端請求最新版本號 (使用 CapacitorHttp 繞過 CORS)
+      const options = {
+        url: 'https://linkdx.github.io/dodo_ledger/version.json',
+        headers: { 'Cache-Control': 'no-cache' }
+      }
       
-      if (!res.ok) {
-        console.warn(`[LiveUpdate] 無法獲取 version.json (HTTP ${res.status})，略過更新。`)
+      const response = await CapacitorHttp.get(options)
+      
+      if (response.status !== 200) {
+        console.warn(`[LiveUpdate] 無法獲取 version.json (HTTP ${response.status})，略過更新。`)
         return
       }
       
-      const remote = await res.json()
+      const remote = response.data
       
       // 2. 取得目前手機內已啟用的版本號，預設為 100
       const localVersion = parseInt(localStorage.getItem(HOT_VERSION_KEY) || '100', 10)
@@ -52,7 +55,6 @@ export function useLiveUpdates() {
       }
     } catch (e: any) {
       console.error('[LiveUpdate] 檢查更新時發生錯誤：', e)
-      // 離線斷網、飛航模式或伺服器斷線時，fetch 拋出 Error，在此自動優雅降級，絕不卡頓 App
     } finally {
       isChecking.value = false
     }
@@ -68,34 +70,27 @@ export function useLiveUpdates() {
       
       console.log(`[LiveUpdate] 📥 開始下載更新包：${downloadUrl}`)
       
-      // A. 下載靜態更新包 (使用原生 fetch 確保繞過 CORS 與處理大型檔案)
-      // 注意：在 Capacitor 6 中且已啟動 CapacitorHttp 插件時，fetch 會自動被 patched 使用原生請求
-      const response = await fetch(downloadUrl)
-      if (!response.ok) {
+      // A. 下載靜態更新包 (使用 CapacitorHttp 原生下載，繞過 CORS 且不影響全域 fetch)
+      const options = {
+        url: downloadUrl,
+        responseType: 'blob' as const
+      }
+      
+      const response = await CapacitorHttp.get(options)
+      if (response.status !== 200) {
         throw new Error(`下載失敗 (HTTP ${response.status})`)
       }
       
-      const blob = await response.blob()
-      console.log(`[LiveUpdate] ✅ 更新包下載完成，大小: ${blob.size} bytes`)
+      // Capacitor 處理 blob responseType 時會將其轉換為 base64 string
+      const base64Data = response.data
+      console.log(`[LiveUpdate] ✅ 更新包下載完成 (Base64 格式)`)
       updateProgress.value = 50
       
-      // B. 轉換為 Base64 (Capacitor Filesystem 規範)
-      console.log('[LiveUpdate] 🔄 正在進行 Base64 編碼與沙盒寫入...')
-      const reader = new FileReader()
-      const base64DataPromise = new Promise<string>((resolve, reject) => {
-        reader.onloadend = () => {
-          const base64String = reader.result as string
-          if (!base64String) {
-            reject(new Error('Base64 編碼失敗'))
-            return
-          }
-          resolve(base64String.split(',')[1]) // 移除 Data URL 前綴
-        }
-        reader.onerror = () => reject(new Error('讀取 Blob 失敗'))
-        reader.readAsDataURL(blob)
-      })
+      // 確保它是乾淨的 base64 (移除 Data URL 前綴)
+      const finalBase64 = typeof base64Data === 'string' && base64Data.includes('base64,') 
+        ? base64Data.split('base64,')[1] 
+        : base64Data
       
-      const base64Data = await base64DataPromise
       updateProgress.value = 80
       
       // C. 寫入手機私有安全沙盒
@@ -104,7 +99,7 @@ export function useLiveUpdates() {
       
       await Filesystem.writeFile({
         path: zipFileName,
-        data: base64Data,
+        data: finalBase64,
         directory: Directory.Data
       })
 
@@ -124,7 +119,6 @@ export function useLiveUpdates() {
     } catch (e: any) {
       console.error('[LiveUpdate] 背景下載更新包失敗：', e)
       updateError.value = e.message || '下載失敗'
-      // 發生錯誤時重設進度，避免卡在 10%
       updateProgress.value = 0
     }
   }
@@ -138,4 +132,3 @@ export function useLiveUpdates() {
     checkForUpdates
   }
 }
-
