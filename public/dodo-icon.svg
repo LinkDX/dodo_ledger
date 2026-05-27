@@ -2,88 +2,86 @@
   <!-- 背景圓角方形 (馬卡龍奶油黃) -->
   <rect width="512" height="512" rx="115" fill="#FFF8EC"/>
   
-  <!-- 左耳外 -->
-  <ellipse cx="148" cy="135" rx="52" ry="62" transform="rotate(-20,148,135)" fill="#F5E6D3"/>
-  <!-- 左耳內 (粉桃) -->
-  <ellipse cx="148" cy="138" rx="30" ry="38" transform="rotate(-20,148,138)" fill="#F9C4C4"/>
+  <!-- 左外耳 (三角形貓耳) -->
+  <path d="M102 210 L128 66 Q134 50 146 62 L198 190 Z" fill="#FDF6EE" stroke="#3D2B1F" stroke-width="8" stroke-linejoin="round"/>
+  <!-- 左內耳 (粉桃) -->
+  <path d="M122 186 L140 88 Q142 82 148 88 L176 175 Z" fill="#F9C4C4"/>
   
-  <!-- 右耳外 -->
-  <ellipse cx="364" cy="135" rx="52" ry="62" transform="rotate(20,364,135)" fill="#F5E6D3"/>
-  <!-- 右耳內 (粉桃) -->
-  <ellipse cx="364" cy="138" rx="30" ry="38" transform="rotate(20,364,138)" fill="#F9C4C4"/>
-  
-  <!-- 頭部主體 (乳白) -->
-  <ellipse cx="256" cy="230" rx="155" ry="145" fill="#FDF6EE"/>
-  <!-- 頭部輪廓線 -->
-  <ellipse cx="256" cy="230" rx="155" ry="145" fill="none" stroke="#3D2B1F" stroke-width="8"/>
+  <!-- 右外耳 (三角形貓耳) -->
+  <path d="M314 190 L366 62 Q378 50 384 66 L410 210 Z" fill="#FDF6EE" stroke="#3D2B1F" stroke-width="8" stroke-linejoin="round"/>
+  <!-- 右內耳 (粉桃) -->
+  <path d="M336 175 L364 88 Q370 82 372 88 L390 186 Z" fill="#F9C4C4"/>
   
   <!-- 身體 (乳白) -->
   <ellipse cx="256" cy="370" rx="130" ry="110" fill="#FDF6EE"/>
   <ellipse cx="256" cy="370" rx="130" ry="110" fill="none" stroke="#3D2B1F" stroke-width="8"/>
   
-  <!-- 左鬚 -->
-  <line x1="155" y1="228" x2="88" y2="218" stroke="#3D2B1F" stroke-width="5" stroke-linecap="round"/>
-  <line x1="155" y1="240" x2="88" y2="240" stroke="#3D2B1F" stroke-width="5" stroke-linecap="round"/>
-  <line x1="155" y1="252" x2="88" y2="262" stroke="#3D2B1F" stroke-width="5" stroke-linecap="round"/>
-  <!-- 右鬚 -->
-  <line x1="357" y1="228" x2="424" y2="218" stroke="#3D2B1F" stroke-width="5" stroke-linecap="round"/>
-  <line x1="357" y1="240" x2="424" y2="240" stroke="#3D2B1F" stroke-width="5" stroke-linecap="round"/>
-  <line x1="357" y1="252" x2="424" y2="262" stroke="#3D2B1F" stroke-width="5" stroke-linecap="round"/>
+  <!-- 頭部主體 (乳白) -->
+  <ellipse cx="256" cy="225" rx="155" ry="140" fill="#FDF6EE"/>
+  <!-- 頭部輪廓線 -->
+  <ellipse cx="256" cy="225" rx="155" ry="140" fill="none" stroke="#3D2B1F" stroke-width="8"/>
   
-  <!-- 左眼白 -->
-  <ellipse cx="204" cy="210" rx="32" ry="36" fill="white"/>
-  <!-- 左眼珠 -->
-  <ellipse cx="204" cy="215" rx="20" ry="22" fill="#3D2B1F"/>
-  <!-- 左眼高光 -->
-  <circle cx="212" cy="207" r="6" fill="white"/>
-  <circle cx="197" cy="220" r="3" fill="white"/>
+  <!-- 額頭貓斑紋 (經典M字條紋) -->
+  <path d="M250 95 L262 95 L256 125 Z" fill="#3D2B1F"/>
+  <path d="M222 102 L232 107 L230 127 Z" fill="#3D2B1F"/>
+  <path d="M290 102 L280 107 L282 127 Z" fill="#3D2B1F"/>
   
-  <!-- 右眼白 -->
-  <ellipse cx="308" cy="210" rx="32" ry="36" fill="white"/>
-  <!-- 右眼珠 -->
-  <ellipse cx="308" cy="215" rx="20" ry="22" fill="#3D2B1F"/>
-  <!-- 右眼高光 -->
-  <circle cx="316" cy="207" r="6" fill="white"/>
-  <circle cx="301" cy="220" r="3" fill="white"/>
+  <!-- 左鬍鬚 -->
+  <path d="M135 220 Q70 205 50 215" fill="none" stroke="#3D2B1F" stroke-width="5" stroke-linecap="round"/>
+  <path d="M130 232 Q65 232 40 238" fill="none" stroke="#3D2B1F" stroke-width="5" stroke-linecap="round"/>
+  <path d="M135 244 Q70 255 50 262" fill="none" stroke="#3D2B1F" stroke-width="5" stroke-linecap="round"/>
+  <!-- 右鬍鬚 -->
+  <path d="M377 220 Q442 205 462 215" fill="none" stroke="#3D2B1F" stroke-width="5" stroke-linecap="round"/>
+  <path d="M382 232 Q447 232 472 238" fill="none" stroke="#3D2B1F" stroke-width="5" stroke-linecap="round"/>
+  <path d="M377 244 Q442 255 462 262" fill="none" stroke="#3D2B1F" stroke-width="5" stroke-linecap="round"/>
   
-  <!-- 鼻子 (小三角) -->
-  <path d="M256 248 L247 263 L265 263 Z" fill="#F9C4C4"/>
+  <!-- 左眼 -->
+  <ellipse cx="202" cy="198" rx="26" ry="28" fill="#3D2B1F"/>
+  <circle cx="210" cy="190" r="8" fill="white"/>
+  <circle cx="194" cy="204" r="4" fill="white"/>
   
-  <!-- 嘴巴 (W形可愛嘴) -->
-  <path d="M237 270 Q247 280 256 272 Q265 280 275 270" fill="none" stroke="#3D2B1F" stroke-width="5" stroke-linecap="round"/>
+  <!-- 右眼 -->
+  <ellipse cx="310" cy="198" rx="26" ry="28" fill="#3D2B1F"/>
+  <circle cx="302" cy="190" r="8" fill="white"/>
+  <circle cx="318" cy="204" r="4" fill="white"/>
   
-  <!-- 左腮紅 -->
-  <ellipse cx="180" cy="258" rx="26" ry="16" fill="#F9C4C4" opacity="0.6"/>
-  <!-- 右腮紅 -->
-  <ellipse cx="332" cy="258" rx="26" ry="16" fill="#F9C4C4" opacity="0.6"/>
+  <!-- 鼻子 (小粉紅三角形) -->
+  <polygon points="256,218 248,208 264,208" fill="#F9C4C4" stroke="#3D2B1F" stroke-width="4" stroke-linejoin="round"/>
   
-  <!-- 薄荷綠錢包 (在身體前方) -->
-  <!-- 錢包主體 -->
-  <rect x="188" y="326" width="136" height="88" rx="20" fill="#A8E6CF"/>
-  <rect x="188" y="326" width="136" height="88" rx="20" fill="none" stroke="#3D2B1F" stroke-width="6"/>
-  <!-- 錢包扣環金屬 -->
-  <ellipse cx="256" cy="326" rx="28" ry="10" fill="#F4C842"/>
-  <ellipse cx="256" cy="326" rx="28" ry="10" fill="none" stroke="#3D2B1F" stroke-width="5"/>
-  <!-- 錢包上的小花裝飾 -->
-  <circle cx="256" cy="368" r="14" fill="#FFF8EC"/>
-  <circle cx="256" cy="354" r="5" fill="#F9C4C4"/>
-  <circle cx="269" cy="361" r="5" fill="#F9C4C4"/>
-  <circle cx="269" cy="375" r="5" fill="#F9C4C4"/>
-  <circle cx="256" cy="382" r="5" fill="#F9C4C4"/>
-  <circle cx="243" cy="375" r="5" fill="#F9C4C4"/>
-  <circle cx="243" cy="361" r="5" fill="#F9C4C4"/>
-  <circle cx="256" cy="368" r="6" fill="#F4C842"/>
+  <!-- 嘴巴 (W形嘟嘟嘴) -->
+  <path d="M238 224 Q247 234 256 224 Q265 234 274 224" fill="none" stroke="#3D2B1F" stroke-width="6" stroke-linecap="round"/>
   
-  <!-- 左手爪 -->
-  <ellipse cx="188" cy="358" rx="28" ry="22" fill="#FDF6EE"/>
-  <ellipse cx="188" cy="358" rx="28" ry="22" fill="none" stroke="#3D2B1F" stroke-width="6"/>
-  <!-- 右手爪 -->
-  <ellipse cx="324" cy="358" rx="28" ry="22" fill="#FDF6EE"/>
-  <ellipse cx="324" cy="358" rx="28" ry="22" fill="none" stroke="#3D2B1F" stroke-width="6"/>
+  <!-- 腮紅 -->
+  <ellipse cx="174" cy="226" rx="22" ry="12" fill="#F9C4C4" opacity="0.6"/>
+  <ellipse cx="338" cy="226" rx="22" ry="12" fill="#F9C4C4" opacity="0.6"/>
   
   <!-- 薰衣草領圈 -->
-  <path d="M155 295 Q256 330 357 295" fill="none" stroke="#C3B1E1" stroke-width="14" stroke-linecap="round"/>
-  <!-- 領圈金屬扣 -->
-  <circle cx="256" cy="318" r="10" fill="#F4C842"/>
-  <circle cx="256" cy="318" r="10" fill="none" stroke="#3D2B1F" stroke-width="4"/>
+  <path d="M152 284 Q256 332 360 284" fill="none" stroke="#C3B1E1" stroke-width="16" stroke-linecap="round"/>
+  <!-- 領圈黃金鈴鐺 -->
+  <circle cx="256" cy="314" r="15" fill="#F4C842" stroke="#3D2B1F" stroke-width="6"/>
+  <line x1="242" y1="311" x2="270" y2="311" stroke="#3D2B1F" stroke-width="4"/>
+  <circle cx="256" cy="320" r="4.5" fill="#3D2B1F"/>
+  
+  <!-- 薄荷綠口金錢包 -->
+  <rect x="180" y="342" width="152" height="98" rx="22" fill="#A8E6CF" stroke="#3D2B1F" stroke-width="8"/>
+  <!-- 口金包黃金小圓珠扣 -->
+  <circle cx="244" cy="342" r="9" fill="#F4C842" stroke="#3D2B1F" stroke-width="5"/>
+  <circle cx="268" cy="342" r="9" fill="#F4C842" stroke="#3D2B1F" stroke-width="5"/>
+  <!-- 錢包櫻花圖案裝飾 -->
+  <circle cx="256" cy="391" r="14" fill="#FFF8EC" stroke="#3D2B1F" stroke-width="4"/>
+  <circle cx="256" cy="391" r="6" fill="#F4C842"/>
+  
+  <!-- 左貓掌 (帶粉紅肉球墊) -->
+  <circle cx="174" cy="388" r="25" fill="#FDF6EE" stroke="#3D2B1F" stroke-width="8"/>
+  <circle cx="174" cy="388" r="12.5" fill="#F9C4C4"/>
+  <circle cx="163" cy="373" r="5" fill="#F9C4C4"/>
+  <circle cx="174" cy="368" r="5" fill="#F9C4C4"/>
+  <circle cx="185" cy="373" r="5" fill="#F9C4C4"/>
+  
+  <!-- 右貓掌 (帶粉紅肉球墊) -->
+  <circle cx="338" cy="388" r="25" fill="#FDF6EE" stroke="#3D2B1F" stroke-width="8"/>
+  <circle cx="338" cy="388" r="12.5" fill="#F9C4C4"/>
+  <circle cx="327" cy="373" r="5" fill="#F9C4C4"/>
+  <circle cx="338" cy="368" r="5" fill="#F9C4C4"/>
+  <circle cx="349" cy="373" r="5" fill="#F9C4C4"/>
 </svg>
