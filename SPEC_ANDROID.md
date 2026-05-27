@@ -130,6 +130,13 @@ Dodo Ledger 的首頁逗逗貓表情不能因為斷網而失效，規格如下�
 5. **原生極速解壓與重定向**：下一次 App 開啟（冷啟動）時，原生 Android `MainActivity.java` 會在啟動第一時間讀取 `current_hot_version.txt` 內指明的版號，比對解壓目錄。若對應解壓目錄不存在，原生端會調用 Java 底層 `ZipInputStream` 進行極速解壓（耗時僅約 20ms）並清除 `.zip` 原始包以防硬碟塞滿，同時內建 **Zip Slip 漏洞路徑穿越防護** 機制。解壓無誤後，WebView 會動態重定向 `setServerUrl()` 載入沙盒 `index.html`，實現完美的無感熱更新閉環。
 6. **優雅降級**：離線、伺服器異常或下載失敗時，直接忽略，自動降級讀取本地最新成功的沙盒快取或 APK 預置 bundled 版本，絕不卡頓 App。
 
+### 6.3 覆蓋安裝版本自愈機制 (Crossover Installation Self-Healing)
+為防範使用者在覆蓋安裝新版 APK 後，因手機沙盒中殘留舊版熱更新資源（`current_hot_version.txt`）而導致 WebView 被無條件重定向至舊網頁，`MainActivity.java` 內置了 `SharedPreferences` 版本比對器：
+1. **原生覆蓋偵測**：App 啟動最前端會讀取當前 APK 的 `versionCode`（即 `buildNumber`），並與 `SharedPreferences` 中儲存的 `last_apk_version_code` 進行比對。
+2. **自動掃除舊沙盒**：若偵測到 `當前 APK versionCode > 歷史紀錄`，判定為覆蓋安裝（或首次安裝）。原生端將主動掃除 `current_hot_version.txt` 版本指標與所有手機沙盒內的 `update_pack_*` 舊版網頁資源目錄。
+3. **安全回退與儲存**：掃除完畢後，WebView 會安全回退並加載當前 APK 內置最新預置資源，並將新的 `versionCode` 寫入 `SharedPreferences`。
+4. **網頁端雙重防護**：網頁端 `useLiveUpdates.ts` 啟動後亦會比對當前程式碼內置的 Web 版本號（`package.json` 的 `builtInVersionCode`）與 `localStorage` 的 `dodo_app_hot_version_code` 紀錄。一旦發現內置版本較新，便自動升級 `localStorage` 的紀錄為最新內置版，保障版本監控閣數據一致性，並阻斷重複下載舊包的 Bug。
+
 ---
 
 ## 7. 本地快速建置與測試指南 (CLI)
