@@ -15,7 +15,7 @@ on:
       - 'tsconfig*.json'
 
 permissions:
-  contents: read
+  contents: write  # 賦予寫入權限，以便能建立 Tag 與 GitHub Release
   pages: write
   id-token: write
 
@@ -55,6 +55,44 @@ jobs:
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
         run: npm run build
 
+      - name: Generate version.json and zip hot-update package
+        id: hot_update
+        run: |
+          # 1. 讀取 package.json 中的版本號
+          VERSION=$(node -e "console.log(require('./package.json').version)")
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          
+          # 2. 將版本號轉為整數 versionCode (例如 1.9.3 -> 10903)
+          IFS='.' read -r -a parts <<< "$VERSION"
+          MAJOR="${parts[0]}"
+          MINOR="${parts[1]}"
+          PATCH="${parts[2]}"
+          VERSION_CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
+          echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
+          
+          # 3. 將 dist/ 資料夾壓縮為 app-update.zip
+          cd dist
+          zip -r ../app-update.zip .
+          cd ..
+          
+          # 4. 計算 SHA-256 Hash
+          HASH=$(sha256sum app-update.zip | awk '{ print $1 }')
+          echo "HASH=sha256-$HASH" >> $GITHUB_ENV
+          
+          # 5. 生成 version.json 寫入到 dist/ 裡面，讓它一併發布在 GitHub Pages
+          node -e "
+            const fs = require('fs');
+            const data = {
+              versionCode: $VERSION_CODE,
+              versionName: '$VERSION',
+              downloadUrl: 'https://github.com/${{ github.repository }}/releases/download/web-v$VERSION/app-update.zip',
+              hash: 'sha256-$HASH',
+              releaseNote: '🐱 Dodo Ledger 網頁版 v$VERSION 更新已就緒！超萌的 Q 彈卡片與功能優化正等著主人體驗喔！🐾'
+            };
+            fs.writeFileSync('dist/version.json', JSON.stringify(data, null, 2));
+            console.log('Successfully generated dist/version.json');
+          "
+
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
         with:
@@ -63,3 +101,26 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Create Web Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: web-v${{ env.VERSION }}
+          name: Web v${{ env.VERSION }} - 逗逗貓網頁熱更新發布
+          body: |
+            ## 🌸 Dodo Ledger 網頁端 v${{ env.VERSION }} 🌸
+            
+            🐱 **喵嗚！網頁版本全新發布囉！**
+            
+            此 Release 包含了專為 Android App 熱更新使用的網頁靜態壓縮包 `app-update.zip`。
+            Android App 在下次啟動時會默默下載此包並自動無感升級至最新網頁功能！
+            
+            ### 🛠️ 變更摘要
+            - 重新配置 DodoCat 佈局，將貓咪放到左邊，對話框置於右側，利用 Flexbox 排列完美杜絕蓋住貓咪的問題。
+            - 修正 DatePicker 年份在某些小螢幕下因為空格而拆成兩行的問題。
+            - 優化橫向滾動容器 padding 解決 hover 浮起時邊緣被切除的問題。
+            - 將更換頭像面板精簡，改為點擊按鈕彈出手繪風 Dialog 彈窗。
+          draft: false
+          prerelease: false
+          files: |
+            app-update.zip

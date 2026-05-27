@@ -20,7 +20,7 @@ export function useLiveUpdates() {
       isChecking.value = true
       
       // 1. 向 GitHub Pages 自建託管端請求最新版本號 (設定 no-store 防緩存)
-      const res = await fetch('https://luke.github.io/dodo_ledger/version.json', {
+      const res = await fetch('https://linkdx.github.io/dodo_ledger/version.json', {
         cache: 'no-store'
       })
       if (!res.ok) return
