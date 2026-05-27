@@ -2,6 +2,12 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Web 1.9.9] - 2026-05-27
+
+### ⚙️ 設定頁面與排版優化 (Settings & UI Refinement)
+- **版本號動態化**：修正設定頁面的 App 版本為動態讀取 `android-version.json`，Web 版本為動態讀取 `package.json`，確保 UI 與設定檔永久同步。
+- **排版優化**：設定 App 版本僅在 Android 原生環境下顯示；同時優化熱更新按鈕排版，防止窄螢幕換行。
+
 ## [Web 1.9.8] - 2026-05-27
 
 ### 🚑 Firebase 相容性緊急修復 (Firebase Compatibility Fix)

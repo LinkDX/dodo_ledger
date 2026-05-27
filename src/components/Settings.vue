@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useAuth } from '../composables/useAuth'
+import androidVersion from '../../android-version.json'
+import pkg from '../../package.json'
 import { getDatabaseService, FirestoreDatabaseService } from '../services/db'
 import type { SystemLog } from '../types'
 import { 
@@ -56,8 +58,8 @@ const handleResetHotUpdate = () => {
 }
 
 // ─── 版本資訊與進階管理員彩蛋 ───
-const appVersion = '1.0.0'
-const webVersion = '1.9.8'
+const appVersion = androidVersion.version
+const webVersion = pkg.version
 const webClickCount = ref(0)
 const isAdminMode = ref(false)
 
@@ -311,13 +313,12 @@ const formatCurrency = (val: number) => {
               @click="handleManualHotUpdate"
               type="button"
             >
-              {{ isHotChecking ? '正在對帳...' : '🐾 手動檢查並下載更新' }}
+              {{ isHotChecking ? '正在對帳...' : '🐾 手動檢查更新' }}
             </button>
             <button 
               class="btn-jelly btn-action btn-reset-update" 
               @click="handleResetHotUpdate"
               type="button"
-              style="background-color: var(--color-bg-warm) !important; color: var(--color-text-muted); margin-left: 8px;"
             >
               🧹 清除熱更新快取
             </button>
@@ -484,8 +485,10 @@ const formatCurrency = (val: number) => {
 
     <!-- 最底部的版本標籤 (自定義 UI) -->
     <div class="version-section">
-      <span class="version-item">App Version: v{{ appVersion }}</span>
-      <span class="version-separator">|</span>
+      <template v-if="Capacitor.isNativePlatform()">
+        <span class="version-item">App Version: v{{ appVersion }}</span>
+        <span class="version-separator">|</span>
+      </template>
       <span class="version-item web-version-trigger btn-jelly" @click="handleWebVersionClick">
         Web Version: v{{ webVersion }}
       </span>
@@ -756,15 +759,27 @@ const formatCurrency = (val: number) => {
 .monitor-actions-row {
   display: flex;
   justify-content: center;
+  gap: 8px;
+}
+
+.btn-action {
+  flex: 1;
+  white-space: nowrap;
+  font-size: 12px !important;
+  padding: 8px 4px !important;
 }
 
 .btn-check-update {
-  width: 100%;
   padding: 8px 12px !important;
   font-size: 13px !important;
   font-weight: 800 !important;
   background-color: var(--color-accent-gold) !important;
   box-shadow: var(--shadow-jelly-sm) !important;
+}
+
+.btn-reset-update {
+  background-color: var(--color-bg-warm) !important;
+  color: var(--color-text-muted) !important;
 }
 
 .btn-check-update:disabled {
