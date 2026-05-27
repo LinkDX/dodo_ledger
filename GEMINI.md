@@ -120,8 +120,11 @@
 - **離線降級**：斷網或伺服器異常時自動跳過更新檢查，秒進 App 載入本地最新加載成功的沙盒版本或預置 bundled 資源，絕不影響任何既有功能。
 - **不依賴付費服務**：完全自建，無需 Appflow 或 Capgo 等第三方訂閱。
 
-### 2.5 本地通知規範
-- **插件**：`@capacitor/local-notifications`
+### 2.5 本地通知與網路請求規範
+- **本地通知插件**：`@capacitor/local-notifications`
+- **網路請求 (CapacitorHttp)**：
+  - **原則**：禁止在 `capacitor.config.ts` 開啟全域 `CapacitorHttp` 補丁，以免干擾 Firebase SDK 連線。
+  - **實作**：僅在需要繞過 CORS 的特定場景（如熱更新下載）中，透過 `import { CapacitorHttp } from '@capacitor/core'` 手動呼叫插件 API。
 - **觸發時機**：App 重啟後，補記週期自動扣款成功時，發送系統層原生通知。
 - **注意事項**：一律使用動態 `import()` 引入 Capacitor 插件，確保 Web 端瀏覽器相容性：
   ```typescript

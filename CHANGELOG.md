@@ -2,6 +2,13 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Web 1.9.8] - 2026-05-27
+
+### 🚑 Firebase 相容性緊急修復 (Firebase Compatibility Fix)
+- **移除全域網路攔截**：關閉 `capacitor.config.ts` 中的全域 `CapacitorHttp` 補丁，解決其干擾 Firebase JS SDK 長輪詢與連線的問題，恢復 App 雲端資料存取。
+- **改用插件 API 下載**：將熱更新引擎 (`useLiveUpdates.ts`) 改為手動呼叫 `CapacitorHttp` 插件 API 進行版本比對與 ZIP 下載。
+- **優化下載效能**：利用原生管道進行靜態資源下載，維持繞過 CORS 限制的優點，同時保障 App 整體連線穩定性。
+
 ## [Web 1.9.7] - 2026-05-27
 
 ### 🐱 貓咪狀態即時同步 (Real-time Cat Sync)

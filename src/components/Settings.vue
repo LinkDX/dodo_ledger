@@ -57,7 +57,7 @@ const handleResetHotUpdate = () => {
 
 // ─── 版本資訊與進階管理員彩蛋 ───
 const appVersion = '1.0.0'
-const webVersion = '1.9.7'
+const webVersion = '1.9.8'
 const webClickCount = ref(0)
 const isAdminMode = ref(false)
 
