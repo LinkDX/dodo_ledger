@@ -20,6 +20,7 @@ const emit = defineEmits<{
 const { currentProfile, logout } = useAuth()
 const { 
   transactions,
+  accounts,
   totalAssets, 
   totalLiabilities, 
   netWorth, 
@@ -47,6 +48,12 @@ const handleLogout = () => {
 const openAchievements = () => {
   showUserMenu.value = false
   showAchievements.value = true
+}
+
+// 取得帳戶名稱
+const getAccountName = (id?: string) => {
+  if (!id) return ''
+  return accounts.value.find(a => a.id === id)?.name || ''
 }
 
 // 取得近 3 筆交易紀錄
@@ -288,6 +295,19 @@ const isAchievementUnlocked = (id: string) => {
               </span>
               <div class="tx-note-row">
                 <span class="tx-note">{{ tx.note || '無備註' }}</span>
+              </div>
+              <div class="tx-details-row">
+                <span class="tx-account-info">
+                  <template v-if="tx.type === 'transfer'">
+                    {{ getAccountName(tx.fromAccountId) }} → {{ getAccountName(tx.toAccountId) }}
+                  </template>
+                  <template v-else-if="tx.fromAccountId">
+                    {{ getAccountName(tx.fromAccountId) }}
+                  </template>
+                  <template v-else-if="tx.toAccountId">
+                    {{ getAccountName(tx.toAccountId) }}
+                  </template>
+                </span>
                 <span v-if="tx.createdBy" class="tag-jelly tx-creator-badge">
                   ✍️ {{ tx.createdByAvatar }} {{ tx.createdBy }}
                 </span>
@@ -769,6 +789,26 @@ const isAchievementUnlocked = (id: string) => {
   font-weight: 700;
   color: var(--color-text-muted);
   margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.tx-account-info {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.tx-details-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  margin-top: 1px;
+  min-width: 0;
 }
 
 .tx-right-side {
@@ -804,8 +844,9 @@ const isAchievementUnlocked = (id: string) => {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   margin-top: 2px;
+  min-width: 0;
 }
 
 .tx-creator-badge {
@@ -816,6 +857,7 @@ const isAchievementUnlocked = (id: string) => {
   padding: 1px 6px !important;
   border-radius: 10px;
   line-height: 1.4;
+  flex-shrink: 0;
 }
 
 /* 🏆 成就按鈕樣式 */

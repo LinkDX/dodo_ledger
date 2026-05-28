@@ -412,26 +412,29 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
             <span v-else class="tx-emoji">{{ getTxStyle(tx).icon }}</span>
           </div>
           <div class="tx-info">
-            <span class="tx-category">
-              {{ tx.category }}{{ tx.subCategory ? ` ➜ ${tx.subCategory}` : '' }}
-            </span>
+            <div class="tx-category-row">
+              <span class="tx-category">
+                {{ tx.category }}{{ tx.subCategory ? ` ➜ ${tx.subCategory}` : '' }}
+              </span>
+            </div>
             <span class="tx-note">{{ tx.note || '無備註' }}</span>
-            <!-- 帳戶資訊 -->
-            <span class="tx-account-info">
-              <template v-if="tx.type === 'transfer'">
-                {{ getAccountName(tx.fromAccountId) }} → {{ getAccountName(tx.toAccountId) }}
-              </template>
-              <template v-else-if="tx.fromAccountId">
-                {{ getAccountName(tx.fromAccountId) }}
-              </template>
-              <template v-else-if="tx.toAccountId">
-                {{ getAccountName(tx.toAccountId) }}
-              </template>
-            </span>
-            <!-- 記帳人標記 -->
-            <span v-if="tx.createdBy" class="tag-jelly creator-tag">
-              ✍️ {{ tx.createdByAvatar }} {{ tx.createdBy }}
-            </span>
+            <!-- 帳戶與記帳人資訊 -->
+            <div class="tx-details-row">
+              <span class="tx-account-info">
+                <template v-if="tx.type === 'transfer'">
+                  {{ getAccountName(tx.fromAccountId) }} → {{ getAccountName(tx.toAccountId) }}
+                </template>
+                <template v-else-if="tx.fromAccountId">
+                  {{ getAccountName(tx.fromAccountId) }}
+                </template>
+                <template v-else-if="tx.toAccountId">
+                  {{ getAccountName(tx.toAccountId) }}
+                </template>
+              </span>
+              <span v-if="tx.createdBy" class="tag-jelly creator-tag">
+                ✍️ {{ tx.createdByAvatar }} {{ tx.createdBy }}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -787,6 +790,7 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
 .tx-icon-circle {
   width: 42px;
   height: 42px;
+  min-width: 42px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -806,11 +810,28 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
   min-width: 0;
 }
 
+.tx-category-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 6px;
+  min-width: 0;
+}
+
 .tx-category {
   font-size: 18px;
   font-weight: 800;
-  white-space: normal;
-  word-break: break-word;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 360px) {
+  .tx-category {
+    font-size: 16px;
+  }
 }
 
 .tx-note {
@@ -828,10 +849,18 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
   color: var(--color-text-muted);
 }
 
+.tx-details-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
 .creator-tag {
   font-size: 12px !important;
   padding: 1px 6px !important;
   width: fit-content;
+  flex-shrink: 0;
 }
 
 /* 右側 */
