@@ -246,4 +246,9 @@
   - 若修改涉及 `src/`、`public/` 或 `package.json`（Web 版本號），則必須包含 **Web** 標籤。
   - 若修改涉及 `android/`、`capacitor.config.ts` 或 `android-version.json`（Android 版本號/Build），則必須包含 **Android** 標籤。
   - 若純粹是邏輯更新（如本次的貓咪系統）且同時推動了 Web 與 Android 的版本號更新，則使用「雙端同步更新」格式。
+- **未 Push Commit 的版號合併自癒原則 (CRITICAL)**：
+  - 若本地前一個版本（例如 `Web 2.0.4`）的 Commit **尚未 Push 至 GitHub 遠端倉庫**，則隨後的更新（不論是 Web 還是 Android）**不應盲目向下累加版號**（如跳至 `2.0.5`），而應將新的變更直接與前一個 Commit 進行合併。
+  - 同時，在 `CHANGELOG.md` 中亦**不應新增新版號標題**，而是直接將新功能描述併入前一個尚未 Push 的更新條目下（例如將標題修正為 `## [Web 2.0.4 / Android 1.0.7 / Build 8]` 雙端同步更新格式），並維持 `package.json` 或 `android-version.json` 的版號不變。
+  - 只有在確認前一個版本的 Commit **已經 Push 發布**，或當前變更屬於重大分發時，方可向下累加新版號。這能有效避免版號無謂碎片化，維持 Release 與 Commit 對帳的極致純粹性。
+
 
