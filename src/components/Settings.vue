@@ -48,6 +48,7 @@ const hasNoRemoteApk = ref(false)
 const remoteApkUrl = ref('')
 const remoteApkName = ref('')
 const remoteTagName = ref('')
+const remoteReleaseNote = ref('')
 const isDownloading = ref(false)
 
 const handleAppVersionCheck = async (showNoUpdateAlert = false) => {
@@ -56,26 +57,38 @@ const handleAppVersionCheck = async (showNoUpdateAlert = false) => {
   hasAppUpdate.value = false
   isLatestVersion.value = false
   hasNoRemoteApk.value = false
+  remoteReleaseNote.value = ''
   try {
-    const res = await fetch('https://api.github.com/repos/LinkDX/dodo_ledger/releases/latest')
+    // 💡 改為向 releases 列表請求，以防 latest release 是純 web 的無 APK 版本
+    const res = await fetch('https://api.github.com/repos/LinkDX/dodo_ledger/releases')
     if (!res.ok) {
-      if (res.status === 404) {
-        hasNoRemoteApk.value = true
-        return
-      }
-      throw new Error(`無法獲取最新版本資訊 (${res.status})`)
+      throw new Error(`無法獲取版本清單 (${res.status})`)
     }
     const data = await res.json()
-    const tagName = data.tag_name || ''
-    const assets = data.assets || []
-    
-    // 尋找 APK 格式的資產
-    const apkAsset = assets.find((asset: any) => asset.name && asset.name.endsWith('.apk'))
-    if (!apkAsset) {
+    if (!Array.isArray(data) || data.length === 0) {
+      hasNoRemoteApk.value = true
+      return
+    }
+
+    // 尋找最新一個含有 APK 的 release (排除沒有 APK 的純 Web Release)
+    let apkAsset: any = null
+    let latestAppRelease: any = null
+
+    for (const rel of data) {
+      const asset = (rel.assets || []).find((a: any) => a.name && a.name.endsWith('.apk'))
+      if (asset) {
+        apkAsset = asset
+        latestAppRelease = rel
+        break
+      }
+    }
+
+    if (!apkAsset || !latestAppRelease) {
       hasNoRemoteApk.value = true
       return
     }
     
+    const tagName = latestAppRelease.tag_name || ''
     const remoteVer = parseVersionFromApkName(apkAsset.name)
     if (!remoteVer) {
       hasNoRemoteApk.value = true
@@ -90,6 +103,7 @@ const handleAppVersionCheck = async (showNoUpdateAlert = false) => {
       remoteApkUrl.value = apkAsset.browser_download_url
       remoteApkName.value = apkAsset.name
       remoteTagName.value = tagName
+      remoteReleaseNote.value = latestAppRelease.body || ''
     } else {
       isLatestVersion.value = true
       if (showNoUpdateAlert) {
@@ -398,6 +412,16 @@ const formatCurrency = (val: number) => {
               🟢 您的 Dodo Ledger App 目前已是最新版本，安全無虞！
             </span>
           </p>
+        </div>
+      </div>
+
+      <!-- 📋 最新原生 App 的更新日誌說明 -->
+      <div v-if="hasAppUpdate && remoteReleaseNote" class="monitor-status-box pop-jelly" style="background-color: #FFFFFF; border-style: dashed; border-color: var(--color-expense); text-align: left; margin-bottom: 12px; max-height: 180px; overflow-y: auto;">
+        <p class="status-msg" style="font-weight: 800; font-size: 13px; color: var(--color-text-dark); margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+          📋 此次更新內容 (Changelog)：
+        </p>
+        <div style="font-size: 12px; color: var(--color-text-dark); line-height: 1.6; white-space: pre-wrap; word-break: break-all; padding-right: 4px;">
+          {{ remoteReleaseNote }}
         </div>
       </div>
 
