@@ -25,6 +25,17 @@ const { showConfirm } = useConfirm()
 type FilterType = 'all' | 'expense' | 'income' | 'transfer'
 const activeFilter = ref<FilterType>('all')
 
+// 排序方式
+type SortMode = 'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc'
+const sortMode = ref<SortMode>('date-desc')
+
+const sortOptions: { key: SortMode; label: string }[] = [
+  { key: 'date-desc',   label: '📅 最新' },
+  { key: 'date-asc',    label: '📅 最舊' },
+  { key: 'amount-desc', label: '💰 高→低' },
+  { key: 'amount-asc',  label: '💰 低→高' },
+]
+
 // 搜尋功能
 const searchQuery = ref('')
 const searchCrossMonth = ref(true) // 預設開啟跨月搜尋
@@ -119,7 +130,14 @@ const filteredTransactions = computed(() => {
       }
       return true
     })
-    .sort((a, b) => b.date - a.date)
+    .sort((a, b) => {
+      switch (sortMode.value) {
+        case 'date-asc':    return a.date - b.date
+        case 'amount-desc': return b.amount - a.amount
+        case 'amount-asc':  return a.amount - b.amount
+        default:            return b.date - a.date  // date-desc
+      }
+    })
 })
 
 // 本月小計
@@ -287,6 +305,20 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
         @click="activeFilter = f.key"
       >
         {{ f.label }}
+      </button>
+    </div>
+
+    <!-- 排序方式 -->
+    <div class="sort-bar">
+      <span class="sort-label">排序：</span>
+      <button
+        v-for="s in sortOptions"
+        :key="s.key"
+        class="sort-btn btn-jelly"
+        :class="{ active: sortMode === s.key }"
+        @click="sortMode = s.key"
+      >
+        {{ s.label }}
       </button>
     </div>
 
@@ -527,7 +559,7 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
 .filter-tabs {
   display: flex;
   gap: 8px;
-  margin-bottom: 14px;
+  margin-bottom: 8px;
 }
 
 .filter-tab {
@@ -540,6 +572,35 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
 .filter-tab.active {
   background-color: var(--color-accent-gold) !important;
   border-width: 2.5px;
+}
+
+/* 排序列 */
+.sort-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.sort-label {
+  font-size: 11px;
+  color: var(--color-text-light);
+  white-space: nowrap;
+}
+
+.sort-btn {
+  padding: 4px 8px !important;
+  font-size: 11px;
+  background-color: #fff;
+  border-radius: 12px !important;
+  line-height: 1.3;
+}
+
+.sort-btn.active {
+  background-color: var(--color-bg-warm) !important;
+  border-color: var(--color-text-dark) !important;
+  font-weight: 700;
 }
 
 /* 交易清單 */
