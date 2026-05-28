@@ -1,10 +1,17 @@
 const fs = require('fs');
 const path = require('path');
 
-// 取得外部傳入的 Android 版本號，例如 "1.0.8"
-const targetVersion = process.argv[2];
+// 取得外部傳入的參數
+let type = 'android';
+let targetVersion = process.argv[2];
+
+if (process.argv.length >= 4) {
+  type = process.argv[2].toLowerCase();
+  targetVersion = process.argv[3];
+}
+
 if (!targetVersion) {
-  console.error("請提供目標 Android 版本號，例如: node extract-changelog.cjs 1.0.8");
+  console.error("請提供版本號，例如: node extract-changelog.cjs android 1.0.8");
   process.exit(1);
 }
 
@@ -20,10 +27,11 @@ const lines = content.split('\n');
 let isExtracting = false;
 const resultLines = [];
 
-// 精準匹配標題：## [Web 2.0.5 / Android 1.0.8 / Build 9] - 2026-05-28
-// 或 ## [Android 1.0.8] - 2026-05-28 等
-// 正則解析：標題必須以 ## 開頭，且中括號中要包含 "Android" 與目標版本號
-const titleRegex = new RegExp(`^##\\s+\\[.*Android\\s+${targetVersion.replace(/\./g, '\\.')}.*\\]`);
+// 根據類型選擇匹配正則
+// Web: ## [Web 2.0.8 ...]
+// Android: ## [.*Android 1.0.9 ...]
+const typePattern = type === 'web' ? 'Web' : 'Android';
+const titleRegex = new RegExp(`^##\\s+\\[.*${typePattern}\\s+${targetVersion.replace(/\./g, '\\.')}.*\\]`);
 
 for (let i = 0; i < lines.length; i++) {
   const line = lines[i];
@@ -45,10 +53,12 @@ for (let i = 0; i < lines.length; i++) {
 }
 
 if (resultLines.length > 0) {
-  // 寫入到本地的 release-notes-body.md
   fs.writeFileSync(path.join(__dirname, '../release-notes-body.md'), resultLines.join('\n'), 'utf8');
-  console.log(`成功提取 Android v${targetVersion} 的 Changelog！`);
+  console.log(`成功提取 ${typePattern} v${targetVersion} 的 Changelog！`);
 } else {
-  console.warn(`找不到 Android v${targetVersion} 的 Changelog，將使用預設內容。`);
-  fs.writeFileSync(path.join(__dirname, '../release-notes-body.md'), `### 🐱 Dodo Ledger Android v${targetVersion}\n\n- 此版本由 GitHub Actions 自動建置與釋出。`, 'utf8');
+  console.warn(`找不到 ${typePattern} v${targetVersion} 的 Changelog，將使用預設內容。`);
+  const defaultBody = type === 'web' 
+    ? `### 🌸 Dodo Ledger Web v${targetVersion}\n\n- 網頁版本全新發布囉！\n- Android App 將自動下載並透過熱更新無感套用最新網頁功能。`
+    : `### 🤖 Dodo Ledger Android v${targetVersion}\n\n- 此版本由 GitHub Actions 自動建置與釋出。`;
+  fs.writeFileSync(path.join(__dirname, '../release-notes-body.md'), defaultBody, 'utf8');
 }

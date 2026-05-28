@@ -102,24 +102,29 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
+      - name: Extract Web Changelog
+        run: |
+          node scripts/extract-changelog.cjs web "${{ env.VERSION }}"
+          
+          # 組合 Web Release Notes
+          echo "## 🌸 Dodo Ledger 網頁端 v${{ env.VERSION }} 🌸" > web-release-notes.md
+          echo "" >> web-release-notes.md
+          echo "🐱 **喵嗚！網頁版本全新發布囉！**" >> web-release-notes.md
+          echo "" >> web-release-notes.md
+          echo "此 Release 包含了專為 Android App 熱更新使用的網頁靜態壓縮包 \`app-update.zip\`。" >> web-release-notes.md
+          echo "Android App 在下次啟動時會默默下載此包並自動無感升級至最新網頁功能！" >> web-release-notes.md
+          echo "" >> web-release-notes.md
+          
+          if [ -f "release-notes-body.md" ]; then
+            cat release-notes-body.md >> web-release-notes.md
+          fi
+
       - name: Create Web Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: web-v${{ env.VERSION }}
           name: Web v${{ env.VERSION }} - 逗逗貓網頁熱更新發布
-          body: |
-            ## 🌸 Dodo Ledger 網頁端 v${{ env.VERSION }} 🌸
-            
-            🐱 **喵嗚！網頁版本全新發布囉！**
-            
-            此 Release 包含了專為 Android App 熱更新使用的網頁靜態壓縮包 `app-update.zip`。
-            Android App 在下次啟動時會默默下載此包並自動無感升級至最新網頁功能！
-            
-            ### 🛠️ 變更摘要
-            - 重新配置 DodoCat 佈局，將貓咪放到左邊，對話框置於右側，利用 Flexbox 排列完美杜絕蓋住貓咪的問題。
-            - 修正 DatePicker 年份在某些小螢幕下因為空格而拆成兩行的問題。
-            - 優化橫向滾動容器 padding 解決 hover 浮起時邊緣被切除的問題。
-            - 將更換頭像面板精簡，改為點擊按鈕彈出手繪風 Dialog 彈窗。
+          body_path: web-release-notes.md
           draft: false
           prerelease: false
           files: |
