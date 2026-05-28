@@ -9,7 +9,9 @@ import {
   Sparkles,
   Pencil,
   Check,
-  X
+  X,
+  Search,
+  ArrowUpDown,
 } from 'lucide-vue-next'
 import MonthYearPicker from './MonthYearPicker.vue'
 import DatePicker from './DatePicker.vue'
@@ -35,6 +37,26 @@ const sortOptions: { key: SortMode; label: string }[] = [
   { key: 'amount-desc', label: '💰 高→低' },
   { key: 'amount-asc',  label: '💰 低→高' },
 ]
+
+// UI 面板開關
+const searchOpen = ref(false)
+const sortOpen = ref(false)
+
+function toggleSearch() {
+  searchOpen.value = !searchOpen.value
+  if (!searchOpen.value) searchQuery.value = ''
+  sortOpen.value = false
+}
+
+function toggleSort() {
+  sortOpen.value = !sortOpen.value
+  searchOpen.value = false
+}
+
+function selectSort(key: SortMode) {
+  sortMode.value = key
+  sortOpen.value = false
+}
 
 // 搜尋功能
 const searchQuery = ref('')
@@ -232,12 +254,48 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
 
 <template>
   <div class="tx-list-page pop-jelly">
-    <!-- 頁首 -->
+    <!-- 頁首 + 搜尋/排序按鈕 -->
     <div class="page-header">
       <h2 class="page-title"><Sparkles class="icon-inline" /> 收支明細</h2>
+      <div class="toolbar-actions">
+        <!-- 搜尋按鈕 -->
+        <button
+          class="toolbar-icon-btn btn-jelly"
+          :class="{ active: searchOpen || searchQuery }"
+          @click="toggleSearch"
+          title="搜尋"
+        >
+          <Search :size="16" />
+        </button>
+        <!-- 排序按鈕 + 下拉 -->
+        <div class="sort-wrapper">
+          <button
+            class="toolbar-icon-btn btn-jelly"
+            :class="{ active: sortOpen || sortMode !== 'date-desc' }"
+            @click="toggleSort"
+            title="排序"
+          >
+            <ArrowUpDown :size="16" />
+          </button>
+          <!-- 排序下拉選單 -->
+          <Transition name="dropdown">
+            <div v-if="sortOpen" class="sort-dropdown card-jelly">
+              <button
+                v-for="s in sortOptions"
+                :key="s.key"
+                class="sort-option btn-jelly"
+                :class="{ active: sortMode === s.key }"
+                @click="selectSort(s.key)"
+              >
+                {{ s.label }}
+              </button>
+            </div>
+          </Transition>
+        </div>
+      </div>
     </div>
 
-    <!-- 月份選取 (MonthYearPicker) -->
+    <!-- 月份選取 (全寬) -->
     <MonthYearPicker
       v-model="selectedMonth"
       :available-months="availableMonths"
@@ -245,30 +303,36 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
       :style="searchQuery && searchCrossMonth ? 'opacity: 0.55; pointer-events: none;' : ''"
     />
 
-    <!-- 搜尋欄 -->
-    <div class="search-bar card-jelly">
-      <div class="search-input-wrapper">
-        <span class="search-icon">🔍</span>
-        <input
-          v-model="searchQuery"
-          type="text"
-          placeholder="搜尋備註、分類、帳戶、金額..."
-          class="search-input"
-        />
-        <button v-if="searchQuery" class="btn-clear btn-jelly" @click="searchQuery = ''" title="清除搜尋">
-          <X :size="12" />
-        </button>
+    <!-- 搜尋欄（折疊） -->
+    <Transition name="slide-down">
+      <div v-if="searchOpen" class="search-bar card-jelly">
+        <div class="search-input-wrapper">
+          <span class="search-icon">🔍</span>
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="搜尋備註、分類、帳戶、金額..."
+            class="search-input"
+            autofocus
+          />
+          <button v-if="searchQuery" class="btn-clear btn-jelly" @click="searchQuery = ''" title="清除搜尋">
+            <X :size="12" />
+          </button>
+        </div>
+        <div v-if="searchQuery" class="search-options">
+          <label class="search-toggle btn-jelly">
+            <input type="checkbox" v-model="searchCrossMonth" />
+            <span class="toggle-text">🌐 跨月份搜尋</span>
+          </label>
+          <span class="results-count">
+            共 {{ filteredTransactions.length }} 筆
+          </span>
+        </div>
       </div>
-      <div v-if="searchQuery" class="search-options">
-        <label class="search-toggle btn-jelly">
-          <input type="checkbox" v-model="searchCrossMonth" />
-          <span class="toggle-text">🌐 跨月份搜尋</span>
-        </label>
-        <span class="results-count">
-          共 {{ filteredTransactions.length }} 筆
-        </span>
-      </div>
-    </div>
+    </Transition>
+
+    <!-- 排序下拉遮罩 -->
+    <div v-if="sortOpen" class="sort-overlay" @click="sortOpen = false" />
 
     <!-- 本月小計卡 -->
     <div class="summary-strip card-jelly">
@@ -305,20 +369,6 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
         @click="activeFilter = f.key"
       >
         {{ f.label }}
-      </button>
-    </div>
-
-    <!-- 排序方式 -->
-    <div class="sort-bar">
-      <span class="sort-label">排序：</span>
-      <button
-        v-for="s in sortOptions"
-        :key="s.key"
-        class="sort-btn btn-jelly"
-        :class="{ active: sortMode === s.key }"
-        @click="sortMode = s.key"
-      >
-        {{ s.label }}
       </button>
     </div>
 
@@ -504,6 +554,9 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
 }
 
 .page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 14px;
 }
 
@@ -512,9 +565,103 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
   font-weight: 800;
 }
 
-/* 月份選取器 */
+/* 月份選取器（全寬） */
 .mb-picker {
-  margin-bottom: 12px;
+  margin-bottom: 10px;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.toolbar-icon-btn {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #fff;
+  padding: 0 !important;
+  border-radius: 12px !important;
+  color: var(--color-text-dark);
+}
+
+.toolbar-icon-btn.active {
+  background-color: var(--color-accent-gold) !important;
+  border-width: 2.5px;
+}
+
+/* 排序 Wrapper（相對定位，讓 dropdown 定錨在按鈕下方） */
+.sort-wrapper {
+  position: relative;
+}
+
+/* 排序下拉遮罩（透明，點擊關閉） */
+.sort-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+}
+
+/* 排序下拉面板 */
+.sort-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px !important;
+  background-color: #fff;
+  min-width: 110px;
+  white-space: nowrap;
+}
+
+.sort-option {
+  padding: 7px 12px !important;
+  font-size: 13px;
+  background-color: var(--color-bg-warm);
+  text-align: left;
+}
+
+.sort-option.active {
+  background-color: var(--color-accent-gold) !important;
+  font-weight: 700;
+  border-width: 2px;
+}
+
+/* 搜尋欄（折疊展開） */
+.search-bar {
+  margin-bottom: 10px;
+  background-color: #fff;
+  padding: 10px 14px !important;
+}
+
+/* Dropdown 動畫 */
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: opacity 0.15s, transform 0.15s;
+}
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+/* 搜尋欄展開動畫 */
+.slide-down-enter-active,
+.slide-down-leave-active {
+  transition: opacity 0.2s, max-height 0.2s;
+  overflow: hidden;
+  max-height: 120px;
+}
+.slide-down-enter-from,
+.slide-down-leave-to {
+  opacity: 0;
+  max-height: 0;
 }
 
 /* 小計欄 */
@@ -535,15 +682,15 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
 }
 
 .summary-label {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 800;
   color: var(--color-text-muted);
 }
 
 .summary-value {
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 800;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.5px;
 }
 
 .income-val  { color: #2C8C67; }
@@ -559,7 +706,7 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
 .filter-tabs {
   display: flex;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 14px;
 }
 
 .filter-tab {
@@ -572,35 +719,6 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
 .filter-tab.active {
   background-color: var(--color-accent-gold) !important;
   border-width: 2.5px;
-}
-
-/* 排序列 */
-.sort-bar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 14px;
-  flex-wrap: wrap;
-}
-
-.sort-label {
-  font-size: 11px;
-  color: var(--color-text-light);
-  white-space: nowrap;
-}
-
-.sort-btn {
-  padding: 4px 8px !important;
-  font-size: 11px;
-  background-color: #fff;
-  border-radius: 12px !important;
-  line-height: 1.3;
-}
-
-.sort-btn.active {
-  background-color: var(--color-bg-warm) !important;
-  border-color: var(--color-text-dark) !important;
-  font-weight: 700;
 }
 
 /* 交易清單 */
