@@ -2,6 +2,15 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Web 2.0.5 / Android 1.0.8 / Build 9] - 2026-05-28
+
+### 📱 Android App 內一鍵檢查與原生覆蓋安裝正式發布 (Wow 體驗升級)
+- **App 內一鍵原生安裝閉環**：當在手機原生 WebView 環境下時，設定頁面將新增專屬的「📱 原生 Android 系統更新」手繪果凍風卡片，支持一鍵直接對接 GitHub 公開 API 進行實時版本檢查。
+- **動態下載與一鍵覆蓋安裝**：發現新版本時，將默默透過 `@capacitor/filesystem` 把 APK 下載到本機快取目錄，並調用自訂原生 Java 插件 `DodoInstallerPlugin` 喚起 Android 系統原生覆蓋安裝，實現完美的無感熱更新升級閉環！
+- **自動化測試保護網 (Semantic Version 比對)**：將版本正則提取與三段式 Semantic Version 比對核心邏輯抽離成純函數，並編寫完整的 Vitest 自動化測試案例（100% 通過），以高規格確保對帳精準。
+- **防禦性渲染隔離**：利用 `Capacitor.isNativePlatform()` 進行嚴格防禦性渲染。該卡片僅在實體 Android App 行動端顯示，而在一般的桌面瀏覽器中則隱藏不顯示，維持介面的極致純粹性與高雅質感。
+- **原生權限安全防護**：於 `AndroidManifest.xml` 正式註冊 `REQUEST_INSTALL_PACKAGES` 安裝權限，且在原生層以 `FileProvider` 安全轉換 URI 與授權，全面防範 Android 原生 `FileUriExposedException` 安全漏洞。
+
 ## [Web 2.0.4] - 2026-05-28
 
 ### 🐱 逗逗貓 nervous 狀態右耳破圖修復

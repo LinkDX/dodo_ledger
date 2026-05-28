@@ -143,7 +143,13 @@
   })
   ```
 
-### 2.6 Android 移植 LLM Prompt 模組
+### 2.6 App 內一鍵檢查更新與原生覆蓋安裝
+- **對帳源與動態發布**：在原生行動端（`Capacitor.isNativePlatform()`）上，設定頁面（`Settings.vue`）會渲染出「📱 原生 Android 系統更新」卡片。它直接向 GitHub 的公開 REST API（`releases/latest`）發起請求，避免了在伺服器端冗餘複製配置文件的麻煩。
+- **動態下載快取**：當發現遠端版本比本地更先進時，會調用 `@capacitor/filesystem` 的 `Filesystem.downloadFile()` 方法，將該 GitHub latest Release 中的 APK 默默下載到手機本地 cache 目錄下（`Directory.Cache`）。
+- **自訂原生安裝插件**：下載完畢後，Web 端會直接調用我們在 `MainActivity.java` 中手動註冊的原生插件 `DodoInstaller.installApk({ filePath })`。該插件會安全檢查 Android SDK 版本，並利用 `FileProvider` 安全地進行 File URI 轉換與 `FLAG_GRANT_READ_URI_PERMISSION` 讀取授權，隨即拉起系統覆蓋安裝，安全、標準地防止了 Android 7.0+ 原生的 `FileUriExposedException` 安全漏洞，達成完美的升級閉環！
+- **安裝權限配置**：此功能在原生層需要於 `AndroidManifest.xml` 中註冊 `<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />` 安裝權限。凡是涉及此原生修改，皆屬於**原生變更**，必須重新編譯與分發新 APK，且必須提升 `android-version.json` 中的版號。
+
+### 2.7 Android 移植 LLM Prompt 模組
 
 若需進行更深度的原生化移植（如改寫為 Kotlin / Jetpack Compose），可使用以下 Prompt：
 

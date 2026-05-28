@@ -212,3 +212,40 @@ android/app/build.gradle
 |---|---|---|
 | `DODO_SIGNING_PASSWORD` | 您的進入密碼 | 同時作為 keystore 與 key 的解鎖密碼 |
 
+---
+
+## 9. App 內一鍵檢查最新版本與原生覆蓋安裝規格
+
+本專案自 Web 2.0.5 與 Android 1.0.8 (Build 9) 起，實作了一套基於原生 Java 自訂外掛的 **「App 內安全對帳、一鍵下載 APK 並覆蓋安裝」** 閉環機制。
+
+### 9.1 原生 DodoInstaller 插件規格
+在 Android 原生層，我們於 `MainActivity.java` 中手動註冊並實作了自訂的 Capacitor 原生插件 `DodoInstaller`：
+- **插件名稱**：`DodoInstaller`
+- **外掛方法**：`installApk(call: PluginCall)`
+- **內部實作原理**：
+  1. 接收前端下載到快取沙盒底下的 APK 檔案本地絕對路徑參數 `filePath`。
+  2. 去除可能的 `file://` 前綴以獲得標準本機路徑。
+  3. 驗證該實體檔案是否存在，若不存在則主動拒絕 `call.reject()`。
+  4. 進行 Android SDK 版本校驗。若為 Android 7.0 (API 24, Nougat) 或以上，呼叫 `FileProvider.getUriForFile` 並指定 `${applicationId}.fileprovider` Authority，將路徑安全轉換為共享的內容 URI，並同時賦予 `Intent.FLAG_GRANT_READ_URI_PERMISSION` 讀取授權；若為舊版 Android，則直接轉換為 `Uri.fromFile`，完美阻斷 `FileUriExposedException` 漏洞。
+  5. 構建並發起 `Intent(Intent.ACTION_VIEW)`，將 `DataAndType` 設定為該 `apkUri` 與標準 Android 安裝 MIME 類型 `application/vnd.android.package-archive`。
+  6. 為 Intent 附加 `Intent.FLAG_ACTIVITY_NEW_TASK` 旗標以開啟獨立的安裝 Activity，並呼叫 `getContext().startActivity()` 喚起系統覆蓋安裝畫面。
+  7. 呼叫 `call.resolve()` 回報成功。
+
+### 9.2 AndroidManifest.xml 安裝權限配置
+為支援 Android 系統拉起覆蓋安裝，必須於 `android/app/src/main/AndroidManifest.xml` 的 `<manifest>` 根節點下正式註冊下列安裝套件權限：
+```xml
+<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+```
+此權限在 Android 原生層屬於**原生變更**。凡是涉及此原生修改，必須提升 `android-version.json` 中的版號，並要求使用者重新下載新版 APK 進行初始安裝。
+
+### 9.3 遠端版本對帳與防禦性渲染 (Web 配合層)
+- **防禦性渲染**：在設定頁面 `Settings.vue` 中，該更新卡片以 `v-if="Capacitor.isNativePlatform()"` 包裹，保證**僅在實體 Android 手機環境下渲染**，桌面瀏覽器則隱藏。
+- **動態對帳流程**：
+  1. 進入設定頁時，會在 `onMounted` 裡發起非同步 GitHub Release API 請求 (`https://api.github.com/repos/LinkDX/dodo_ledger/releases/latest`)。
+  2. 走訪遠端 `assets` 陣列，動態尋找檔名以 `.apk` 結尾的 APK 資產，並利用正規表達式 `/v(\d+\.\d+\.\d+)/` 提取其遠端版本號（如 `dodo-ledger-v1.0.8.apk -> 1.0.8`）。
+  3. 將本地端當前執行的 APK 版本（讀取自 `androidVersion.version`）與遠端版本利用三段式 Semantic Version 比對演算法 (`compareVersions`) 進行核對。
+  4. 若遠端較新，則展示薄荷綠（`var(--color-income)`）的「立即一鍵覆蓋安裝」果凍按鈕。
+  5. 點擊按鈕後，調用 `@capacitor/filesystem` 的 `Filesystem.downloadFile()` 方法，默默將 remote APK `browser_download_url` 的資源下載到私有沙盒 `Directory.Cache` 底下。
+  6. 下載完成後，隨即呼叫原生插件 `DodoInstaller.installApk({ filePath: result.path })`，拉起系統覆蓋升級，形成完美的更新閉環。
+
+

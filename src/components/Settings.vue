@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useAuth } from '../composables/useAuth'
 import androidVersion from '../../android-version.json'
 import { useConfirm } from '../composables/useConfirm'
@@ -18,6 +18,11 @@ import {
   UserRound
 } from 'lucide-vue-next'
 
+// ─── App 原生更新與覆蓋安裝 ───
+import { parseVersionFromApkName, compareVersions } from '../utils/version'
+import { Filesystem, Directory } from '@capacitor/filesystem'
+import { registerPlugin } from '@capacitor/core'
+
 const { currentProfile, updateProfileSettings, updateProfileAvatar } = useAuth()
 const { showConfirm } = useConfirm()
 
@@ -30,6 +35,92 @@ const {
   disableLocalPassword,
   lockApp 
 } = useAppLock()
+
+// ─── App 原生一鍵檢查與覆蓋安裝 ───
+const isAppChecking = ref(false)
+const appUpdateProgress = ref(0)
+const hasAppUpdate = ref(false)
+const appUpdateError = ref('')
+const remoteApkUrl = ref('')
+const remoteApkName = ref('')
+const remoteTagName = ref('')
+const isDownloading = ref(false)
+
+const handleAppVersionCheck = async (showNoUpdateAlert = false) => {
+  isAppChecking.value = true
+  appUpdateError.value = ''
+  hasAppUpdate.value = false
+  try {
+    const res = await fetch('https://api.github.com/repos/LinkDX/dodo_ledger/releases/latest')
+    if (!res.ok) {
+      throw new Error(`無法獲取最新版本資訊 (${res.status})`)
+    }
+    const data = await res.json()
+    const tagName = data.tag_name || ''
+    const assets = data.assets || []
+    
+    // 尋找 APK 格式的資產
+    const apkAsset = assets.find((asset: any) => asset.name && asset.name.endsWith('.apk'))
+    if (!apkAsset) {
+      throw new Error('遠端版本庫中沒有發現可用於安裝的 APK 檔案喵！')
+    }
+    
+    const remoteVer = parseVersionFromApkName(apkAsset.name)
+    if (!remoteVer) {
+      throw new Error(`無法從遠端檔案名稱 ${apkAsset.name} 解析出版本號喵！`)
+    }
+
+    const localVer = appVersion
+    const needUpdate = compareVersions(localVer, remoteVer)
+
+    if (needUpdate) {
+      hasAppUpdate.value = true
+      remoteApkUrl.value = apkAsset.browser_download_url
+      remoteApkName.value = apkAsset.name
+      remoteTagName.value = tagName
+    } else {
+      if (showNoUpdateAlert) {
+        alert(`✨ 報告主人！當前 App 版本 v${localVer} 已經是最新版囉！不用再更新喵🐾`)
+      }
+    }
+  } catch (e: any) {
+    console.error('App 版本檢查失敗：', e)
+    appUpdateError.value = e.message || '未知對帳錯誤'
+  } finally {
+    isAppChecking.value = false
+  }
+}
+
+const DodoInstaller = registerPlugin<any>('DodoInstaller')
+
+const handleAppDownloadAndInstall = async () => {
+  if (isDownloading.value) return
+  isDownloading.value = true
+  appUpdateError.value = ''
+  appUpdateProgress.value = 0
+
+  try {
+    const result = await Filesystem.downloadFile({
+      url: remoteApkUrl.value,
+      path: remoteApkName.value,
+      directory: Directory.Cache
+    })
+
+    // 調用原生一鍵安裝插件
+    await DodoInstaller.installApk({ filePath: result.path })
+  } catch (e: any) {
+    console.error('下載或安裝 APK 失敗：', e)
+    appUpdateError.value = e.message || '下載或安裝失敗，請檢查權限喵！'
+  } finally {
+    isDownloading.value = false
+  }
+}
+
+onMounted(() => {
+  if (Capacitor.isNativePlatform()) {
+    handleAppVersionCheck(false)
+  }
+})
 
 // ─── 熱更新引擎實時監控 ───
 import { Capacitor } from '@capacitor/core'
@@ -246,6 +337,72 @@ const formatCurrency = (val: number) => {
         <p class="desc-hint">
           * 逗逗貓會根據這個預算數值，在首頁療癒生活秀中展示微笑、流汗、或抓狂遮眼大哭的可愛狀態喔喵！
         </p>
+      </div>
+    </div>
+
+    <!-- 📱 App 內一鍵檢查與原生覆蓋安裝 (僅在實體 Android 手機中渲染) -->
+    <div v-if="Capacitor.isNativePlatform()" class="settings-box card-jelly pop-jelly">
+      <h3 class="box-title">
+        <Sparkles class="icon-inline" /> 📱 原生 Android 系統更新
+      </h3>
+      <p class="categories-preview-hint">
+        直接向 GitHub 雲端安全對帳最新版本。發現新版本時可一鍵背景下載，並引導系統完成覆蓋安裝。
+      </p>
+
+      <div class="update-monitor-grid" style="background-color: var(--color-bg-warm); margin-bottom: 12px;">
+        <div class="monitor-item">
+          <span class="monitor-label">當前 App 版本：</span>
+          <span class="monitor-value code-value">v{{ appVersion }}</span>
+        </div>
+        
+        <div v-if="hasAppUpdate" class="monitor-item pop-jelly">
+          <span class="monitor-label" style="color: var(--color-expense);">最新可用版本：</span>
+          <span class="monitor-value code-value" style="background-color: #FFF0ED; border-color: var(--color-expense); color: var(--color-expense);">
+            {{ remoteTagName }}
+          </span>
+        </div>
+
+        <div class="monitor-status-box pop-jelly" style="background-color: #FFFFFF;">
+          <p class="status-msg">
+            <span v-if="isAppChecking">🔍 正在向 GitHub 安全資料庫對帳中，請稍候...</span>
+            <span v-else-if="isDownloading">📥 正在安全下載新版 APK 檔案中，請勿關閉 App...</span>
+            <span v-else-if="hasAppUpdate" style="color: var(--color-expense); font-weight: 800;">
+              🎉 發現最新版本 {{ remoteTagName }}！快點擊下方按鈕進行覆蓋升級吧！🐾
+            </span>
+            <span v-else-if="appUpdateError" class="status-error">
+              ❌ 對帳失敗：{{ appUpdateError }}。請檢查網路或稍後再試。
+            </span>
+            <span v-else>
+              🟢 您的 Dodo Ledger App 目前已是最新版本，安全無虞！
+            </span>
+          </p>
+        </div>
+      </div>
+
+      <div class="monitor-actions-row">
+        <!-- 下載並安裝按鈕 -->
+        <button 
+          v-if="hasAppUpdate"
+          class="btn-jelly btn-lock-primary pop-jelly" 
+          style="width: 100%; font-weight: 800; background-color: var(--color-income) !important;"
+          :disabled="isDownloading"
+          @click="handleAppDownloadAndInstall"
+          type="button"
+        >
+          {{ isDownloading ? '📥 正在下載安裝包...' : '⚡ 立即一鍵覆蓋安裝' }}
+        </button>
+
+        <!-- 檢查更新按鈕 -->
+        <button 
+          v-else
+          class="btn-jelly btn-save-budget" 
+          style="width: 100%;"
+          :disabled="isAppChecking"
+          @click="handleAppVersionCheck(true)"
+          type="button"
+        >
+          {{ isAppChecking ? '正在對帳中...' : '🔍 檢查 App 最新版本' }}
+        </button>
       </div>
     </div>
 

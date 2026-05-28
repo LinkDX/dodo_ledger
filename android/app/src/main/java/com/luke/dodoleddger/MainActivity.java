@@ -15,11 +15,24 @@ import java.io.FileReader;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+// 新增安裝 APK 與 Capacitor 插件所需的類別
+import android.content.Intent;
+import android.net.Uri;
+import androidx.core.content.FileProvider;
+import com.getcapacitor.JSObject;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginCall;
+import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.CapacitorPlugin;
+import android.os.Build;
+
 public class MainActivity extends BridgeActivity {
     private static final String TAG = "DodoLedger_HotUpdate";
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // 註冊自訂的原生安裝插件
+        registerPlugin(DodoInstallerPlugin.class);
         super.onCreate(savedInstanceState);
         
         try {
@@ -178,5 +191,57 @@ public class MainActivity extends BridgeActivity {
             }
         }
         fileOrDirectory.delete();
+    }
+}
+
+/**
+ * 🚀 DodoInstaller 原生 APK 一鍵覆蓋安裝自訂插件
+ */
+@CapacitorPlugin(name = "DodoInstaller")
+class DodoInstallerPlugin extends Plugin {
+    private static final String TAG = "DodoInstallerPlugin";
+
+    @PluginMethod
+    public void installApk(PluginCall call) {
+        String filePath = call.getString("filePath");
+        if (filePath == null || filePath.isEmpty()) {
+            call.reject("filePath 參數不得為空");
+            return;
+        }
+
+        try {
+            // 清理可能附帶的 file:// 前綴
+            if (filePath.startsWith("file://")) {
+                filePath = filePath.substring(7);
+            }
+
+            File file = new File(filePath);
+            if (!file.exists()) {
+                call.reject("找不到指定的 APK 檔案：" + filePath);
+                return;
+            }
+
+            Context context = getContext();
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            
+            Uri apkUri;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                String authority = context.getPackageName() + ".fileprovider";
+                apkUri = FileProvider.getUriForFile(context, authority, file);
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            } else {
+                apkUri = Uri.fromFile(file);
+            }
+
+            intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            
+            context.startActivity(intent);
+            call.resolve();
+            Log.d(TAG, "🚀 已成功發起系統原生覆蓋安裝 Intent，安裝檔案: " + filePath);
+        } catch (Exception e) {
+            Log.e(TAG, "安裝 APK 時出錯", e);
+            call.reject("發起系統安裝失敗: " + e.getMessage());
+        }
     }
 }
