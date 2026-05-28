@@ -153,11 +153,22 @@ const filteredTransactions = computed(() => {
       return true
     })
     .sort((a, b) => {
+      // 先把 date 截斷到「本地當日零時」，避免轉帳用 Date.now() 和一般交易用 UTC midnight 混排
+      const floorDay = (ts: number) => {
+        const d = new Date(ts)
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+      }
       switch (sortMode.value) {
-        case 'date-asc':    return a.date - b.date
+        case 'date-asc': {
+          const diff = floorDay(a.date) - floorDay(b.date)
+          return diff !== 0 ? diff : (a.updatedAt ?? 0) - (b.updatedAt ?? 0)
+        }
         case 'amount-desc': return b.amount - a.amount
         case 'amount-asc':  return a.amount - b.amount
-        default:            return b.date - a.date  // date-desc
+        default: {  // date-desc
+          const diff = floorDay(b.date) - floorDay(a.date)
+          return diff !== 0 ? diff : (b.updatedAt ?? 0) - (a.updatedAt ?? 0)
+        }
       }
     })
 })
