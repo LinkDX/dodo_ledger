@@ -244,4 +244,26 @@ class DodoInstallerPlugin extends Plugin {
             call.reject("發起系統安裝失敗: " + e.getMessage());
         }
     }
+
+    @PluginMethod
+    public void getAppVersion(PluginCall call) {
+        try {
+            Context context = getContext();
+            String versionName = context.getPackageManager().getPackageInfo(context.getPackageName(), 0).versionName;
+            int versionCode = 0;
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                versionCode = (int) context.getPackageManager().getPackageInfo(context.getPackageName(), 0).getLongVersionCode();
+            } else {
+                versionCode = context.getPackageManager().getPackageInfo(context.getPackageName(), 0).versionCode;
+            }
+            JSObject ret = new JSObject();
+            ret.put("versionName", versionName);
+            ret.put("versionCode", versionCode);
+            call.resolve(ret);
+            Log.d(TAG, "🔍 獲取原生 APK 版本資訊成功: v" + versionName + " (Build " + versionCode + ")");
+        } catch (Exception e) {
+            Log.e(TAG, "無法獲取原生版本資訊", e);
+            call.reject("無法獲取原生版本資訊: " + e.getMessage());
+        }
+    }
 }

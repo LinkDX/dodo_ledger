@@ -2,6 +2,16 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Web 2.0.9 / Android 1.1.0 / Build 11] - 2026-05-28
+
+### 🛠️ 網頁端變更 (Web 2.0.9)
+- **智慧對接原生版本比對**：重構 `Settings.vue` 中的更新檢查邏輯。不再使用熱更新下載的靜態 `android-version.json` 作為本機 App 版本，改為透過原生 DodoInstaller 插件獲取當前手機底層真實的 APK 版本號，精準避開因 Web 熱更新造成「localVer 提早被拉高為最新版」進而隱藏 APK 一鍵安裝的 bug。
+- **直觀的雙版本 UI 監控**：升級原生更新區塊的 UI 顯示。當偵測到 Web 熱更新啟動且與底層 APK 版本不一致時，將清楚顯示 `v1.0.8 (熱更新: v1.0.9)`，不再讓主人對當前 App 版本狀態感到困惑。
+
+### 🤖 行動端變更 (Android 1.1.0 / Build 11)
+- **原生 DodoInstaller 插件升級**：在 `MainActivity.java` 中為 `DodoInstallerPlugin` 增加原生 `@PluginMethod` `getAppVersion`，提供高可靠的 Android 原生版本讀取 API，供 Web 端安全調用。
+- **原生變更版號提升 (CRITICAL)**：由於修改了 `MainActivity.java` 的原生插件代碼，已將 `android-version.json` 正式升級至 `1.1.0` (Build `11`)。**此更新涉及原生變更，使用者需要重新編譯或覆蓋安裝新版 APK。**
+
 ## [Web 2.0.8 / Android 1.0.9 / Build 10] - 2026-05-28
 
 ### 🛠️ 網頁端變更 (Web 2.0.8)

@@ -1,7 +1,7 @@
 {
   "name": "dodo_ledger",
   "private": true,
-  "version": "2.0.8",
+  "version": "2.0.9",
   "description": "Dodo Ledger 🐱 溫馨手繪插畫風離線優先記帳 APP (Android Release 支持)",
   "type": "module",
   "scripts": {

@@ -38,6 +38,10 @@ const {
   lockApp 
 } = useAppLock()
 
+// ─── 版本資訊 ───
+const appVersion = androidVersion.version
+const webVersion = pkg.version
+
 // ─── App 原生一鍵檢查與覆蓋安裝 ───
 const isAppChecking = ref(false)
 const appUpdateProgress = ref(0)
@@ -50,6 +54,7 @@ const remoteApkName = ref('')
 const remoteTagName = ref('')
 const remoteReleaseNote = ref('')
 const isDownloading = ref(false)
+const nativeApkVersion = ref(appVersion)
 
 const handleAppVersionCheck = async (showNoUpdateAlert = false) => {
   isAppChecking.value = true
@@ -58,6 +63,17 @@ const handleAppVersionCheck = async (showNoUpdateAlert = false) => {
   isLatestVersion.value = false
   hasNoRemoteApk.value = false
   remoteReleaseNote.value = ''
+  
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const info = await DodoInstaller.getAppVersion()
+      if (info && info.versionName) {
+        nativeApkVersion.value = info.versionName
+      }
+    } catch (e) {
+      console.error('無法獲取原生版本資訊，維持先前快取：', e)
+    }
+  }
   try {
     // 💡 改為向 releases 列表請求，以防 latest release 是純 web 的無 APK 版本
     const res = await fetch('https://api.github.com/repos/LinkDX/dodo_ledger/releases')
@@ -95,7 +111,7 @@ const handleAppVersionCheck = async (showNoUpdateAlert = false) => {
       return
     }
 
-    const localVer = appVersion
+    const localVer = nativeApkVersion.value
     const needUpdate = compareVersions(localVer, remoteVer)
 
     if (needUpdate) {
@@ -149,8 +165,16 @@ const handleAppDownloadAndInstall = async () => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   if (Capacitor.isNativePlatform()) {
+    try {
+      const info = await DodoInstaller.getAppVersion()
+      if (info && info.versionName) {
+        nativeApkVersion.value = info.versionName
+      }
+    } catch (e) {
+      console.error('無法獲取原生版本資訊，fallback 至內置資源版號：', e)
+    }
     handleAppVersionCheck(false)
   }
 })
@@ -183,9 +207,7 @@ const handleResetHotUpdate = async () => {
   }
 }
 
-// ─── 版本資訊與進階管理員彩蛋 ───
-const appVersion = androidVersion.version
-const webVersion = pkg.version
+// ─── 進階管理員彩蛋 ───
 const webClickCount = ref(0)
 const isAdminMode = ref(false)
 
@@ -385,7 +407,12 @@ const formatCurrency = (val: number) => {
       <div class="update-monitor-grid" style="background-color: var(--color-bg-warm); margin-bottom: 12px;">
         <div class="monitor-item">
           <span class="monitor-label">當前 App 版本：</span>
-          <span class="monitor-value code-value">v{{ appVersion }}</span>
+          <span class="monitor-value code-value">
+            v{{ nativeApkVersion }}
+            <span v-if="nativeApkVersion !== appVersion" style="font-size: 11px; opacity: 0.8; font-weight: normal; margin-left: 4px;">
+              (熱更新: v{{ appVersion }})
+            </span>
+          </span>
         </div>
         
         <div v-if="hasAppUpdate" class="monitor-item pop-jelly">
