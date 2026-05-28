@@ -68,6 +68,7 @@ ledgers/
 | `type` | string | `expense` (支出) 或 `income` (收入) |
 | `icon` | string | Lucide 圖示名稱 |
 | `subCategories` | string[] | 子分類名稱陣列，如 `["早餐", "午餐", "晚餐"]` |
+| `sortOrder` | number? | 使用者自訂顯示順序（同 type 內升冪排列，無此欄位者排末） |
 
 ### 2.3 帳戶檔案 (`/accounts/{accountId}`)
 記錄現金、銀行、信用卡、電子票證之帳戶參數。
@@ -82,6 +83,8 @@ ledgers/
 | `color` | string | 卡片漸層配色代碼 (CSS Class 或 Hex) |
 | `currency` | string | 貨幣，如 `TWD` |
 | `createdAt` | timestamp | 建立時間 |
+| `updatedAt` | number? | 最後更新時間戳記（離線優先防衝突） |
+| `sortOrder` | number? | 使用者自訂顯示順序（升冪排列，無此欄位者排末） |
 | `cardDetails`| object | 信用卡專屬配置（僅在 type == "credit_card" 時存在） |
 
 #### `cardDetails` 結構：

@@ -15,6 +15,7 @@ import {
   Calendar,
   CheckCircle,
   Pencil,
+  GripVertical,
   X
 } from 'lucide-vue-next'
 import MonthYearPicker from './MonthYearPicker.vue'
@@ -26,6 +27,7 @@ const {
   addAccount,
   deleteAccount,
   editAccount,
+  reorderAccounts,
   addTransaction,
   payCreditCardBill,
   getBillPeriodForCard,
@@ -359,6 +361,29 @@ const filteredAccounts = computed(() => {
     return true
   })
 })
+
+// ===== 帳戶拖曳排序 =====
+const dragSrcId = ref<string | null>(null)
+const dragOverId = ref<string | null>(null)
+
+const onAcctDragStart = (acct: Account) => { dragSrcId.value = acct.id }
+const onAcctDragOver = (acct: Account) => { dragOverId.value = acct.id }
+const onAcctDragLeave = () => { dragOverId.value = null }
+const onAcctDragEnd = () => { dragSrcId.value = null; dragOverId.value = null }
+
+const onAcctDrop = async (targetAcct: Account) => {
+  const src = dragSrcId.value
+  dragSrcId.value = null
+  dragOverId.value = null
+  if (!src || src === targetAcct.id) return
+
+  const newOrder = [...accounts.value]
+  const srcIdx = newOrder.findIndex(a => a.id === src)
+  const dstIdx = newOrder.findIndex(a => a.id === targetAcct.id)
+  const [item] = newOrder.splice(srcIdx, 1)
+  newOrder.splice(dstIdx, 0, item)
+  await reorderAccounts(newOrder)
+}
 </script>
 
 <template>
@@ -457,9 +482,22 @@ const filteredAccounts = computed(() => {
         v-for="acct in filteredAccounts" 
         :key="acct.id"
         class="account-card card-jelly"
-        :class="acct.color"
+        :class="[acct.color, { 'is-dragging': dragSrcId === acct.id, 'drag-over': dragOverId === acct.id }]"
+        @dragover.prevent="onAcctDragOver(acct)"
+        @dragleave="onAcctDragLeave"
+        @drop.prevent="onAcctDrop(acct)"
+        @dragend="onAcctDragEnd"
       >
         <div class="card-top-row">
+          <!-- 拖曳把手 -->
+          <span
+            class="drag-handle"
+            draggable="true"
+            @dragstart="onAcctDragStart(acct)"
+            title="拖曳調整順序"
+          >
+            <GripVertical :size="14" />
+          </span>
           <div class="card-badge">
             <!-- Avatar 優先，否則退回 Lucide 圖示 -->
             <span v-if="acct.avatar" class="card-avatar-emoji">{{ acct.avatar }}</span>
@@ -1255,6 +1293,15 @@ const filteredAccounts = computed(() => {
   margin-bottom: 0 !important;
   display: flex;
   flex-direction: column;
+  transition: opacity 0.15s, box-shadow 0.15s;
+}
+
+.account-card.is-dragging {
+  opacity: 0.4;
+}
+
+.account-card.drag-over {
+  box-shadow: 0 0 0 2.5px var(--color-text-dark) !important;
 }
 
 .account-card :deep(.progress-bar-container) {
@@ -1265,6 +1312,27 @@ const filteredAccounts = computed(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 6px;
+}
+
+.drag-handle {
+  display: flex;
+  align-items: center;
+  cursor: grab;
+  opacity: 0.35;
+  padding: 2px 4px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  touch-action: none;
+}
+
+.drag-handle:hover {
+  opacity: 0.7;
+  background-color: rgba(0, 0, 0, 0.06);
+}
+
+.drag-handle:active {
+  cursor: grabbing;
 }
 
 .card-badge {

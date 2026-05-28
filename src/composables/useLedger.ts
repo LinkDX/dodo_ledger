@@ -13,6 +13,13 @@ const categories = ref<Category[]>([])
 const triggeredReports = ref<string[]>([]) // 逗逗貓待報告的週期記帳清單
 const isDataLoaded = ref(false)
 
+// 抑制重新排序期間的 snapshot 回呼，防止中間態觸發畫面抖動
+let isReordering = false
+
+/** 依 sortOrder 升冪排列；無 sortOrder 的項目排至最後 */
+const sortByOrder = <T extends { sortOrder?: number }>(items: T[]): T[] =>
+  [...items].sort((a, b) => (a.sortOrder ?? Infinity) - (b.sortOrder ?? Infinity))
+
 // 🐱 逗逗貓核心狀態
 const catProfile = ref<DodoCatProfile | null>(null)
 const temporaryMood = ref<CatMood | null>(null)
@@ -75,7 +82,7 @@ export function useLedger() {
       db.getCatProfile(userId)
     ])
 
-    accounts.value = accts
+    accounts.value = sortByOrder(accts)
     transactions.value = txs
     recurringTransactions.value = recs
 
@@ -84,7 +91,7 @@ export function useLedger() {
       categories.value = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES))
       await db.saveCategories(categories.value)
     } else {
-      categories.value = cats
+      categories.value = sortByOrder(cats)
     }
 
     // 貓咪狀態處理
@@ -111,9 +118,11 @@ export function useLedger() {
 
     // 🔒 訂閱帳戶集合即時變更（多裝置餘額同步）
     accountsUnsubscribe = db.subscribeCollection<Account>('accounts', (remoteAccounts) => {
-      if (JSON.stringify(remoteAccounts) !== JSON.stringify(accounts.value)) {
+      if (isReordering) return
+      const sorted = sortByOrder(remoteAccounts)
+      if (JSON.stringify(sorted) !== JSON.stringify(accounts.value)) {
         console.log('[Dodo Ledger] 💰 偵測到雲端帳戶資料更新，已自動同步！')
-        accounts.value = remoteAccounts
+        accounts.value = sorted
       }
     })
 
@@ -135,9 +144,11 @@ export function useLedger() {
 
     // 🔒 訂閱分類集合即時變更
     categoriesUnsubscribe = db.subscribeCollection<Category>('categories', (remoteCats) => {
-      if (JSON.stringify(remoteCats) !== JSON.stringify(categories.value)) {
+      if (isReordering) return
+      const sorted = sortByOrder(remoteCats)
+      if (JSON.stringify(sorted) !== JSON.stringify(categories.value)) {
         console.log('[Dodo Ledger] 🏷️ 偵測到雲端分類資料更新，已自動同步！')
-        categories.value = remoteCats
+        categories.value = sorted
       }
     })
 
@@ -952,6 +963,36 @@ export function useLedger() {
     }
   }
 
+  /** 使用者拖曳排序帳戶，新順序以 sortOrder 欄位持久化 */
+  const reorderAccounts = async (newOrder: Account[]) => {
+    isReordering = true
+    accounts.value = newOrder
+    await Promise.all(
+      newOrder.map((acct, idx) =>
+        db.updateDocument<Account>('accounts', acct.id, { sortOrder: idx })
+      )
+    )
+    isReordering = false
+  }
+
+  /** 使用者拖曳排序分類（type 限定：只調整同類型的順序），持久化 sortOrder */
+  const reorderCategories = async (newOrder: Category[], type: 'expense' | 'income') => {
+    isReordering = true
+    const withSortOrder = newOrder.map((cat, idx) => ({ ...cat, sortOrder: idx }))
+    const others = categories.value.filter(c => c.type !== type)
+    categories.value = [...others, ...withSortOrder]
+    await syncCategories()
+    isReordering = false
+  }
+
+  /** 使用者拖曳排序某主分類底下的子分類 */
+  const reorderSubCategories = async (catId: string, newSubs: string[]) => {
+    const cat = categories.value.find(c => c.id === catId)
+    if (!cat) return
+    cat.subCategories = newSubs
+    await syncCategories()
+  }
+
   // editTransaction（🔒 原子操作防衝突版本）：支援修改 note/date/category/subCategory/amount 等欄位
   // 若金額或帳戶發生變動，以 delta 方式原子回退舊餘額並套用新值
   const editTransaction = async (txId: string, updated: Partial<Pick<Transaction, 'amount' | 'note' | 'date' | 'category' | 'subCategory' | 'fromAccountId' | 'toAccountId'>>) => {
@@ -1259,6 +1300,9 @@ export function useLedger() {
     addAccount,
     deleteAccount,
     editAccount,
+    reorderAccounts,
+    reorderCategories,
+    reorderSubCategories,
 
     addRecurring,
     toggleRecurringActive,

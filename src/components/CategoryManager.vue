@@ -6,10 +6,11 @@ import { useAlert } from '../composables/useAlert'
 import { 
   FolderPlus, 
   Trash2, 
+  GripVertical,
   X 
 } from 'lucide-vue-next'
 
-const { categories, addCategory, deleteCategory, addSubCategory, deleteSubCategory } = useLedger()
+const { categories, addCategory, deleteCategory, addSubCategory, deleteSubCategory, reorderCategories, reorderSubCategories } = useLedger()
 const { showConfirm } = useConfirm()
 const { showAlert } = useAlert()
 
@@ -88,6 +89,57 @@ const handleAddSubCategory = async (catId: string) => {
 const handleDeleteSubCategory = async (catId: string, subName: string) => {
   await deleteSubCategory(catId, subName)
 }
+
+// ===== 主分類拖曳排序 =====
+const catDragSrcId = ref<string | null>(null)
+const catDragOverId = ref<string | null>(null)
+
+const onCatDragStart = (catId: string) => { catDragSrcId.value = catId }
+const onCatDragOver = (catId: string) => { catDragOverId.value = catId }
+const onCatDragLeave = () => { catDragOverId.value = null }
+const onCatDragEnd = () => { catDragSrcId.value = null; catDragOverId.value = null }
+
+const onCatDrop = async (targetCat: typeof filteredCategories.value[0]) => {
+  const src = catDragSrcId.value
+  catDragSrcId.value = null
+  catDragOverId.value = null
+  if (!src || src === targetCat.id) return
+
+  const list = [...filteredCategories.value]
+  const srcIdx = list.findIndex(c => c.id === src)
+  const dstIdx = list.findIndex(c => c.id === targetCat.id)
+  const [item] = list.splice(srcIdx, 1)
+  list.splice(dstIdx, 0, item)
+  await reorderCategories(list, activeCatType.value)
+}
+
+// ===== 子分類拖曳排序 =====
+const subDragKey = ref<string | null>(null)   // 'catId::subName'
+const subDragOverKey = ref<string | null>(null)
+
+const subKey = (catId: string, sub: string) => `${catId}::${sub}`
+const onSubDragStart = (catId: string, sub: string) => { subDragKey.value = subKey(catId, sub) }
+const onSubDragOver = (catId: string, sub: string) => { subDragOverKey.value = subKey(catId, sub) }
+const onSubDragLeave = () => { subDragOverKey.value = null }
+const onSubDragEnd = () => { subDragKey.value = null; subDragOverKey.value = null }
+
+const onSubDrop = async (catId: string, targetSub: string) => {
+  const srcKey = subDragKey.value
+  subDragKey.value = null
+  subDragOverKey.value = null
+  if (!srcKey) return
+  const [srcCatId, srcSub] = srcKey.split('::')
+  if (srcCatId !== catId || srcSub === targetSub) return
+
+  const cat = categories.value.find(c => c.id === catId)
+  if (!cat) return
+  const subs = [...cat.subCategories]
+  const srcIdx = subs.indexOf(srcSub)
+  const dstIdx = subs.indexOf(targetSub)
+  subs.splice(srcIdx, 1)
+  subs.splice(dstIdx, 0, srcSub)
+  await reorderSubCategories(catId, subs)
+}
 </script>
 
 <template>
@@ -128,11 +180,29 @@ const handleDeleteSubCategory = async (catId: string, subName: string) => {
           v-for="cat in filteredCategories"
           :key="cat.id"
           class="cat-accordion-item card-jelly"
-          :class="{ 'expanded': expandedCatId === cat.id }"
+          :class="{ 
+            'expanded': expandedCatId === cat.id,
+            'is-dragging': catDragSrcId === cat.id,
+            'drag-over': catDragOverId === cat.id
+          }"
+          @dragover.prevent="onCatDragOver(cat.id)"
+          @dragleave="onCatDragLeave"
+          @drop.prevent="onCatDrop(cat)"
+          @dragend="onCatDragEnd"
         >
           <!-- 卡片 Header：點擊展開子分類 -->
           <div class="accordion-header" @click="toggleExpandCat(cat.id)">
             <div class="header-left">
+              <!-- 拖曳把手 -->
+              <span
+                class="drag-handle"
+                draggable="true"
+                @dragstart.stop="onCatDragStart(cat.id)"
+                @click.stop
+                title="拖曳調整順序"
+              >
+                <GripVertical :size="13" />
+              </span>
               <span class="cat-icon-emoji">
                 {{ cat.icon === 'Utensils' ? '🍔' : cat.icon === 'Car' ? '🚗' : cat.icon === 'ShoppingBag' ? '🛍️' : cat.icon === 'Home' ? '🏠' : cat.icon === 'DollarSign' ? '💵' : cat.icon === 'TrendingUp' ? '📈' : cat.icon === 'Gift' ? '🎁' : cat.icon === 'Briefcase' ? '💼' : cat.icon === 'Heart' ? '❤️' : cat.icon === 'Smile' ? '😊' : cat.icon === 'Activity' ? '🏥' : '✨' }}
               </span>
@@ -161,7 +231,15 @@ const handleDeleteSubCategory = async (catId: string, subName: string) => {
                   v-for="sub in cat.subCategories" 
                   :key="sub"
                   class="tag-jelly sub-cute-pill"
+                  :class="{ 'is-dragging': subDragKey === subKey(cat.id, sub), 'drag-over': subDragOverKey === subKey(cat.id, sub) }"
+                  draggable="true"
+                  @dragstart="onSubDragStart(cat.id, sub)"
+                  @dragover.prevent="onSubDragOver(cat.id, sub)"
+                  @dragleave="onSubDragLeave"
+                  @drop.prevent="onSubDrop(cat.id, sub)"
+                  @dragend="onSubDragEnd"
                 >
+                  <GripVertical :size="10" class="sub-grip" />
                   {{ sub }}
                   <button class="btn-remove-sub" @click="handleDeleteSubCategory(cat.id, sub)">
                     <X :size="10" />
@@ -315,6 +393,34 @@ const handleDeleteSubCategory = async (catId: string, subName: string) => {
   padding: 12px !important;
   margin-bottom: 0 !important;
   background-color: #FFFFFF;
+  transition: opacity 0.15s, box-shadow 0.15s;
+}
+
+.cat-accordion-item.is-dragging {
+  opacity: 0.4;
+}
+
+.cat-accordion-item.drag-over {
+  box-shadow: 0 0 0 2.5px var(--color-text-dark) !important;
+}
+
+.drag-handle {
+  display: inline-flex;
+  align-items: center;
+  cursor: grab;
+  opacity: 0.3;
+  padding: 2px 3px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.drag-handle:hover {
+  opacity: 0.65;
+  background-color: rgba(0, 0, 0, 0.06);
+}
+
+.drag-handle:active {
+  cursor: grabbing;
 }
 
 .accordion-header {
@@ -383,11 +489,26 @@ const handleDeleteSubCategory = async (catId: string, subName: string) => {
 .sub-cute-pill {
   background-color: #FFFFFF !important;
   font-size: 13px !important;
-  padding: 4px 8px 4px 10px !important;
+  padding: 4px 8px 4px 6px !important;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   box-shadow: var(--shadow-jelly-sm-sm, 1px 1px 0 0 #2C1E1B) !important;
+  cursor: grab;
+  transition: opacity 0.15s, box-shadow 0.15s;
+}
+
+.sub-cute-pill.is-dragging {
+  opacity: 0.35;
+}
+
+.sub-cute-pill.drag-over {
+  box-shadow: 0 0 0 2px var(--color-text-dark) !important;
+}
+
+.sub-grip {
+  opacity: 0.3;
+  flex-shrink: 0;
 }
 
 .btn-remove-sub {

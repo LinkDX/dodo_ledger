@@ -25,6 +25,7 @@ export interface Category {
   type: 'income' | 'expense';
   icon: string; // Lucide 圖示名稱
   subCategories: string[];
+  sortOrder?: number;           // 使用者自訂排列順序
 }
 
 // 帳戶類型
@@ -51,6 +52,7 @@ export interface Account {
   createdAt: number;
   cardDetails?: CreditCardDetails;
   updatedAt?: number;           // 最後更新時間戳記 (離線優先防衝突)
+  sortOrder?: number;           // 使用者自訂排列順序
 }
 
 // 交易類型
