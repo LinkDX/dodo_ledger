@@ -105,17 +105,20 @@ ledgers/
 | `id` | string | 交易唯一識別碼 |
 | `type` | string | 交易類型：`income` (收入), `expense` (支出), `transfer` (轉帳) |
 | `amount` | number | 交易金額 |
-| `fee` | number | 轉帳手續費（僅轉帳適用） |
+| `fee` | number? | 轉帳手續費（僅轉帳適用） |
 | `category` | string | 主分類名稱或 ID |
-| `subCategory`| string | 子分類名稱或 ID |
-| `fromAccountId`| string | 扣款帳戶 ID (支出、轉帳的來源) |
-| `toAccountId` | string | 存款帳戶 ID (收入、轉帳的目的) |
-| `date` | timestamp | 交易發生的時間 |
+| `subCategory`| string? | 子分類名稱或 ID |
+| `fromAccountId`| string? | 扣款帳戶 ID (支出、轉帳的來源) |
+| `toAccountId` | string? | 存款帳戶 ID (收入、轉帳的目的) |
+| `date` | number | 交易發生的時間戳記（毫秒） |
 | `note` | string | 備註說明 |
-| `tags` | array | 標籤陣列，如 `["日常", "旅行"]` |
-| `isRecurring`| boolean | 是否為週期性自動記帳所產生的交易 |
-| `recurringId`| string | 關聯的週期設定 ID (可選) |
-| `creditCardDetails`| object | 信用卡專屬分期與帳單期數資訊 (可選) |
+| `tags` | string[] | 標籤陣列，如 `["日常", "旅行"]` |
+| `isRecurring`| boolean? | 是否為週期性自動記帳所產生的交易 |
+| `recurringId`| string? | 關聯的週期設定 ID |
+| `createdBy` | string? | 記帳人暱稱（共同記帳多人追蹤） |
+| `createdByAvatar`| string? | 記帳人頭像 Emoji（共同記帳多人追蹤） |
+| `updatedAt` | number? | 最後更新時間戳記（離線優先防衝突） |
+| `creditCardDetails`| object? | 信用卡專屬分期與帳單期數資訊 |
 
 #### `creditCardDetails` 結構：
 ```json
