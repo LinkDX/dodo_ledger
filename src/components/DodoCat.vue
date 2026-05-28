@@ -358,6 +358,9 @@ const catMiau = computed(() => {
   flex: 1; /* 彈性寬度 */
   max-width: 240px; /* 繼續維持加寬至 240px，讓長文字輕鬆顯示 */
   min-width: 120px; /* 限制最小寬度，在小螢幕也能正常顯示 */
+  max-height: 140px; /* 限制最大高度，避免長段話超出畫面 */
+  display: flex;
+  flex-direction: column;
   box-shadow: var(--shadow-jelly-sm);
   z-index: 35; /* 繼續維持高 z-index 層次 */
   word-wrap: break-word;
@@ -368,6 +371,27 @@ const catMiau = computed(() => {
   font-weight: 700;
   line-height: 1.4;
   color: var(--color-text-dark);
+  overflow-y: auto; /* 字數過多時自動啟用垂直捲軸 */
+  flex: 1; /* 彈性佔滿可用高度 */
+  padding-right: 4px; /* 保留捲軸間距，防止文字和捲軸擠壓 */
+
+  /* 自訂精緻可愛的馬卡龍風格捲軸 */
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+/* Chrome / Safari 捲軸美化 */
+.speech-text::-webkit-scrollbar {
+  width: 4px;
+}
+
+.speech-text::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.speech-text::-webkit-scrollbar-thumb {
+  background-color: var(--color-border);
+  border-radius: 4px;
 }
 
 .cat-signature {

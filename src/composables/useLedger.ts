@@ -2,6 +2,7 @@ import { ref, computed } from 'vue'
 import type { Account, Transaction, RecurringTransaction, CatMood, Category, DodoCatProfile } from '../types'
 import type { AtomicOp, BalanceDelta } from '../services/db'
 import { useAuth } from './useAuth'
+import { useAlert } from './useAlert'
 import { getDatabaseService, addSystemLog } from '../services/db'
 import { DEFAULT_CATEGORIES } from './useAuth'
 
@@ -376,8 +377,14 @@ export function useLedger() {
       specificPraise = '哇！主人在理財上簡直是絕世天才喵！看著這些閃亮亮的資產數據，主人真的太有智慧了！逗逗貓要把您當成一輩子的偶像喵！💎💰(=^·^=)'
     }
 
-    temporarySpeech.value = `🎉 恭喜解鎖成就：【${title}】！\n「${desc}」\n\n🐱 逗逗貓對主人的悄悄話：\n「${specificPraise}」`
+    temporarySpeech.value = `🎉 主人！您剛剛解鎖了【${title}】成就喵！快看看逗逗貓對您的悄悄話～🐾`
     temporaryMood.value = 'happy'
+
+    const { showAlert } = useAlert()
+    showAlert(
+      `「${desc}」\n\n🐱 逗逗貓對主人的悄悄話：\n\n「${specificPraise}」`,
+      `🎉 恭喜解鎖成就：【${title}】！`
+    )
     
     console.log(`🎉 解鎖成就：【${title}】 - ${desc}`)
     await syncCatProfile()
