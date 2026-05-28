@@ -506,13 +506,15 @@ const onAcctDrop = async (targetAcct: Account) => {
             >
               <GripVertical :size="14" />
             </span>
-            <span v-if="acct.avatar" class="card-avatar-emoji">{{ acct.avatar }}</span>
-            <template v-else>
-              <Wallet v-if="acct.type === 'cash'" :size="18" class="card-type-icon" />
-              <Landmark v-else-if="acct.type === 'bank'" :size="18" class="card-type-icon" />
-              <CreditCard v-else-if="acct.type === 'credit_card'" :size="18" class="card-type-icon" />
-              <Compass v-else :size="18" class="card-type-icon" />
-            </template>
+            <div class="card-icon-wrapper">
+              <span v-if="acct.avatar" class="card-avatar-emoji">{{ acct.avatar }}</span>
+              <template v-else>
+                <Wallet v-if="acct.type === 'cash'" :size="18" class="card-type-icon" />
+                <Landmark v-else-if="acct.type === 'bank'" :size="18" class="card-type-icon" />
+                <CreditCard v-else-if="acct.type === 'credit_card'" :size="18" class="card-type-icon" />
+                <Compass v-else :size="18" class="card-type-icon" />
+              </template>
+            </div>
             <span class="card-name">{{ acct.name }}</span>
           </div>
           <!-- 右：操作按鈕 -->
@@ -1327,6 +1329,15 @@ const onAcctDrop = async (targetAcct: Account) => {
   align-items: center;
   gap: 7px;
   min-width: 0;
+}
+
+.card-icon-wrapper {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .card-name {
