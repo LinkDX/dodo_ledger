@@ -51,9 +51,15 @@ const openAchievements = () => {
 
 // 取得近 3 筆交易紀錄
 const recentTransactions = computed(() => {
-  // 對交易時間排序
+  const floorDay = (ts: number) => {
+    const d = new Date(ts)
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  }
   return [...transactions.value]
-    .sort((a, b) => b.date - a.date)
+    .sort((a, b) => {
+      const diff = floorDay(b.date) - floorDay(a.date)
+      return diff !== 0 ? diff : (b.updatedAt ?? 0) - (a.updatedAt ?? 0)
+    })
     .slice(0, 3)
 })
 

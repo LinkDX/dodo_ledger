@@ -2,6 +2,12 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Web 2.3.2] - 2026-05-28
+
+### 🐛 補齊近期收支明細與信用卡帳單的同日排序修復
+- **Dashboard 近期收支明細**：`recentTransactions` 排序同步套用 `floorDay()` + `updatedAt` 次要鍵，修復轉帳永遠排最頂的問題。
+- **信用卡帳單明細**：`billedTransactions` 排序亦套用相同邏輯，帳單內同日交易依寫入順序正確排列。
+
 ## [Web 2.3.1] - 2026-05-28
 
 ### 🐛 修復收支明細同日排序錯亂
