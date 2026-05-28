@@ -239,11 +239,13 @@
 - 判定：
   - 改 `src/`、`public/`、`package.json` => 含 Web
   - 改 `android/`、`capacitor.config.ts`、`android-version.json` => 含 Android
-- 若前一版本 **尚未 push**：
-  - 不要再遞增版號
-  - 直接把新內容併入前一筆 `CHANGELOG`
-  - 維持 `package.json` / `android-version.json` 不變
-- 只有前版已發布，或此次是重大分發，才遞增版號。
+- 若前一版本 **已經 push / 發布至遠端倉庫**：
+  - 當前若有任何新程式變更（不論多微小），**一律必須遞增版號**，絕對禁止將新變更併入已推送的舊版號中，以維持發布與 CI/CD 流水線的追蹤完整性。
+- 若前一版本 **尚未 push**（純屬本地未推送的 commit 且尚未發布）：
+  - 不需要遞增版號。
+  - 直接把新內容併入前一筆 `CHANGELOG`，並可搭配 `git commit --amend`。
+  - 維持 `package.json` / `android-version.json` 不變。
+- 只有前版已發布（已 push），或此次是重大分發，才遞增版號。
 
 ### 3.9 SemVer
 - **Patch**：向後相容的 bug fix / 微調 / 小修補。
