@@ -488,32 +488,30 @@ const onAcctDrop = async (targetAcct: Account) => {
         @drop.prevent="onAcctDrop(acct)"
         @dragend="onAcctDragEnd"
       >
-        <div class="card-top-row">
-          <!-- 拖曳把手 -->
-          <span
-            class="drag-handle"
-            draggable="true"
-            @dragstart="onAcctDragStart(acct)"
-            title="拖曳調整順序"
-          >
-            <GripVertical :size="14" />
-          </span>
-          <div class="card-badge">
-            <!-- Avatar 優先，否則退回 Lucide 圖示 -->
+        <div class="card-main-row">
+          <!-- 左：拖曳把手 + avatar + 帳戶名 -->
+          <div class="card-left">
+            <span
+              class="drag-handle"
+              draggable="true"
+              @dragstart="onAcctDragStart(acct)"
+              title="拖曳調整順序"
+            >
+              <GripVertical :size="14" />
+            </span>
             <span v-if="acct.avatar" class="card-avatar-emoji">{{ acct.avatar }}</span>
             <template v-else>
-              <Wallet v-if="acct.type === 'cash'" :size="16" />
-              <Landmark v-else-if="acct.type === 'bank'" :size="16" />
-              <CreditCard v-else-if="acct.type === 'credit_card'" :size="16" />
-              <Compass v-else :size="16" />
+              <Wallet v-if="acct.type === 'cash'" :size="18" class="card-type-icon" />
+              <Landmark v-else-if="acct.type === 'bank'" :size="18" class="card-type-icon" />
+              <CreditCard v-else-if="acct.type === 'credit_card'" :size="18" class="card-type-icon" />
+              <Compass v-else :size="18" class="card-type-icon" />
             </template>
-            <span class="type-text">
-              {{ acct.type === 'cash' ? '現金' : acct.type === 'bank' ? '銀行存款' : acct.type === 'credit_card' ? '信用卡' : '電子票證' }}
-            </span>
+            <span class="card-name">{{ acct.name }}</span>
           </div>
+          <!-- 右：操作按鈕 -->
           <div class="card-top-actions">
             <button class="btn-edit-card" @click="openEditModal(acct)" title="編輯帳戶">
-              <Pencil :size="11" />
+              <Pencil :size="13" />
             </button>
             <button class="btn-delete-card" @click="handleDeleteAccount(acct.id)">
               ×
@@ -521,38 +519,38 @@ const onAcctDrop = async (targetAcct: Account) => {
           </div>
         </div>
 
-        <h3 class="card-name">{{ acct.name }}</h3>
-
-        <!-- 餘額與額度呈現 -->
-        <div class="card-balance-block">
-          <span class="currency-tag">TWD</span>
-          <!-- 信用卡顯示可用額度 / 總負債 -->
+        <!-- 餘額列 -->
+        <div class="card-balance-row">
+          <!-- 左：類型 badge + 幣別 -->
+          <div class="card-meta">
+            <span class="card-badge">
+              <Wallet v-if="acct.type === 'cash'" :size="12" />
+              <Landmark v-else-if="acct.type === 'bank'" :size="12" />
+              <CreditCard v-else-if="acct.type === 'credit_card'" :size="12" />
+              <Compass v-else :size="12" />
+              {{ acct.type === 'cash' ? '現金' : acct.type === 'bank' ? '銀行存款' : acct.type === 'credit_card' ? '信用卡' : '電子票證' }}
+            </span>
+            <span class="currency-tag">TWD</span>
+          </div>
+          <!-- 右：餘額 -->
           <div v-if="acct.type === 'credit_card'" class="credit-balance-info">
-            <div class="debt-amount">已刷負債: ${{ formatCurrency(Math.abs(acct.balance)) }}</div>
-            <div class="limit-amount">
-              可用額度: ${{ formatCurrency(Math.max((acct.cardDetails?.creditLimit || 50000) - Math.abs(acct.balance), 0)) }}
-              / ${{ formatCurrency(acct.cardDetails?.creditLimit || 50000) }}
-            </div>
-            
-            <!-- 額度進度條 -->
+            <div class="debt-amount">負債 ${{ formatCurrency(Math.abs(acct.balance)) }}</div>
+            <div class="limit-amount">額度 ${{ formatCurrency(Math.max((acct.cardDetails?.creditLimit || 50000) - Math.abs(acct.balance), 0)) }}</div>
             <div class="credit-progress-section">
               <div class="progress-bar-container">
-                <div 
+                <div
                   class="progress-bar-fill"
-                  :style="{ 
+                  :style="{
                     width: `${getCreditAvailableRatio(acct) * 100}%`,
                     backgroundColor: getCreditAvailableRatio(acct) <= 0.2 ? '#FF7B7B' : '#B5EAD7'
                   }"
                 ></div>
               </div>
             </div>
-            
             <div class="card-details-small">
-              結帳日: 每月 {{ acct.cardDetails?.billingCycleDate }} 號 | 繳款日: 每月 {{ acct.cardDetails?.paymentDueDate }} 號
+              結帳 {{ acct.cardDetails?.billingCycleDate }} 號 · 繳款 {{ acct.cardDetails?.paymentDueDate }} 號
             </div>
           </div>
-
-          <!-- 一般帳戶顯示正餘額 -->
           <div v-else class="general-balance" :class="{ 'negative-val': acct.balance < 0 }">
             ${{ formatCurrency(acct.balance) }}
           </div>
@@ -1289,10 +1287,11 @@ const onAcctDrop = async (targetAcct: Account) => {
 
 /* 繪本插畫風格帳戶卡片 */
 .account-card {
-  padding: 10px 14px !important; /* 壓縮 padding 以減少高度 */
+  padding: 10px 14px !important;
   margin-bottom: 0 !important;
   display: flex;
   flex-direction: column;
+  gap: 6px;
   transition: opacity 0.15s, box-shadow 0.15s;
 }
 
@@ -1305,14 +1304,64 @@ const onAcctDrop = async (targetAcct: Account) => {
 }
 
 .account-card :deep(.progress-bar-container) {
-  height: 12px !important; /* 壓縮信用卡額度進度條高度，省下 4px 空間 */
+  height: 10px !important;
 }
 
-.card-top-row {
+/* Row 1：帳戶名 + 操作按鈕 */
+.card-main-row {
   display: flex;
+  align-items: center;
   justify-content: space-between;
+  gap: 8px;
+}
+
+.card-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.card-name {
+  font-size: 18px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-type-icon {
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+/* Row 2：badge + 幣別 / 餘額 */
+.card-balance-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.card-meta {
+  display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.card-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--color-text-muted);
+  background-color: rgba(44, 30, 27, 0.08);
+  border: 1.5px solid var(--color-border);
+  padding: 2px 7px;
+  border-radius: 20px;
 }
 
 .drag-handle {
@@ -1320,7 +1369,7 @@ const onAcctDrop = async (targetAcct: Account) => {
   align-items: center;
   cursor: grab;
   opacity: 0.35;
-  padding: 2px 4px;
+  padding: 2px 2px;
   border-radius: 4px;
   flex-shrink: 0;
   touch-action: none;
@@ -1335,35 +1384,19 @@ const onAcctDrop = async (targetAcct: Account) => {
   cursor: grabbing;
 }
 
-.card-badge {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background-color: rgba(44, 30, 27, 0.1);
-  padding: 4px 8px;
-  border-radius: 20px;
-  border: 1.5px solid var(--color-border);
-}
-
-.type-text {
-  font-size: 13px;
-  font-weight: 800;
-}
-
 .btn-delete-card {
-  width: 22px;
-  height: 22px;
-  background: none;
+  width: 28px;
+  height: 28px;
+  background-color: #fff;
   border: var(--border-width) solid var(--color-border);
   border-radius: 50%;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   box-shadow: var(--shadow-jelly-sm);
-  background-color: #FFF;
   transition: all 0.1s ease;
 }
 
@@ -1372,8 +1405,8 @@ const onAcctDrop = async (targetAcct: Account) => {
 }
 
 .btn-edit-card {
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   background-color: #EEF4FF;
   border: var(--border-width) solid #A9C9FF;
   border-radius: 50%;
@@ -1394,10 +1427,12 @@ const onAcctDrop = async (targetAcct: Account) => {
   display: flex;
   gap: 6px;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .card-avatar-emoji {
-  font-size: 22px;
+  font-size: 20px;
+  flex-shrink: 0;
 }
 
 /* Avatar picker */
@@ -1437,31 +1472,17 @@ const onAcctDrop = async (targetAcct: Account) => {
   border-radius: 50% !important;
 }
 
-.card-name {
-  font-size: 21px; /* 稍微縮小名稱字型 */
-  font-weight: 800;
-  margin-top: 4px; /* 壓縮垂直間距 */
-}
-
-.card-balance-block {
-  margin-top: 8px; /* 壓縮垂直間距 */
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-}
-
 .currency-tag {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
   color: var(--color-text-muted);
   border: 1.5px solid var(--color-border);
-  padding: 2px 6px;
+  padding: 2px 5px;
   border-radius: 4px;
-  margin-right: auto;
 }
 
 .general-balance {
-  font-size: 28px; /* 稍微縮小餘額字體，使微縮卡片更和諧，但依然霸氣醒目 */
+  font-size: 22px;
   font-weight: 900;
   letter-spacing: -0.5px;
 }
@@ -1475,37 +1496,35 @@ const onAcctDrop = async (targetAcct: Account) => {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  width: calc(100% - 60px);
 }
 
 .debt-amount {
-  font-size: 14px; /* 縮減信用卡負債字體以節省空間 */
+  font-size: 12px;
   font-weight: 800;
   color: #C66230;
 }
 
 .limit-amount {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 800;
-  margin-top: 2px;
 }
 
 .credit-progress-section {
   width: 100%;
-  max-width: 200px;
-  margin-top: 6px;
+  max-width: 160px;
+  margin-top: 4px;
 }
 
 .credit-progress-section .progress-bar-container {
-  height: 10px;
+  height: 8px;
   border-width: 1.5px;
 }
 
 .card-details-small {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--color-text-muted);
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 /* 馬卡龍卡片背景色配色系統 */
