@@ -14,6 +14,7 @@ import Analytics from './components/Analytics.vue'
 import Settings from './components/Settings.vue'
 import AppLock from './components/AppLock.vue'
 import CuteConfirmDialog from './components/CuteConfirmDialog.vue'
+import CuteAlertDialog from './components/CuteAlertDialog.vue'
 import { 
   Home, 
   Wallet, 
@@ -175,8 +176,11 @@ onMounted(() => {
         <span>設定</span>
       </button>
     </nav>
-    <CuteConfirmDialog />
   </div>
+
+  <!-- 全域 Dialog 彈窗，置於最外層以支援所有狀態 -->
+  <CuteConfirmDialog />
+  <CuteAlertDialog />
 </template>
 
 <style scoped>

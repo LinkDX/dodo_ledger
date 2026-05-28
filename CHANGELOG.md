@@ -2,6 +2,14 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Web 2.0.6] - 2026-05-28
+
+### 🐱 全專案原生 alert 徹底清理與自製 Dialog 替換
+- **自製 Q 彈 Alert 元件 (`CuteAlertDialog.vue`)**：精心實作了擁有 Dodo Ledger 溫馨手繪插畫風、巧克力粗實線外框、毛玻璃半透明背景與 QQ 果凍式入場彈跳動畫（`popJellyAlert`）的全自置 Dialog，搭配溫暖的卡士達金確認按鈕。
+- **全域非同步 Promise 驅動 (`useAlert.ts`)**：編寫了簡潔優雅的 alert 狀態管理器，支持以非同步 `await showAlert(msg, title)` 方式進行調用，使程式碼保持與原生 `window.alert` 一致的極佳簡約對稱性。
+- **全域 Dialog 層級提升**：將 `CuteConfirmDialog` 與新增的 `CuteAlertDialog` 提到 `App.vue` 最外層容器，確保在鎖定畫面（`AppLock`）與身分牆（`UserSelection`）等所有邊界場景下皆能完美呈現全域彈窗，消滅所有潛在的 UI 渲染死角。
+- **地毯式原生 UI 淨空**：清理並替換了 `Settings.vue`（檢查版本、快取清除、彩蛋解鎖、密碼設定）及 `CategoryManager.vue`（分類新增、刪除、重複）等 8 處殘留的死板原生 `alert` 調用，為專案的視覺一致性再次築起 100% 完美的防禦護城河！
+
 ## [Web 2.0.5 / Android 1.0.8 / Build 9] - 2026-05-28
 
 ### 📱 Android App 內一鍵檢查與原生覆蓋安裝正式發布 (Wow 體驗升級)

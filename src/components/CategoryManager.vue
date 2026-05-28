@@ -2,6 +2,7 @@
 import { ref, watch, computed } from 'vue'
 import { useLedger } from '../composables/useLedger'
 import { useConfirm } from '../composables/useConfirm'
+import { useAlert } from '../composables/useAlert'
 import { 
   FolderPlus, 
   Trash2, 
@@ -10,6 +11,7 @@ import {
 
 const { categories, addCategory, deleteCategory, addSubCategory, deleteSubCategory } = useLedger()
 const { showConfirm } = useConfirm()
+const { showAlert } = useAlert()
 
 // 🐾 記帳分類手動管理狀態與方法
 const activeCatType = ref<'expense' | 'income'>('expense')
@@ -48,7 +50,7 @@ const handleAddMainCategory = async () => {
   
   newCatName.value = ''
   showAddCatForm.value = false
-  alert(`🐱 成功新增主分類！`)
+  await showAlert(`🐱 成功新增主分類！`)
 }
 
 const handleDeleteMainCategory = async (catId: string) => {
@@ -63,7 +65,7 @@ const handleDeleteMainCategory = async (catId: string) => {
   
   const nextCat = filteredCategories.value.find(c => c.id !== catId)
   expandedCatId.value = nextCat ? nextCat.id : ''
-  alert(`🐱 主分類「${cat.name}」已被刪除。`)
+  await showAlert(`🐱 主分類「${cat.name}」已被刪除。`)
 }
 
 // 子分類狀態與方法
@@ -75,7 +77,7 @@ const handleAddSubCategory = async (catId: string) => {
   
   const cat = categories.value.find(c => c.id === catId)
   if (cat?.subCategories.includes(subName)) {
-    alert('🐱 這個子分類已經存在囉喵！')
+    await showAlert('🐱 這個子分類已經存在囉喵！')
     return
   }
   

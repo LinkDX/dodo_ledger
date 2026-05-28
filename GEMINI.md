@@ -92,6 +92,29 @@
 
 ### 1.6 禁止使用原生 UI 元件原則
 - **手製高度統一風格元件**：為了本專案獨特的手繪、馬卡龍配色與 Q 彈果凍（Jelly）動畫的美學統一性，**禁止使用任何瀏覽器原生 UI 元件（包含但不限於原生下拉選單 select、alert 提示框、confirm 確認窗等）**。所有基礎 UI 元件皆必須使用 SFC（Vue 單檔案元件）搭配 CSS 果凍特效與馬卡龍調色板自行實作。
+- **自訂全域 Dialog 呼叫範式**：
+  專案內建了 Promise 驅動的全域非同步 Dialog 引擎，凡是需要提示訊息或確認操作時，**一律嚴格使用自訂元件，禁止使用原生 `alert` 與 `confirm`**。
+  - **二次確認 (Confirm Dialog)**：
+    使用 `src/composables/useConfirm.ts`，並於 `App.vue` 放置 `<CuteConfirmDialog />`。
+    ```typescript
+    import { useConfirm } from '../composables/useConfirm'
+    const { showConfirm } = useConfirm()
+    
+    // 呼叫範例：
+    if (await showConfirm('您確定要刪除此項目嗎喵？', '🗑️ 刪除確認')) {
+      // 使用者點擊「確定」
+    }
+    ```
+  - **提示訊息 (Alert Dialog)**：
+    使用 `src/composables/useAlert.ts`，並於 `App.vue` 放置 `<CuteAlertDialog />`。
+    ```typescript
+    import { useAlert } from '../composables/useAlert'
+    const { showAlert } = useAlert()
+    
+    // 呼叫範例：
+    await showAlert('✨ 報告主人！設定已成功儲存囉🐾')
+    ```
+  - **層級放置規範**：為防範在鎖定畫面（`AppLock`）或身分牆（`UserSelection`）等分支介面下出現彈窗渲染死角，上述兩個全域 Dialog 元件**必須放置於 `App.vue` 模板的最外層容器中**，以保障在所有狀態下皆可被全域正常呼叫與定位。
 
 ---
 

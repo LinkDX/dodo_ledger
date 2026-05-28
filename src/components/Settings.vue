@@ -3,6 +3,7 @@ import { ref, watch, onMounted } from 'vue'
 import { useAuth } from '../composables/useAuth'
 import androidVersion from '../../android-version.json'
 import { useConfirm } from '../composables/useConfirm'
+import { useAlert } from '../composables/useAlert'
 import pkg from '../../package.json'
 import { getDatabaseService, FirestoreDatabaseService } from '../services/db'
 import type { SystemLog } from '../types'
@@ -25,6 +26,7 @@ import { registerPlugin } from '@capacitor/core'
 
 const { currentProfile, updateProfileSettings, updateProfileAvatar } = useAuth()
 const { showConfirm } = useConfirm()
+const { showAlert } = useAlert()
 
 // 🔒 Dodo Gatekeeper - 密碼鎖防護邏輯
 import { useAppLock } from '../composables/useAppLock'
@@ -80,7 +82,7 @@ const handleAppVersionCheck = async (showNoUpdateAlert = false) => {
       remoteTagName.value = tagName
     } else {
       if (showNoUpdateAlert) {
-        alert(`✨ 報告主人！當前 App 版本 v${localVer} 已經是最新版囉！不用再更新喵🐾`)
+        await showAlert(`✨ 報告主人！當前 App 版本 v${localVer} 已經是最新版囉！不用再更新喵🐾`)
       }
     }
   } catch (e: any) {
@@ -146,7 +148,7 @@ const handleResetHotUpdate = async () => {
   if (await showConfirm('確定要清除所有熱更新快取並回退到 APK 內建版本嗎？', '🔄 回退內建版本')) {
     localStorage.removeItem('dodo_app_hot_version_code')
     localHotVersion.value = '100'
-    alert('✨ 已清除快取！請「重啟 App」以恢復至原始版本。🐾')
+    await showAlert('✨ 已清除快取！請「重啟 App」以恢復至原始版本。🐾')
   }
 }
 
@@ -156,11 +158,11 @@ const webVersion = pkg.version
 const webClickCount = ref(0)
 const isAdminMode = ref(false)
 
-const handleWebVersionClick = () => {
+const handleWebVersionClick = async () => {
   webClickCount.value++
   if (webClickCount.value >= 5) {
     isAdminMode.value = true
-    alert('🐱 喵！恭喜主人觸發神秘彩蛋！解鎖「逗逗貓超高級管理介面」！🐾')
+    await showAlert('🐱 喵！恭喜主人觸發神秘彩蛋！解鎖「逗逗貓超高級管理介面」！🐾')
     setTimeout(() => {
       document.getElementById('admin-panel')?.scrollIntoView({ behavior: 'smooth' })
     }, 100)
@@ -223,12 +225,12 @@ const handleLockSubmit = async () => {
     
     await setupLocalPassword(lockInputPwd.value)
     showLockModal.value = false
-    alert('🔒 密碼設定成功！從現在起每次開啟本網頁，都會被安全保護囉！')
+    await showAlert('🔒 密碼設定成功！從現在起每次開啟本網頁，都會被安全保護囉！')
   } else if (lockActionType.value === 'disable') {
     const success = await disableLocalPassword(lockInputPwd.value)
     if (success) {
       showLockModal.value = false
-      alert('🔓 本地密碼保護已成功停用，金庫已解鎖。')
+      await showAlert('🔓 本地密碼保護已成功停用，金庫已解鎖。')
     } else {
       lockModalError.value = '密碼不正確，無法解鎖金庫喵！'
     }
