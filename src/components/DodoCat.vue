@@ -51,67 +51,94 @@ const catMiau = computed(() => {
         class="cat-svg"
       >
         <!-- 核心陰影 -->
-        <ellipse cx="100" cy="180" rx="60" ry="10" fill="#2C1E1B" opacity="0.1" />
+        <ellipse cx="100" cy="180" rx="60" ry="10" fill="#3D2B1F" opacity="0.1" />
 
-        <!-- 貓身體 (馬卡龍奶油白，粗手繪框) -->
+        <!-- 貓身體 (品牌乳白，深灰褐粗邊) -->
         <path
           d="M 60 180 C 60 110, 140 110, 140 180 Z"
-          fill="#FFFDF9"
-          stroke="#2C1E1B"
+          fill="#FDF6EE"
+          stroke="#3D2B1F"
           stroke-width="6"
           stroke-linejoin="round"
         />
 
-        <!-- 貓左右手/爪子 (大圓角，搭在身前) -->
+        <!-- 經典手繪薄荷綠口金包錢包 (抱在身前) -->
+        <g>
+          <!-- 口金包主體 -->
+          <rect x="72" y="148" width="56" height="34" rx="7" fill="#A8E6CF" stroke="#3D2B1F" stroke-width="3" />
+          <!-- 頂部雙金扣 -->
+          <circle cx="100" cy="143" r="3.2" fill="#F4C842" stroke="#3D2B1F" stroke-width="1.5" />
+          <!-- 口金包中央皇家飾品 -->
+          <circle cx="100" cy="165" r="5" fill="#FFF8EC" stroke="#3D2B1F" stroke-width="1.5" />
+          <circle cx="100" cy="165" r="2.2" fill="#F4C842" />
+        </g>
+
+        <!-- 貓左右手 (在非 crying 狀態下搭抓在錢包兩側) -->
         <g v-if="mood !== 'crying'">
-          <ellipse cx="75" cy="165" rx="12" ry="8" fill="#FFFDF9" stroke="#2C1E1B" stroke-width="5" />
-          <ellipse cx="125" cy="165" rx="12" ry="8" fill="#FFFDF9" stroke="#2C1E1B" stroke-width="5" />
+          <circle cx="68" cy="165" r="9.5" fill="#FDF6EE" stroke="#3D2B1F" stroke-width="3" />
+          <circle cx="132" cy="165" r="9.5" fill="#FDF6EE" stroke="#3D2B1F" stroke-width="3" />
         </g>
 
         <!-- 貓耳朵 -->
         <!-- 左耳 -->
         <path
           d="M 60 90 L 40 45 L 85 70 Z"
-          fill="#FFFDF9"
-          stroke="#2C1E1B"
+          fill="#FDF6EE"
+          stroke="#3D2B1F"
           stroke-width="6"
           stroke-linejoin="round"
         />
         <path
           d="M 60 85 L 48 53 L 78 72 Z"
-          fill="#FFB4B4"
-          opacity="0.6"
+          fill="#F9C4C4"
         />
 
-        <!-- 右耳：nervous 垂耳，scared 豎起，一般正常 -->
-        <path
-          v-if="mood === 'nervous'"
-          d="M 140 90 L 160 110 L 115 70 Z"
-          fill="#FFFDF9"
-          stroke="#2C1E1B"
-          stroke-width="6"
-          stroke-linejoin="round"
-        />
-        <path
-          v-else
-          d="M 140 90 L 160 45 L 115 70 Z"
-          fill="#FFFDF9"
-          stroke="#2C1E1B"
-          stroke-width="6"
-          stroke-linejoin="round"
-        />
-        <path
-          v-if="mood !== 'nervous'"
-          d="M 140 85 L 152 53 L 122 72 Z"
-          fill="#FFB4B4"
-          opacity="0.6"
-        />
+        <!-- 右耳：nervous 立體折耳，其餘正常豎耳 -->
+        <!-- 1. nervous 狀態下：渲染超立體雙 Path 折耳 -->
+        <template v-if="mood === 'nervous'">
+          <!-- 右耳底座 (四邊形) -->
+          <path
+            d="M 140 90 L 150 71 L 125 62 L 115 70 Z"
+            fill="#FDF6EE"
+            stroke="#3D2B1F"
+            stroke-width="6"
+            stroke-linejoin="round"
+          />
+          <!-- 右耳內粉紅色腮紅 -->
+          <path
+            d="M 140 85 L 147 73 L 127 65 Z"
+            fill="#F9C4C4"
+          />
+          <!-- 右耳翻折蓋 (覆蓋於底座之上，打造完美摺半層次) -->
+          <path
+            d="M 150 71 L 156 80 L 125 62 Z"
+            fill="#FDF6EE"
+            stroke="#3D2B1F"
+            stroke-width="6"
+            stroke-linejoin="round"
+          />
+        </template>
 
-        <!-- 薰衣草領圈 (戴在大頭下巴邊緣下方，位於頭部主體下方、身體上方，呈現完美的項圈空間環繞層次) -->
+        <!-- 2. 非 nervous 狀態下：渲染正常直立三角耳 -->
+        <template v-else>
+          <path
+            d="M 140 90 L 160 45 L 115 70 Z"
+            fill="#FDF6EE"
+            stroke="#3D2B1F"
+            stroke-width="6"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M 140 85 L 152 53 L 122 72 Z"
+            fill="#F9C4C4"
+          />
+        </template>
+
+        <!-- 薰衣草領圈 (戴在大頭下巴邊緣下方，呈現完美的項圈空間環繞層次) -->
         <path
           d="M 56 132 Q 100 164 144 132"
           fill="none"
-          stroke="#2C1E1B"
+          stroke="#3D2B1F"
           stroke-width="12"
           stroke-linecap="round"
         />
@@ -123,9 +150,9 @@ const catMiau = computed(() => {
           stroke-linecap="round"
         />
         <!-- 領圈黃金鈴鐺 (完美垂掛在下巴最下緣胸前) -->
-        <circle cx="100" cy="162" r="6.5" fill="#F4C842" stroke="#2C1E1B" stroke-width="2.5" />
-        <line x1="93.5" y1="159.5" x2="106.5" y2="159.5" stroke="#2C1E1B" stroke-width="1.8" />
-        <circle cx="100" cy="165.5" r="1.8" fill="#2C1E1B" />
+        <circle cx="100" cy="162" r="6.5" fill="#F4C842" stroke="#3D2B1F" stroke-width="2.5" />
+        <line x1="93.5" y1="159.5" x2="106.5" y2="159.5" stroke="#3D2B1F" stroke-width="1.8" />
+        <circle cx="100" cy="165.5" r="1.8" fill="#3D2B1F" />
 
         <!-- 貓頭部 -->
         <ellipse
@@ -133,53 +160,53 @@ const catMiau = computed(() => {
           cy="110"
           rx="52"
           ry="44"
-          fill="#FFFDF9"
-          stroke="#2C1E1B"
+          fill="#FDF6EE"
+          stroke="#3D2B1F"
           stroke-width="6"
         />
 
         <!-- 貓腮紅 (軟萌粉紅) -->
-        <ellipse cx="65" cy="122" rx="8" ry="5" fill="#FFB4B4" opacity="0.6" />
-        <ellipse cx="135" cy="122" rx="8" ry="5" fill="#FFB4B4" opacity="0.6" />
+        <ellipse cx="65" cy="122" rx="8" ry="5" fill="#F9C4C4" opacity="0.6" />
+        <ellipse cx="135" cy="122" rx="8" ry="5" fill="#F9C4C4" opacity="0.6" />
 
         <!-- ─── 表情包切換 ─── -->
 
         <!-- 1. 開心表情 (happy) -->
         <g v-if="mood === 'happy'">
           <!-- 瞇瞇眼 -->
-          <path d="M 70 105 Q 78 98 85 105" fill="none" stroke="#2C1E1B" stroke-width="5" stroke-linecap="round" />
-          <path d="M 115 105 Q 122 98 130 105" fill="none" stroke="#2C1E1B" stroke-width="5" stroke-linecap="round" />
+          <path d="M 70 105 Q 78 98 85 105" fill="none" stroke="#3D2B1F" stroke-width="5" stroke-linecap="round" />
+          <path d="M 115 105 Q 122 98 130 105" fill="none" stroke="#3D2B1F" stroke-width="5" stroke-linecap="round" />
           <!-- 貓咪小嘴巴 (W 形) -->
-          <path d="M 94 118 Q 100 124 100 118 Q 100 124 106 118" fill="none" stroke="#2C1E1B" stroke-width="5" stroke-linecap="round" />
+          <path d="M 94 118 Q 100 124 100 118 Q 100 124 106 118" fill="none" stroke="#3D2B1F" stroke-width="5" stroke-linecap="round" />
         </g>
 
         <!-- 2. 小緊張表情 (nervous) -->
         <g v-if="mood === 'nervous'">
           <!-- 尷尬小眼神 -->
-          <ellipse cx="78" cy="106" rx="4" ry="6" fill="#2C1E1B" />
-          <ellipse cx="122" cy="106" rx="4" ry="6" fill="#2C1E1B" />
-          <path d="M 72 96 Q 78 93 84 96" fill="none" stroke="#2C1E1B" stroke-width="3" stroke-linecap="round" />
+          <ellipse cx="78" cy="106" rx="4" ry="6" fill="#3D2B1F" />
+          <ellipse cx="122" cy="106" rx="4" ry="6" fill="#3D2B1F" />
+          <path d="M 72 96 Q 78 93 84 96" fill="none" stroke="#3D2B1F" stroke-width="3" stroke-linecap="round" />
           <!-- 平平的嘴巴 -->
-          <line x1="94" y1="120" x2="106" y2="120" stroke="#2C1E1B" stroke-width="4.5" stroke-linecap="round" />
+          <line x1="94" y1="120" x2="106" y2="120" stroke="#3D2B1F" stroke-width="4.5" stroke-linecap="round" />
         </g>
 
         <!-- 3. 驚嚇流汗表情 (scared) -->
         <g v-if="mood === 'scared'">
           <!-- 圓滾滾的大眼 -->
-          <circle cx="76" cy="106" r="9" fill="#FFFFFF" stroke="#2C1E1B" stroke-width="4.5" />
-          <circle cx="76" cy="106" r="4" fill="#2C1E1B" />
-          <circle cx="124" cy="106" r="9" fill="#FFFFFF" stroke="#2C1E1B" stroke-width="4.5" />
-          <circle cx="124" cy="106" r="4" fill="#2C1E1B" />
+          <circle cx="76" cy="106" r="9" fill="#FFFFFF" stroke="#3D2B1F" stroke-width="4.5" />
+          <circle cx="76" cy="106" r="4" fill="#3D2B1F" />
+          <circle cx="124" cy="106" r="9" fill="#FFFFFF" stroke="#3D2B1F" stroke-width="4.5" />
+          <circle cx="124" cy="106" r="4" fill="#3D2B1F" />
           <!-- 八字眉 -->
-          <path d="M 68 93 Q 76 97 82 92" fill="none" stroke="#2C1E1B" stroke-width="3.5" stroke-linecap="round" />
-          <path d="M 132 93 Q 124 97 118 92" fill="none" stroke="#2C1E1B" stroke-width="3.5" stroke-linecap="round" />
+          <path d="M 68 93 Q 76 97 82 92" fill="none" stroke="#3D2B1F" stroke-width="3.5" stroke-linecap="round" />
+          <path d="M 132 93 Q 124 97 118 92" fill="none" stroke="#3D2B1F" stroke-width="3.5" stroke-linecap="round" />
           <!-- 圓嘴巴 -->
-          <circle cx="100" cy="122" r="6" fill="#FFB4B4" stroke="#2C1E1B" stroke-width="4.5" />
+          <circle cx="100" cy="122" r="6" fill="#F9C4C4" stroke="#3D2B1F" stroke-width="4.5" />
           <!-- 藍色流汗滴 (動態) -->
           <path
             d="M 148 95 C 148 90, 154 90, 154 95 C 154 100, 148 100, 148 95"
             fill="#A9C9FF"
-            stroke="#2C1E1B"
+            stroke="#3D2B1F"
             stroke-width="2.5"
             class="sweat-drop"
           />
@@ -187,38 +214,38 @@ const catMiau = computed(() => {
 
         <!-- 4. 遮眼大哭表情 (crying) -->
         <g v-if="mood === 'crying'">
-          <!-- 貓爪子擋住眼睛 -->
-          <path d="M 60 115 Q 75 92 82 115" fill="#FFFDF9" stroke="#2C1E1B" stroke-width="5" stroke-linejoin="round" />
-          <path d="M 140 115 Q 125 92 118 115" fill="#FFFDF9" stroke="#2C1E1B" stroke-width="5" stroke-linejoin="round" />
+          <!-- 貓爪子擋住眼睛 (品牌乳白，深灰褐粗邊) -->
+          <path d="M 60 115 Q 75 92 82 115" fill="#FDF6EE" stroke="#3D2B1F" stroke-width="5" stroke-linejoin="round" />
+          <path d="M 140 115 Q 125 92 118 115" fill="#FDF6EE" stroke="#3D2B1F" stroke-width="5" stroke-linejoin="round" />
           <!-- 下垂的哭嘴巴 -->
-          <path d="M 94 125 Q 100 118 106 125" fill="none" stroke="#2C1E1B" stroke-width="5" stroke-linecap="round" />
+          <path d="M 94 125 Q 100 118 106 125" fill="none" stroke="#3D2B1F" stroke-width="5" stroke-linecap="round" />
           <!-- 流淚線 -->
           <path d="M 72 116 L 72 135" stroke="#A9C9FF" stroke-width="4" stroke-linecap="round" />
           <path d="M 128 116 L 128 135" stroke="#A9C9FF" stroke-width="4" stroke-linecap="round" />
         </g>
 
-        <!-- 5. 睡覺/伸懶腰 (sleeping) -->
+        <!-- 5. 睡邊/伸懶腰 (sleeping) -->
         <g v-if="mood === 'sleeping'">
           <!-- 安詳閉眼 -->
-          <path d="M 70 107 Q 78 112 85 107" fill="none" stroke="#2C1E1B" stroke-width="4.5" stroke-linecap="round" />
-          <path d="M 115 107 Q 122 112 130 107" fill="none" stroke="#2C1E1B" stroke-width="4.5" stroke-linecap="round" />
+          <path d="M 70 107 Q 78 112 85 107" fill="none" stroke="#3D2B1F" stroke-width="4.5" stroke-linecap="round" />
+          <path d="M 115 107 Q 122 112 130 107" fill="none" stroke="#3D2B1F" stroke-width="4.5" stroke-linecap="round" />
           <!-- W 嘴巴 -->
-          <path d="M 95 118 Q 100 122 100 118 Q 100 122 105 118" fill="none" stroke="#2C1E1B" stroke-width="4.5" stroke-linecap="round" />
+          <path d="M 95 118 Q 100 122 100 118 Q 100 122 105 118" fill="none" stroke="#3D2B1F" stroke-width="4.5" stroke-linecap="round" />
         </g>
 
-        <!-- 貓鼻子 (倒三角) -->
-        <polygon v-if="mood !== 'crying'" points="96,112 104,112 100,116" fill="#2C1E1B" />
+        <!-- 貓鼻子 (粉桃色帶深灰褐細邊) -->
+        <polygon v-if="mood !== 'crying'" points="96,112 104,112 100,116" fill="#F9C4C4" stroke="#3D2B1F" stroke-width="2" stroke-linejoin="round" />
 
-        <!-- 貓鬍鬚 (可愛短線) -->
-        <line x1="38" y1="112" x2="22" y2="108" stroke="#2C1E1B" stroke-width="4" stroke-linecap="round" />
-        <line x1="38" y1="122" x2="24" y2="124" stroke="#2C1E1B" stroke-width="4" stroke-linecap="round" />
-        <line x1="162" y1="112" x2="178" y2="108" stroke="#2C1E1B" stroke-width="4" stroke-linecap="round" />
-        <line x1="162" y1="122" x2="176" y2="124" stroke="#2C1E1B" stroke-width="4" stroke-linecap="round" />
+        <!-- 貓鬍鬚 -->
+        <line x1="38" y1="112" x2="22" y2="108" stroke="#3D2B1F" stroke-width="4" stroke-linecap="round" />
+        <line x1="38" y1="122" x2="24" y2="124" stroke="#3D2B1F" stroke-width="4" stroke-linecap="round" />
+        <line x1="162" y1="112" x2="178" y2="108" stroke="#3D2B1F" stroke-width="4" stroke-linecap="round" />
+        <line x1="162" y1="122" x2="176" y2="124" stroke="#3D2B1F" stroke-width="4" stroke-linecap="round" />
 
-        <!-- 額頭虎斑紋 (可愛花紋) -->
-        <path d="M 94 67 L 94 77" stroke="#2C1E1B" stroke-width="4.5" stroke-linecap="round" />
-        <path d="M 100 67 L 100 80" stroke="#2C1E1B" stroke-width="4.5" stroke-linecap="round" />
-        <path d="M 106 67 L 106 77" stroke="#2C1E1B" stroke-width="4.5" stroke-linecap="round" />
+        <!-- 額頭虎斑紋 -->
+        <path d="M 94 67 L 94 77" stroke="#3D2B1F" stroke-width="4.5" stroke-linecap="round" />
+        <path d="M 100 67 L 100 80" stroke="#3D2B1F" stroke-width="4.5" stroke-linecap="round" />
+        <path d="M 106 67 L 106 77" stroke="#3D2B1F" stroke-width="4.5" stroke-linecap="round" />
       </svg>
 
       <!-- 逗逗貓的小道具：玩毛線球 (僅在 happy 時顯示，固定在貓咪左下角) -->

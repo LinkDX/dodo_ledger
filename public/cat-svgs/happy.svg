@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <!-- 核心陰影 -->
+  <ellipse cx="100" cy="180" rx="60" ry="10" fill="#3D2B1F" opacity="0.1" />
+
+  <!-- 貓身體 (品牌乳白，深灰褐粗邊) -->
+  <path
+    d="M 60 180 C 60 110, 140 110, 140 180 Z"
+    fill="#FDF6EE"
+    stroke="#3D2B1F"
+    stroke-width="6"
+    stroke-linejoin="round"
+  />
+
+  <!-- 經典手繪薄荷綠口金包錢包 (抱在身前) -->
+  <rect x="72" y="148" width="56" height="34" rx="7" fill="#A8E6CF" stroke="#3D2B1F" stroke-width="3" />
+  <!-- 頂部雙金扣 -->
+  <circle cx="100" cy="143" r="3.2" fill="#F4C842" stroke="#3D2B1F" stroke-width="1.5" />
+  <!-- 口金包中央皇家飾品 -->
+  <circle cx="100" cy="165" r="5" fill="#FFF8EC" stroke="#3D2B1F" stroke-width="1.5" />
+  <circle cx="100" cy="165" r="2.2" fill="#F4C842" />
+
+  <!-- 貓左右手 (搭抓在錢包兩側) -->
+  <circle cx="68" cy="165" r="9.5" fill="#FDF6EE" stroke="#3D2B1F" stroke-width="3" />
+  <circle cx="132" cy="165" r="9.5" fill="#FDF6EE" stroke="#3D2B1F" stroke-width="3" />
+
+  <!-- 貓左耳 -->
+  <path
+    d="M 60 90 L 40 45 L 85 70 Z"
+    fill="#FDF6EE"
+    stroke="#3D2B1F"
+    stroke-width="6"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M 60 85 L 48 53 L 78 72 Z"
+    fill="#F9C4C4"
+  />
+
+  <!-- 貓右耳 (一般正常) -->
+  <path
+    d="M 140 90 L 160 45 L 115 70 Z"
+    fill="#FDF6EE"
+    stroke="#3D2B1F"
+    stroke-width="6"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M 140 85 L 152 53 L 122 72 Z"
+    fill="#F9C4C4"
+  />
+
+  <!-- 薰衣草領圈 -->
+  <path
+    d="M 56 132 Q 100 164 144 132"
+    fill="none"
+    stroke="#3D2B1F"
+    stroke-width="12"
+    stroke-linecap="round"
+  />
+  <path
+    d="M 56 132 Q 100 164 144 132"
+    fill="none"
+    stroke="#C3B1E1"
+    stroke-width="6"
+    stroke-linecap="round"
+  />
+  <!-- 領圈黃金鈴鐺 -->
+  <circle cx="100" cy="162" r="6.5" fill="#F4C842" stroke="#3D2B1F" stroke-width="2.5" />
+  <line x1="93.5" y1="159.5" x2="106.5" y2="159.5" stroke="#3D2B1F" stroke-width="1.8" />
+  <circle cx="100" cy="165.5" r="1.8" fill="#3D2B1F" />
+
+  <!-- 貓頭部 -->
+  <ellipse
+    cx="100"
+    cy="110"
+    rx="52"
+    ry="44"
+    fill="#FDF6EE"
+    stroke="#3D2B1F"
+    stroke-width="6"
+  />
+
+  <!-- 貓腮紅 -->
+  <ellipse cx="65" cy="122" rx="8" ry="5" fill="#F9C4C4" opacity="0.6" />
+  <ellipse cx="135" cy="122" rx="8" ry="5" fill="#F9C4C4" opacity="0.6" />
+
+  <!-- 瞇瞇眼 -->
+  <path d="M 70 105 Q 78 98 85 105" fill="none" stroke="#3D2B1F" stroke-width="5" stroke-linecap="round" />
+  <path d="M 115 105 Q 122 98 130 105" fill="none" stroke="#3D2B1F" stroke-width="5" stroke-linecap="round" />
+  <!-- 貓咪小嘴巴 (W 形) -->
+  <path d="M 94 118 Q 100 124 100 118 Q 100 124 106 118" fill="none" stroke="#3D2B1F" stroke-width="5" stroke-linecap="round" />
+
+  <!-- 貓鼻子 (粉桃色帶深灰褐細邊) -->
+  <polygon points="96,112 104,112 100,116" fill="#F9C4C4" stroke="#3D2B1F" stroke-width="2" stroke-linejoin="round" />
+
+  <!-- 貓鬍鬚 -->
+  <line x1="38" y1="112" x2="22" y2="108" stroke="#3D2B1F" stroke-width="4" stroke-linecap="round" />
+  <line x1="38" y1="122" x2="24" y2="124" stroke="#3D2B1F" stroke-width="4" stroke-linecap="round" />
+  <line x1="162" y1="112" x2="178" y2="108" stroke="#3D2B1F" stroke-width="4" stroke-linecap="round" />
+  <line x1="162" y1="122" x2="176" y2="124" stroke="#3D2B1F" stroke-width="4" stroke-linecap="round" />
+
+  <!-- 額頭虎斑紋 -->
+  <path d="M 94 67 L 94 77" stroke="#3D2B1F" stroke-width="4.5" stroke-linecap="round" />
+  <path d="M 100 67 L 100 80" stroke="#3D2B1F" stroke-width="4.5" stroke-linecap="round" />
+  <path d="M 106 67 L 106 77" stroke="#3D2B1F" stroke-width="4.5" stroke-linecap="round" />
+</svg>
