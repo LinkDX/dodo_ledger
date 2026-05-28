@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import type { Account, Transaction, RecurringTransaction, CatMood, Category, DodoCatProfile } from '../types'
+import type { AtomicOp, BalanceDelta } from '../services/db'
 import { useAuth } from './useAuth'
 import { getDatabaseService, addSystemLog } from '../services/db'
 import { DEFAULT_CATEGORIES } from './useAuth'
@@ -20,6 +21,12 @@ let interactionTimeoutId: any = null
 let lastInteractTimestamp = 0 // 防連點
 let catProfileUnsubscribe: (() => void) | null = null
 let disturbedClickCount = 0 // 凌晨點擊計數
+
+// 🔒 即時同步訂閱控制器（多裝置即時同步）
+let accountsUnsubscribe: (() => void) | null = null
+let transactionsUnsubscribe: (() => void) | null = null
+let recurringUnsubscribe: (() => void) | null = null
+let categoriesUnsubscribe: (() => void) | null = null
 
 // 預設貓咪狀態
 const DEFAULT_CAT_PROFILE: DodoCatProfile = {
@@ -54,10 +61,11 @@ export function useLedger() {
     const userId = currentProfile.value?.id || 'default_user'
     
     // 清除舊的訂閱
-    if (catProfileUnsubscribe) {
-      catProfileUnsubscribe()
-      catProfileUnsubscribe = null
-    }
+    if (catProfileUnsubscribe) { catProfileUnsubscribe(); catProfileUnsubscribe = null }
+    if (accountsUnsubscribe) { accountsUnsubscribe(); accountsUnsubscribe = null }
+    if (transactionsUnsubscribe) { transactionsUnsubscribe(); transactionsUnsubscribe = null }
+    if (recurringUnsubscribe) { recurringUnsubscribe(); recurringUnsubscribe = null }
+    if (categoriesUnsubscribe) { categoriesUnsubscribe(); categoriesUnsubscribe = null }
 
     const [accts, txs, recs, cats, catProf] = await Promise.all([
       db.getAccounts(),
@@ -93,12 +101,43 @@ export function useLedger() {
     checkColdWarAchievement()
     checkFinancialAchievements()
 
-    // 🚀 啟動即時同步訂閱，確保多裝置等級 100% 一致
+    // 🚀 啟動即時同步訂閱，確保多裝置資料 100% 一致
     catProfileUnsubscribe = db.subscribeCatProfile(userId, (newProfile) => {
-      // 僅在版本不同時更新，避免無窮迴圈
       if (JSON.stringify(newProfile) !== JSON.stringify(catProfile.value)) {
         console.log('[Dodo Ledger] 🐱 偵測到雲端貓咪狀態更新，已自動同步等級與 XP！')
         catProfile.value = newProfile
+      }
+    })
+
+    // 🔒 訂閱帳戶集合即時變更（多裝置餘額同步）
+    accountsUnsubscribe = db.subscribeCollection<Account>('accounts', (remoteAccounts) => {
+      if (JSON.stringify(remoteAccounts) !== JSON.stringify(accounts.value)) {
+        console.log('[Dodo Ledger] 💰 偵測到雲端帳戶資料更新，已自動同步！')
+        accounts.value = remoteAccounts
+      }
+    })
+
+    // 🔒 訂閱交易集合即時變更（多裝置交易同步）
+    transactionsUnsubscribe = db.subscribeCollection<Transaction>('transactions', (remoteTxs) => {
+      if (JSON.stringify(remoteTxs) !== JSON.stringify(transactions.value)) {
+        console.log('[Dodo Ledger] 📝 偵測到雲端交易資料更新，已自動同步！')
+        transactions.value = remoteTxs
+      }
+    })
+
+    // 🔒 訂閱週期記帳集合即時變更
+    recurringUnsubscribe = db.subscribeCollection<RecurringTransaction>('recurring', (remoteRecs) => {
+      if (JSON.stringify(remoteRecs) !== JSON.stringify(recurringTransactions.value)) {
+        console.log('[Dodo Ledger] 🔄 偵測到雲端週期記帳更新，已自動同步！')
+        recurringTransactions.value = remoteRecs
+      }
+    })
+
+    // 🔒 訂閱分類集合即時變更
+    categoriesUnsubscribe = db.subscribeCollection<Category>('categories', (remoteCats) => {
+      if (JSON.stringify(remoteCats) !== JSON.stringify(categories.value)) {
+        console.log('[Dodo Ledger] 🏷️ 偵測到雲端分類資料更新，已自動同步！')
+        categories.value = remoteCats
       }
     })
 
@@ -131,10 +170,11 @@ export function useLedger() {
 
   // 2. 清空全域資料方法 (一般共同記帳下不需要清空帳本，僅重置加載狀態)
   const clearLedgerData = () => {
-    if (catProfileUnsubscribe) {
-      catProfileUnsubscribe()
-      catProfileUnsubscribe = null
-    }
+    if (catProfileUnsubscribe) { catProfileUnsubscribe(); catProfileUnsubscribe = null }
+    if (accountsUnsubscribe) { accountsUnsubscribe(); accountsUnsubscribe = null }
+    if (transactionsUnsubscribe) { transactionsUnsubscribe(); transactionsUnsubscribe = null }
+    if (recurringUnsubscribe) { recurringUnsubscribe(); recurringUnsubscribe = null }
+    if (categoriesUnsubscribe) { categoriesUnsubscribe(); categoriesUnsubscribe = null }
     accounts.value = []
     transactions.value = []
     recurringTransactions.value = []
@@ -145,15 +185,8 @@ export function useLedger() {
   }
 
   // 3. 資料同步回資料庫的方法
-  const syncAccounts = async () => {
-    await db.saveAccounts(accounts.value)
-    checkFinancialAchievements()
-  }
-
-  const syncTransactions = async () => {
-    await db.saveTransactions(transactions.value)
-    checkFinancialAchievements()
-  }
+  //    ⚠️ 全量寫入方法（saveAccounts / saveTransactions）僅用於初始化/批次匯入場景，
+  //    日常操作一律使用原子 API（atomicBatchWrite / addDocument / updateDocument）
 
   const syncRecurring = async () => {
     await db.saveRecurring(recurringTransactions.value)
@@ -161,6 +194,22 @@ export function useLedger() {
 
   const syncCategories = async () => {
     await db.saveCategories(categories.value)
+  }
+
+  /**
+   * 🔒 原子記帳操作：同時寫入交易文件 + 帳戶餘額增減，保證跨文件一致性。
+   * 取代舊的 syncAccounts() + syncTransactions() 雙步驟模式。
+   */
+  const atomicWriteTransactionWithBalance = async (
+    txOps: AtomicOp[],
+    deltas: BalanceDelta[]
+  ) => {
+    const ops: AtomicOp[] = [...txOps]
+    if (deltas.length > 0) {
+      ops.push({ type: 'balanceDelta', deltas })
+    }
+    await db.atomicBatchWrite(ops)
+    checkFinancialAchievements()
   }
 
   const syncCatProfile = async () => {
@@ -400,7 +449,7 @@ export function useLedger() {
     return getBillPeriodForCard(tx.fromAccountId, tx.date)
   }
 
-  // 6. 記帳核心方法
+  // 6. 記帳核心方法（🔒 原子操作防衝突版本）
   const addTransaction = async (txData: Omit<Transaction, 'id' | 'createdBy' | 'createdByAvatar'>) => {
     const txId = 'tx_' + Date.now() + Math.random().toString(36).substr(2, 4)
     const creatorName = currentProfile.value?.name || '未知主人'
@@ -424,10 +473,18 @@ export function useLedger() {
       }
       transactions.value.push(feeTx)
       
+      // 樂觀更新本地餘額
       const fromAcct = accounts.value.find(a => a.id === txData.fromAccountId)
-      if (fromAcct) {
-        fromAcct.balance -= txData.fee
-      }
+      if (fromAcct) fromAcct.balance -= txData.fee
+
+      // 🔒 原子寫入：手續費交易 + 餘額增減
+      const feeDeltas: BalanceDelta[] = txData.fromAccountId
+        ? [{ accountId: txData.fromAccountId, delta: -txData.fee }]
+        : []
+      await atomicWriteTransactionWithBalance(
+        [{ type: 'addTransaction', transaction: feeTx }],
+        feeDeltas
+      )
     }
 
     const creditCardBillPeriod =
@@ -442,11 +499,13 @@ export function useLedger() {
         const totalAmount = txData.amount
         const T = txData.creditCardDetails.installmentTerm
         
+        // 樂觀更新本地餘額
         cardAcct.balance -= totalAmount
 
         const baseShare = Math.floor(totalAmount / T)
         const firstShare = totalAmount - (baseShare * (T - 1))
         
+        const installmentTxs: Transaction[] = []
         for (let i = 1; i <= T; i++) {
           const installmentAmount = (i === 1) ? firstShare : baseShare
           
@@ -474,11 +533,15 @@ export function useLedger() {
             },
             updatedAt: Date.now()
           }
+          installmentTxs.push(installmentTx)
           transactions.value.push(installmentTx)
         }
         
-        await syncAccounts()
-        await syncTransactions()
+        // 🔒 原子寫入：所有分期交易 + 信用卡餘額一次扣完
+        await atomicWriteTransactionWithBalance(
+          installmentTxs.map(tx => ({ type: 'addTransaction' as const, transaction: tx })),
+          [{ accountId: cardAcct.id, delta: -totalAmount }]
+        )
         
         await addSystemLog(
           creatorName,
@@ -509,31 +572,41 @@ export function useLedger() {
       }
     }
 
+    // 樂觀更新本地狀態
     transactions.value.push(newTx)
 
+    // 計算餘額增減量
+    const deltas: BalanceDelta[] = []
     if (txData.type === 'expense') {
       const fromAcct = accounts.value.find(a => a.id === txData.fromAccountId)
       if (fromAcct) {
         fromAcct.balance -= txData.amount
+        deltas.push({ accountId: txData.fromAccountId!, delta: -txData.amount })
       }
     } else if (txData.type === 'income') {
       const toAcct = accounts.value.find(a => a.id === txData.toAccountId)
       if (toAcct) {
         toAcct.balance += txData.amount
+        deltas.push({ accountId: txData.toAccountId!, delta: txData.amount })
       }
     } else if (txData.type === 'transfer') {
       const fromAcct = accounts.value.find(a => a.id === txData.fromAccountId)
       const toAcct = accounts.value.find(a => a.id === txData.toAccountId)
       if (fromAcct) {
         fromAcct.balance -= txData.amount
+        deltas.push({ accountId: txData.fromAccountId!, delta: -txData.amount })
       }
       if (toAcct) {
         toAcct.balance += txData.amount
+        deltas.push({ accountId: txData.toAccountId!, delta: txData.amount })
       }
     }
 
-    await syncAccounts()
-    await syncTransactions()
+    // 🔒 原子寫入：交易文件 + 帳戶餘額增減在同一批次完成
+    await atomicWriteTransactionWithBalance(
+      [{ type: 'addTransaction', transaction: newTx }],
+      deltas
+    )
 
     // 🐾 記帳獎勵：恢復精力與 XP
     if (catProfile.value) {
@@ -579,7 +652,7 @@ export function useLedger() {
     }
   }
 
-  // 7. 刪除交易
+  // 7. 刪除交易（🔒 原子操作防衝突版本）
   const deleteTransaction = async (txId: string) => {
     const idx = transactions.value.findIndex(tx => tx.id === txId)
     if (idx === -1) return
@@ -595,11 +668,19 @@ export function useLedger() {
       const totalAmount = relatedInsts.reduce((sum, t) => sum + t.amount, 0)
       const cardAcct = accounts.value.find(a => a.id === tx.fromAccountId)
       
-      if (cardAcct) {
-        cardAcct.balance += totalAmount
-      }
-
+      // 樂觀更新本地
+      if (cardAcct) cardAcct.balance += totalAmount
       transactions.value = transactions.value.filter(t => !t.id.startsWith(baseTxId))
+
+      // 🔒 原子寫入：刪除所有分期交易 + 回退信用卡餘額
+      const deleteOps: AtomicOp[] = relatedInsts.map(t => ({
+        type: 'deleteTransaction' as const,
+        transactionId: t.id
+      }))
+      const deltas: BalanceDelta[] = tx.fromAccountId
+        ? [{ accountId: tx.fromAccountId, delta: totalAmount }]
+        : []
+      await atomicWriteTransactionWithBalance(deleteOps, deltas)
 
       await addSystemLog(
         operatorName,
@@ -608,34 +689,54 @@ export function useLedger() {
         `刪除分期支出：${tx.category}/${tx.subCategory || '未分類'} 總金額 ${totalAmount} 元`
       )
     } else {
+      // 計算餘額回退量
+      const deltas: BalanceDelta[] = []
+      const deleteOps: AtomicOp[] = [{ type: 'deleteTransaction', transactionId: txId }]
+
       if (tx.type === 'expense') {
         const fromAcct = accounts.value.find(a => a.id === tx.fromAccountId)
         if (fromAcct) {
           fromAcct.balance += tx.amount
+          deltas.push({ accountId: tx.fromAccountId!, delta: tx.amount })
         }
       } else if (tx.type === 'income') {
         const toAcct = accounts.value.find(a => a.id === tx.toAccountId)
         if (toAcct) {
           toAcct.balance -= tx.amount
+          deltas.push({ accountId: tx.toAccountId!, delta: -tx.amount })
         }
       } else if (tx.type === 'transfer') {
         const fromAcct = accounts.value.find(a => a.id === tx.fromAccountId)
         const toAcct = accounts.value.find(a => a.id === tx.toAccountId)
         
+        // 同時刪除關聯手續費交易
         if (tx.fee && tx.fee > 0) {
           const feeTxIdx = transactions.value.findIndex(t => t.id === 'tx_fee_' + tx.id.replace('tx_', ''))
           if (feeTxIdx !== -1) {
             const feeTx = transactions.value[feeTxIdx]
-            if (fromAcct) fromAcct.balance += feeTx.amount
+            if (fromAcct) {
+              fromAcct.balance += feeTx.amount
+              deltas.push({ accountId: tx.fromAccountId!, delta: feeTx.amount })
+            }
             transactions.value.splice(feeTxIdx, 1)
+            deleteOps.push({ type: 'deleteTransaction', transactionId: feeTx.id })
           }
         }
 
-        if (fromAcct) fromAcct.balance += tx.amount
-        if (toAcct) toAcct.balance -= tx.amount
+        if (fromAcct) {
+          fromAcct.balance += tx.amount
+          deltas.push({ accountId: tx.fromAccountId!, delta: tx.amount })
+        }
+        if (toAcct) {
+          toAcct.balance -= tx.amount
+          deltas.push({ accountId: tx.toAccountId!, delta: -tx.amount })
+        }
       }
 
       transactions.value.splice(idx, 1)
+
+      // 🔒 原子寫入：刪除交易 + 回退帳戶餘額
+      await atomicWriteTransactionWithBalance(deleteOps, deltas)
 
       await addSystemLog(
         operatorName,
@@ -644,12 +745,9 @@ export function useLedger() {
         `刪除${tx.type === 'expense' ? '支出' : tx.type === 'income' ? '收入' : '轉帳'}：${tx.category}/${tx.subCategory || '未分類'} ${tx.amount} 元`
       )
     }
-
-    await syncAccounts()
-    await syncTransactions()
   }
 
-  // 8. 信用卡一鍵繳款 (還款交易記名為自動扣繳或當前執行人)
+  // 8. 信用卡一鍵繳款（🔒 原子操作防衝突版本）
   const payCreditCardBill = async (cardId: string, linkedBankId: string, billPeriod: string) => {
     const cardAcct = accounts.value.find(a => a.id === cardId)
     const bankAcct = accounts.value.find(a => a.id === linkedBankId)
@@ -662,6 +760,7 @@ export function useLedger() {
 
     if (billAmount <= 0) return
 
+    // 樂觀更新本地
     bankAcct.balance -= billAmount
     bankAcct.updatedAt = Date.now()
     cardAcct.balance += billAmount
@@ -683,8 +782,14 @@ export function useLedger() {
     }
     transactions.value.push(payTx)
 
-    await syncAccounts()
-    await syncTransactions()
+    // 🔒 原子寫入：繳款交易 + 銀行帳戶扣款 + 信用卡餘額加回
+    await atomicWriteTransactionWithBalance(
+      [{ type: 'addTransaction', transaction: payTx }],
+      [
+        { accountId: linkedBankId, delta: -billAmount },
+        { accountId: cardId, delta: billAmount }
+      ]
+    )
 
     if (billAmount >= 10000) {
       unlockAchievement('debt_buster', '負債剋星', '單筆還清信用卡款項超過 TWD $10,000。')
@@ -698,7 +803,7 @@ export function useLedger() {
     )
   }
 
-  // 9. 週期自動記帳 Lazy-check 機制 (由逗逗貓為您服務記名)
+  // 9. 週期自動記帳 Lazy-check 機制（🔒 防重複執行：使用 claimDocument 原子搶佔）
   const checkAndTriggerRecurring = async () => {
     if (!currentProfile.value) return
     
@@ -713,8 +818,6 @@ export function useLedger() {
       let triggerCount = 0
 
       while (now >= nextRun) {
-        triggerCount++
-        
         const autoTx: Transaction = {
           id: `tx_auto_${rec.id}_${nextRun}`,
           type: rec.type as any,
@@ -727,16 +830,29 @@ export function useLedger() {
           tags: ['定期定額', '自動記帳'],
           isRecurring: true,
           recurringId: rec.id,
-          createdBy: '逗逗貓', // 🐱 逗逗貓貼心大廚親自記帳！
+          createdBy: '逗逗貓',
           createdByAvatar: '🐱',
           updatedAt: Date.now()
         }
-        transactions.value.push(autoTx)
 
-        const acct = accounts.value.find(a => a.id === rec.fromAccountId)
-        if (acct) {
-          acct.balance -= rec.amount
-          acct.updatedAt = Date.now()
+        // 🔒 防重複執行：只有首個搶到文件的裝置才執行餘額扣減
+        const claimed = await db.claimDocument('transactions', autoTx)
+        
+        if (claimed) {
+          triggerCount++
+          transactions.value.push(autoTx)
+
+          // 樂觀更新本地
+          const acct = accounts.value.find(a => a.id === rec.fromAccountId)
+          if (acct) {
+            acct.balance -= rec.amount
+            acct.updatedAt = Date.now()
+          }
+
+          // 🔒 原子扣減餘額（與交易文件在不同批次，但 claimDocument 保證只執行一次）
+          await db.atomicBatchWrite([
+            { type: 'balanceDelta', deltas: [{ accountId: rec.fromAccountId, delta: -rec.amount }] }
+          ])
         }
 
         const date = new Date(nextRun)
@@ -755,6 +871,9 @@ export function useLedger() {
         triggeredReports.value.push(`${rec.title} (x${triggerCount})`)
         hasTriggered = true
 
+        // 🔒 原子更新週期記帳的 nextExecutionDate
+        await db.updateDocument<RecurringTransaction>('recurring', rec.id, { nextExecutionDate: nextRun })
+
         const fromAcctName = accounts.value.find(a => a.id === rec.fromAccountId)?.name || '未知帳戶'
         await addSystemLog(
           '逗逗貓',
@@ -766,10 +885,6 @@ export function useLedger() {
     }
 
     if (hasTriggered) {
-      await syncAccounts()
-      await syncTransactions()
-      await syncRecurring()
-      
       // 📱 原生系統本地通知 (手機 App 環境專用，動態導入以兼顧 Web 端相容性)
       if (typeof window !== 'undefined' && triggeredReports.value.length > 0) {
         import('@capacitor/core').then(({ Capacitor }) => {
@@ -802,34 +917,43 @@ export function useLedger() {
     }
   }
 
-  // 10. 帳戶管理方法
+  // 10. 帳戶管理方法（🔒 使用 per-document 原子操作）
   const addAccount = async (acctData: Omit<Account, 'id' | 'createdAt'>) => {
     const newAcct: Account = {
       ...acctData,
       id: 'acct_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      updatedAt: Date.now()
     }
     accounts.value.push(newAcct)
-    await syncAccounts()
+    await db.addDocument('accounts', newAcct)
   }
 
   const deleteAccount = async (acctId: string) => {
     accounts.value = accounts.value.filter(a => a.id !== acctId)
+    const relatedTxIds = transactions.value
+      .filter(tx => tx.fromAccountId === acctId || tx.toAccountId === acctId)
+      .map(tx => tx.id)
     transactions.value = transactions.value.filter(tx => tx.fromAccountId !== acctId && tx.toAccountId !== acctId)
-    await syncAccounts()
-    await syncTransactions()
+    
+    // 逐一刪除文件，不覆蓋其他裝置新增的文件
+    await db.deleteDocument('accounts', acctId)
+    for (const txId of relatedTxIds) {
+      await db.deleteDocument('transactions', txId)
+    }
   }
 
   const editAccount = async (acctId: string, updated: Partial<Account>) => {
     const idx = accounts.value.findIndex(a => a.id === acctId)
     if (idx !== -1) {
-      accounts.value[idx] = { ...accounts.value[idx], ...updated }
-      await syncAccounts()
+      accounts.value[idx] = { ...accounts.value[idx], ...updated, updatedAt: Date.now() }
+      // 🔒 只更新單一文件的變更欄位（merge 模式），不影響其他裝置的 balance 增減
+      await db.updateDocument('accounts', acctId, { ...updated, updatedAt: Date.now() })
     }
   }
 
-  // editTransaction：支援修改 note/date/category/subCategory/amount 等欄位
-  // 若金額或帳戶發生變動，自動回退舊餘額並套用新值
+  // editTransaction（🔒 原子操作防衝突版本）：支援修改 note/date/category/subCategory/amount 等欄位
+  // 若金額或帳戶發生變動，以 delta 方式原子回退舊餘額並套用新值
   const editTransaction = async (txId: string, updated: Partial<Pick<Transaction, 'amount' | 'note' | 'date' | 'category' | 'subCategory' | 'fromAccountId' | 'toAccountId'>>) => {
     const operatorName = currentProfile.value?.name || '系統自動'
     const operatorAvatar = currentProfile.value?.avatar || '⚙️'
@@ -837,33 +961,61 @@ export function useLedger() {
     if (idx === -1) return
 
     const old = transactions.value[idx]
+    const deltas: BalanceDelta[] = []
 
-    // 回退舊的餘額影響
-    const oldFrom = accounts.value.find(a => a.id === old.fromAccountId)
-    const oldTo   = accounts.value.find(a => a.id === old.toAccountId)
-    if (old.type === 'expense' && oldFrom) oldFrom.balance += old.amount
-    else if (old.type === 'income' && oldTo) oldTo.balance -= old.amount
-    else if (old.type === 'transfer') {
-      if (oldFrom) oldFrom.balance += old.amount
-      if (oldTo)   oldTo.balance   -= old.amount
+    // 計算回退舊餘額的 delta
+    if (old.type === 'expense' && old.fromAccountId) {
+      deltas.push({ accountId: old.fromAccountId, delta: old.amount })
+      const acct = accounts.value.find(a => a.id === old.fromAccountId)
+      if (acct) acct.balance += old.amount
+    } else if (old.type === 'income' && old.toAccountId) {
+      deltas.push({ accountId: old.toAccountId, delta: -old.amount })
+      const acct = accounts.value.find(a => a.id === old.toAccountId)
+      if (acct) acct.balance -= old.amount
+    } else if (old.type === 'transfer') {
+      if (old.fromAccountId) {
+        deltas.push({ accountId: old.fromAccountId, delta: old.amount })
+        const acct = accounts.value.find(a => a.id === old.fromAccountId)
+        if (acct) acct.balance += old.amount
+      }
+      if (old.toAccountId) {
+        deltas.push({ accountId: old.toAccountId, delta: -old.amount })
+        const acct = accounts.value.find(a => a.id === old.toAccountId)
+        if (acct) acct.balance -= old.amount
+      }
     }
 
     // 合併更新欄位
-    const merged: Transaction = { ...old, ...updated }
+    const merged: Transaction = { ...old, ...updated, updatedAt: Date.now() }
     transactions.value[idx] = merged
 
-    // 套用新的餘額影響
-    const newFrom = accounts.value.find(a => a.id === merged.fromAccountId)
-    const newTo   = accounts.value.find(a => a.id === merged.toAccountId)
-    if (merged.type === 'expense' && newFrom) newFrom.balance -= merged.amount
-    else if (merged.type === 'income' && newTo) newTo.balance += merged.amount
-    else if (merged.type === 'transfer') {
-      if (newFrom) newFrom.balance -= merged.amount
-      if (newTo)   newTo.balance   += merged.amount
+    // 計算套用新餘額的 delta
+    if (merged.type === 'expense' && merged.fromAccountId) {
+      deltas.push({ accountId: merged.fromAccountId, delta: -merged.amount })
+      const acct = accounts.value.find(a => a.id === merged.fromAccountId)
+      if (acct) acct.balance -= merged.amount
+    } else if (merged.type === 'income' && merged.toAccountId) {
+      deltas.push({ accountId: merged.toAccountId, delta: merged.amount })
+      const acct = accounts.value.find(a => a.id === merged.toAccountId)
+      if (acct) acct.balance += merged.amount
+    } else if (merged.type === 'transfer') {
+      if (merged.fromAccountId) {
+        deltas.push({ accountId: merged.fromAccountId, delta: -merged.amount })
+        const acct = accounts.value.find(a => a.id === merged.fromAccountId)
+        if (acct) acct.balance -= merged.amount
+      }
+      if (merged.toAccountId) {
+        deltas.push({ accountId: merged.toAccountId, delta: merged.amount })
+        const acct = accounts.value.find(a => a.id === merged.toAccountId)
+        if (acct) acct.balance += merged.amount
+      }
     }
 
-    await syncAccounts()
-    await syncTransactions()
+    // 🔒 原子寫入：更新交易文件 + 套用餘額差值
+    await atomicWriteTransactionWithBalance(
+      [{ type: 'updateTransaction', transactionId: txId, data: merged }],
+      deltas
+    )
 
     await addSystemLog(
       operatorName,

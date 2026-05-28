@@ -1,7 +1,23 @@
 import type { Account, Transaction, RecurringTransaction, UserProfile, SystemLog, Category, DodoCatProfile } from '../types'
 import { initializeApp } from 'firebase/app'
-import { doc, collection, getDocs, getDoc, setDoc, writeBatch, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, onSnapshot } from 'firebase/firestore'
+import { doc, collection, getDocs, getDoc, setDoc, deleteDoc, writeBatch, runTransaction, increment, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, onSnapshot } from 'firebase/firestore'
 import { FIREBASE_CONFIG } from '../config/firebase'
+
+// ─── 原子操作類型定義 ───
+
+/** 單一餘額增減操作 */
+export interface BalanceDelta {
+  accountId: string
+  delta: number
+}
+
+/** 原子寫入操作描述 */
+export type AtomicOp =
+  | { type: 'addTransaction'; transaction: Transaction }
+  | { type: 'deleteTransaction'; transactionId: string }
+  | { type: 'updateTransaction'; transactionId: string; data: Partial<Transaction> }
+  | { type: 'balanceDelta'; deltas: BalanceDelta[] }
+  | { type: 'updateRecurring'; recurringId: string; data: Partial<RecurringTransaction> }
 
 // 1. 抽象資料庫服務介面 (多人共同記帳模型，維護同一個資產紀錄)
 export interface DatabaseService {
@@ -27,6 +43,37 @@ export interface DatabaseService {
   getCatProfile(userId: string): Promise<DodoCatProfile | null>;
   saveCatProfile(userId: string, profile: DodoCatProfile): Promise<void>;
   subscribeCatProfile(userId: string, callback: (profile: DodoCatProfile) => void): () => void;
+
+  // ─── 多人防衝突原子操作 API ───
+
+  /** 單一文件新增（不影響其他文件） */
+  addDocument<T extends { id: string }>(colName: string, item: T): Promise<void>;
+
+  /** 單一文件欄位更新（merge，不覆蓋其他欄位） */
+  updateDocument<T extends { id: string }>(colName: string, id: string, data: Partial<T>): Promise<void>;
+
+  /** 單一文件刪除（不影響其他文件） */
+  deleteDocument(colName: string, id: string): Promise<void>;
+
+  /**
+   * 原子批次操作：在單一 Firestore 事務中同時寫入交易 + 帳戶餘額增減。
+   * 確保「交易記錄」與「帳戶餘額」在同一原子邊界內一致更新，
+   * 避免多裝置並發時產生餘額漂移或孤立交易。
+   */
+  atomicBatchWrite(ops: AtomicOp[]): Promise<void>;
+
+  /**
+   * 條件式新增文件（僅當文件不存在時才寫入）。
+   * 用於週期性自動記帳的防重複執行機制。
+   * 回傳 true 代表寫入成功（首次執行），false 代表文件已存在（其他裝置已執行）。
+   */
+  claimDocument<T extends { id: string }>(colName: string, item: T): Promise<boolean>;
+
+  /** 訂閱整個子集合的即時變更（onSnapshot） */
+  subscribeCollection<T>(colName: string, callback: (items: T[]) => void): () => void;
+
+  /** 追加單筆系統日誌（不讀取舊資料，避免覆蓋衝突） */
+  appendLog(log: SystemLog): Promise<void>;
 }
 
 
@@ -80,6 +127,89 @@ export class MockDatabaseService implements DatabaseService {
   }
   subscribeCatProfile(_userId: string, _callback: (profile: DodoCatProfile) => void): () => void {
     return () => {} // 本地模式暫不支援即時監聽
+  }
+
+  // ─── 多人防衝突原子操作 API（本地模式以模擬實作） ───
+
+  async addDocument<T extends { id: string }>(colName: string, item: T): Promise<void> {
+    const key = this.colNameToKey(colName)
+    const arr = this.readKey<T>(key)
+    arr.push(item)
+    this.writeKey(key, arr)
+  }
+
+  async updateDocument<T extends { id: string }>(colName: string, id: string, data: Partial<T>): Promise<void> {
+    const key = this.colNameToKey(colName)
+    const arr = this.readKey<any>(key)
+    const idx = arr.findIndex((item: any) => item.id === id)
+    if (idx !== -1) {
+      arr[idx] = { ...arr[idx], ...data }
+      this.writeKey(key, arr)
+    }
+  }
+
+  async deleteDocument(colName: string, id: string): Promise<void> {
+    const key = this.colNameToKey(colName)
+    const arr = this.readKey<any>(key)
+    this.writeKey(key, arr.filter((item: any) => item.id !== id))
+  }
+
+  async atomicBatchWrite(ops: AtomicOp[]): Promise<void> {
+    for (const op of ops) {
+      if (op.type === 'addTransaction') {
+        await this.addDocument('transactions', op.transaction)
+      } else if (op.type === 'deleteTransaction') {
+        await this.deleteDocument('transactions', op.transactionId)
+      } else if (op.type === 'updateTransaction') {
+        await this.updateDocument('transactions', op.transactionId, op.data)
+      } else if (op.type === 'balanceDelta') {
+        const accounts = this.readKey<Account>(this.ACCOUNTS_KEY)
+        for (const { accountId, delta } of op.deltas) {
+          const acct = accounts.find(a => a.id === accountId)
+          if (acct) {
+            acct.balance += delta
+            acct.updatedAt = Date.now()
+          }
+        }
+        this.writeKey(this.ACCOUNTS_KEY, accounts)
+      } else if (op.type === 'updateRecurring') {
+        await this.updateDocument('recurring', op.recurringId, op.data)
+      }
+    }
+  }
+
+  async claimDocument<T extends { id: string }>(colName: string, item: T): Promise<boolean> {
+    const key = this.colNameToKey(colName)
+    const arr = this.readKey<any>(key)
+    if (arr.some((existing: any) => existing.id === item.id)) {
+      return false // 已存在，其他裝置已執行
+    }
+    arr.push(item)
+    this.writeKey(key, arr)
+    return true
+  }
+
+  subscribeCollection<T>(_colName: string, _callback: (items: T[]) => void): () => void {
+    return () => {} // 本地模式暫不支援即時監聽
+  }
+
+  async appendLog(log: SystemLog): Promise<void> {
+    const arr = this.readKey<SystemLog>(this.LOGS_KEY)
+    const updated = [log, ...arr].slice(0, 200)
+    this.writeKey(this.LOGS_KEY, updated)
+  }
+
+  /** 將集合名稱對應到 localStorage key */
+  private colNameToKey(colName: string): string {
+    const map: Record<string, string> = {
+      accounts: this.ACCOUNTS_KEY,
+      transactions: this.TRANSACTIONS_KEY,
+      recurring: this.RECURRING_KEY,
+      categories: this.CATEGORIES_KEY,
+      profiles: this.PROFILES_KEY,
+      logs: this.LOGS_KEY
+    }
+    return map[colName] || `dodo_ledger_shared_${colName}`
   }
 }
 
@@ -216,6 +346,105 @@ export class FirestoreDatabaseService implements DatabaseService {
         callback(snap.data() as DodoCatProfile)
       }
     })
+  }
+
+  // ─── 多人防衝突原子操作 API（Firestore 真正原子實作） ───
+
+  async addDocument<T extends { id: string }>(colName: string, item: T): Promise<void> {
+    try {
+      const docRef = doc(this.col(colName), item.id)
+      await setDoc(docRef, stripUndefined(item))
+    } catch (e) {
+      console.error(`[Dodo Ledger] 新增文件 ${colName}/${item.id} 失敗：`, e)
+    }
+  }
+
+  async updateDocument<T extends { id: string }>(colName: string, id: string, data: Partial<T>): Promise<void> {
+    try {
+      const docRef = doc(this.col(colName), id)
+      await setDoc(docRef, stripUndefined(data), { merge: true })
+    } catch (e) {
+      console.error(`[Dodo Ledger] 更新文件 ${colName}/${id} 失敗：`, e)
+    }
+  }
+
+  async deleteDocument(colName: string, id: string): Promise<void> {
+    try {
+      const docRef = doc(this.col(colName), id)
+      await deleteDoc(docRef)
+    } catch (e) {
+      console.error(`[Dodo Ledger] 刪除文件 ${colName}/${id} 失敗：`, e)
+    }
+  }
+
+  async atomicBatchWrite(ops: AtomicOp[]): Promise<void> {
+    try {
+      const batch = writeBatch(this.db)
+
+      for (const op of ops) {
+        if (op.type === 'addTransaction') {
+          const ref = doc(this.col('transactions'), op.transaction.id)
+          batch.set(ref, stripUndefined(op.transaction))
+        } else if (op.type === 'deleteTransaction') {
+          const ref = doc(this.col('transactions'), op.transactionId)
+          batch.delete(ref)
+        } else if (op.type === 'updateTransaction') {
+          const ref = doc(this.col('transactions'), op.transactionId)
+          batch.set(ref, stripUndefined(op.data), { merge: true })
+        } else if (op.type === 'balanceDelta') {
+          for (const { accountId, delta } of op.deltas) {
+            const ref = doc(this.col('accounts'), accountId)
+            batch.set(ref, { balance: increment(delta), updatedAt: Date.now() }, { merge: true })
+          }
+        } else if (op.type === 'updateRecurring') {
+          const ref = doc(this.col('recurring'), op.recurringId)
+          batch.set(ref, stripUndefined(op.data), { merge: true })
+        }
+      }
+
+      await batch.commit()
+    } catch (e) {
+      console.error('[Dodo Ledger] 原子批次寫入失敗：', e)
+    }
+  }
+
+  async claimDocument<T extends { id: string }>(colName: string, item: T): Promise<boolean> {
+    try {
+      const docRef = doc(this.col(colName), item.id)
+      let claimed = false
+
+      await runTransaction(this.db, async (transaction) => {
+        const snap = await transaction.get(docRef)
+        if (snap.exists()) {
+          claimed = false
+        } else {
+          transaction.set(docRef, stripUndefined(item))
+          claimed = true
+        }
+      })
+
+      return claimed
+    } catch (e) {
+      console.error(`[Dodo Ledger] 條件寫入 ${colName}/${item.id} 失敗：`, e)
+      return false
+    }
+  }
+
+  subscribeCollection<T>(colName: string, callback: (items: T[]) => void): () => void {
+    const colRef = this.col(colName)
+    return onSnapshot(colRef, (snap: any) => {
+      const items = snap.docs.map((d: any) => d.data() as T)
+      callback(items)
+    })
+  }
+
+  async appendLog(log: SystemLog): Promise<void> {
+    try {
+      const docRef = doc(this.col('logs'), log.id)
+      await setDoc(docRef, stripUndefined(log))
+    } catch (e) {
+      console.error('[Dodo Ledger] 追加系統日誌失敗：', e)
+    }
   }
 }
 

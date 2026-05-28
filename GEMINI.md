@@ -1,49 +1,49 @@
-# Dodo Ledger —— AI 協同開發手冊 (GEMINI)
+# Dodo Ledger AI 協同開發手冊 (GEMINI)
 
-本手冊專為 Gemini 系列模型（如 Antigravity 助理）或任何其他大型語言模型 (LLM) 設計，記錄了 Dodo Ledger 專案的開發設計共識與脈絡，以便在後續的功能擴展、Android 原生整合、圖示更新或 CI/CD 維護中，維持完全一致的程式風格與品質。
-
----
-
-> [!CAUTION]
-> ## ⚠️ 每次 `npm install` 後的強制必做事項
->
-> 本專案的開發環境使用私有 npm registry（`npm.synology.inc`），**每次執行 `npm install` 或安裝新套件後，`package-lock.json` 都會被自動污染為私有 registry 網址**。
-> 若直接 push 到 GitHub，GitHub Actions 將因 `ENOTFOUND npm.synology.inc` 錯誤而立即失敗。
->
-> **每次 commit 前，必須先執行下列指令修正：**
-> ```bash
-> sed -i 's|https://npm.synology.inc|https://registry.npmjs.org|g' package-lock.json
-> ```
-> 驗證方法：執行完畢後，確認下方指令輸出為 `0`，代表已完全清乾淨：
-> ```bash
-> grep -c "synology" package-lock.json
-> ```
+本檔提供本專案的實作共識，供 Gemini 或其他 LLM 在擴充功能、維護 Android、更新圖示與 CI/CD 時遵循。
 
 ---
 
-## 1. 專案開發風格共識
+## 0. 快速必讀
 
-當您（AI 助理）為本專案新增或修改程式碼時，請務必遵循以下規範：
+### 0.1 `npm install` / registry 污染
+- 開發環境可能把 `package-lock.json` 污染成 `https://npm.synology.inc`，GitHub Actions 會因此 `ENOTFOUND`。
+- **現況**：`npm run prepare` / `scripts/prepare.cjs` 會自動修正為 `https://registry.npmjs.org`。
+- **手動驗證**：
+  ```bash
+  grep -c "synology" package-lock.json
+  ```
+  輸出應為 `0`。
+- **必要時手動修復**：
+  ```bash
+  sed -i 's|https://npm.synology.inc|https://registry.npmjs.org|g' package-lock.json
+  ```
 
-### 1.1 Vue 3 程式風格
-- **Composition API**：一律使用 `<script setup lang="ts">` 語法糖。
-- **類型宣告**：嚴格使用 TypeScript，並在 `src/types/index.ts` 中定義完整的業務介面。
-- **狀態管理**：全域狀態一律透過 `src/composables/useLedger.ts` 管理。元件內使用解構賦值獲取需要的響應式資料與方法：
-  ```typescript
+### 0.2 文件同步
+- 核心邏輯、UI、原生整合、CI/CD 變更時，同步更新 `CHANGELOG.md`、`SPEC.md`、`GEMINI.md`。
+
+---
+
+## 1. Web / Vue 開發規範
+
+### 1.1 程式風格
+- 一律使用 Vue 3 `<script setup lang="ts">`。
+- 業務型別集中於 `src/types/index.ts`。
+- 全域狀態一律經 `src/composables/useLedger.ts`；元件內以解構方式使用：
+  ```ts
   import { useLedger } from '@/composables/useLedger'
   const { accounts, transactions, addTransaction } = useLedger()
   ```
 
-### 1.2 樣式與動畫設計規範
-- **CSS 隔離**：一律使用 SFC 的 `<style scoped>` 撰寫元件樣式。
-- **設計系統變數**：在 `src/index.css` 定義了馬卡龍配色系統與圓角規格。請一律使用 `var(--color-...)` 形式，禁止硬編碼 (Hardcode) 顏色：
-  - 背景色：`var(--color-bg-warm)`（`#FFF8EC` 奶油黃）
-  - 支出/粉紅：`var(--color-expense)`
-  - 收入/薄荷綠：`var(--color-income)`
-  - 轉帳/科技藍：`var(--color-transfer)`
-  - 文字/深灰褐：`var(--color-text-dark)`
-- **QQ 果凍效果動畫**：
-  在需要點擊反饋的按鈕或卡片上，請套用果凍彈性動畫類別 `.btn-jelly` 或以下 CSS：
+### 1.2 樣式 / 動畫
+- 元件樣式一律 `<style scoped>`。
+- 顏色禁止硬編碼，請用 `src/index.css` 內的 `var(--color-...)`：
+  - 背景：`--color-bg-warm`（`#FFF8EC`）
+  - 支出：`--color-expense`
+  - 收入：`--color-income`
+  - 轉帳：`--color-transfer`
+  - 文字：`--color-text-dark`
+- 可點擊元件套用 `.btn-jelly`；等價效果如下：
   ```css
   .btn-jelly:active {
     transform: scale(0.92);
@@ -51,240 +51,202 @@
   }
   ```
 
-### 1.3 逗逗貓 (Dodo Cat) SVG 渲染規範
-- 逗逗貓吉祥物實作於 `src/components/DodoCat.vue`。
-- 其表情是透過 Vue 的 `computed` 屬性動態切換 SVG 內部路徑（例如眼睛的彎度、耳朵的傾斜度、嘴巴的形狀，或直接變換整張貓咪 SVG）。
-- **品牌視覺 100% 統一規格**：
-  - 配色一律使用固定調色板：輪廓線與手繪黑邊統一使用品牌深灰褐 `#3D2B1F`，貓大頭與貓身一律使用品牌乳白 `#FDF6EE`，耳內與腮紅一律使用品牌粉桃 `#F9C4C4`，領圈一律使用薰衣草 `#C3B1E1`，身前抱著經典手繪薄荷綠口金包 `#A8E6CF`。
-  - 貓鼻子也統一升級為帶描邊的精緻粉桃倒三角，確保與主要圖示 100% 貼合呼應。
-- **超立體「摺半耳」渲染規範**：
-  - 在 `nervous` (小緊張) 表情下，右耳折疊。請採用**「底座四邊形 + 頂部翻折蓋」雙 Path 分層摺疊渲染**：
-    - 右耳底座 Path：`d="M 140 90 L 150 71 L 125 62 L 115 70 Z"`
-    - 右耳內腮紅 Path：`d="M 140 85 L 147 73 L 127 65 Z"`
-    - 右耳翻折蓋 Path：`d="M 150 71 L 156 80 L 125 62 Z"`
-  - 絕不可完全隱藏右內耳（防禦全白不對稱破圖瑕疵），應保持完美的立體折耳手繪透視。
-- 當新增貓咪表情時，請遵循**「用簡單乾淨的扁平 SVG 線條」**來繪製，並加上 CSS `.cat-wiggle` 以提供貓咪慵懶擺尾的呼吸微動畫。
+### 1.3 Dodo Cat SVG 規範
+- 實作位置：`src/components/DodoCat.vue`。
+- 表情切換以 `computed` 控制 SVG path / 整張 SVG。
+- 固定品牌色：
+  - 輪廓：`#3D2B1F`
+  - 貓身：`#FDF6EE`
+  - 耳內 / 腮紅：`#F9C4C4`
+  - 領圈：`#C3B1E1`
+  - 錢包：`#A8E6CF`
+- 鼻子固定為帶描邊粉桃倒三角。
+- `nervous` 表情右耳必須用「底座 + 翻折蓋」雙 path，且不可隱藏內耳：
+  - 底座：`M 140 90 L 150 71 L 125 62 L 115 70 Z`
+  - 內耳：`M 140 85 L 147 73 L 127 65 Z`
+  - 翻折蓋：`M 150 71 L 156 80 L 125 62 Z`
+- 新增表情時維持簡潔扁平 SVG 線條，並加 `.cat-wiggle` 呼吸 / 擺尾動畫。
 
-### 1.4 品牌圖示規範（App Icon / Favicon）
-- **主要品牌圖示**（完整版）：`public/dodo-icon.svg` — 逗逗貓抱著薄荷綠錢包、配戴薰衣草領圈的全身插畫版，奶油黃圓角背景。
-- **瀏覽器 Favicon**：`public/favicon.svg` — 32x32 精簡臉部版，保留關鍵特徵（大眼、腮紅、錢包），小尺寸仍可辨識。
-- **圖示調色板（固定，勿任意更改）**：
-  - 背景：`#FFF8EC`（奶油黃）
-  - 貓身/臉：`#FDF6EE`（乳白）
-  - 耳內/腮紅：`#F9C4C4`（粉桃）
-  - 錢包：`#A8E6CF`（薄荷綠）
-  - 扣環/裝飾：`#F4C842`（奶油黃金）
-  - 領圈：`#C3B1E1`（薰衣草）
-  - 輪廓線：`#3D2B1F`（深灰褐）
-- **圖示重新生成**：若需更新圖示，修改 `public/dodo-icon.svg` 後，執行 `npm run generate:icons` 自動重新產出所有 Android 密度的 mipmap PNG，無需手動逐一處理：
+### 1.4 品牌圖示
+
+| 項目 | 路徑 / 規範 |
+|---|---|
+| 主圖示 | `public/dodo-icon.svg`：全身版、奶油黃圓角背景 |
+| Favicon | `public/favicon.svg`：32x32 精簡臉部版 |
+| 固定調色盤 | 背景 `#FFF8EC`、貓身 `#FDF6EE`、耳內/腮紅 `#F9C4C4`、錢包 `#A8E6CF`、扣環 `#F4C842`、領圈 `#C3B1E1`、輪廓 `#3D2B1F` |
+
+- 更新圖示後執行：
   ```bash
   npm run generate:icons
-  # 自動輸出至 android/app/src/main/res/mipmap-{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}/
-  ```
-- **Splash Screen 重新生成**：若需更新啟動畫面，執行 `npm run generate:splash`，自動依照各 drawable 資料夾的解析度規格批次輸出：
-  ```bash
   npm run generate:splash
-  # 自動輸出至 android/app/src/main/res/drawable-{port,land}-{mdpi,hdpi,...}/
   ```
+- 輸出位置：
+  - `android/app/src/main/res/mipmap-*`
+  - `android/app/src/main/res/drawable-*`
 
-### 1.5 功能變更文件同步規範
-- **文件即時更新**：每次進行核心邏輯優化、介面改版或新功能開發等變更時，**務必同步更新與維護專案相關文件**（包括 `CHANGELOG.md`、`SPEC.md` 以及本協同開發手冊 `GEMINI.md` 等），確保後續與 AI 元件協同開發時能維持最高度的專案脈絡一致性。
-
-### 1.6 禁止使用原生 UI 元件原則
-- **手製高度統一風格元件**：為了本專案獨特的手繪、馬卡龍配色與 Q 彈果凍（Jelly）動畫的美學統一性，**禁止使用任何瀏覽器原生 UI 元件（包含但不限於原生下拉選單 select、alert 提示框、confirm 確認窗等）**。所有基礎 UI 元件皆必須使用 SFC（Vue 單檔案元件）搭配 CSS 果凍特效與馬卡龍調色板自行實作。
-- **自訂全域 Dialog 呼叫範式**：
-  專案內建了 Promise 驅動的全域非同步 Dialog 引擎，凡是需要提示訊息或確認操作時，**一律嚴格使用自訂元件，禁止使用原生 `alert` 與 `confirm`**。
-  - **二次確認 (Confirm Dialog)**：
-    使用 `src/composables/useConfirm.ts`，並於 `App.vue` 放置 `<CuteConfirmDialog />`。
-    ```typescript
-    import { useConfirm } from '../composables/useConfirm'
-    const { showConfirm } = useConfirm()
-    
-    // 呼叫範例：
-    if (await showConfirm('您確定要刪除此項目嗎喵？', '🗑️ 刪除確認')) {
-      // 使用者點擊「確定」
-    }
-    ```
-  - **提示訊息 (Alert Dialog)**：
-    使用 `src/composables/useAlert.ts`，並於 `App.vue` 放置 `<CuteAlertDialog />`。
-    ```typescript
-    import { useAlert } from '../composables/useAlert'
-    const { showAlert } = useAlert()
-    
-    // 呼叫範例：
-    await showAlert('✨ 報告主人！設定已成功儲存囉🐾')
-    ```
-  - **層級放置規範**：為防範在鎖定畫面（`AppLock`）或身分牆（`UserSelection`）等分支介面下出現彈窗渲染死角，上述兩個全域 Dialog 元件**必須放置於 `App.vue` 模板的最外層容器中**，以保障在所有狀態下皆可被全域正常呼叫與定位。
+### 1.5 UI 元件原則
+- 禁止使用原生 `select`、`alert`、`confirm` 等瀏覽器原生 UI。
+- 一律使用自製 SFC + 馬卡龍配色 + Jelly 動畫。
+- 全域 Dialog：
+  - Confirm：`src/composables/useConfirm.ts` + `<CuteConfirmDialog />`
+  - Alert：`src/composables/useAlert.ts` + `<CuteAlertDialog />`
+- 兩個 Dialog 元件都必須放在 `App.vue` **最外層**，避免 `AppLock` / `UserSelection` 等分支畫面遮蔽。
 
 ---
 
-## 2. Android 行動端整合架構（已正式實作）
+## 2. Android / Capacitor 架構
 
-> ⚠️ **重要更新**：本專案已完成 Android 移植，**不再只是「未來展望」**。以下為已上線的實際架構，維護與擴展時請嚴格遵循。
+### 2.1 基本資訊
+- 套件名稱：`com.luke.dodoleddger`
+- 設定檔：`capacitor.config.ts`
+- 原生專案：`android/`
+- 打包腳本：`./build-apk.sh`（自動處理 JDK 17、同步資源、編譯 release）
+- 產物：
+  - `build-artifacts/dodo-ledger-v{version}.apk`
+  - `build-artifacts/dodo-ledger-latest.apk`
 
-### 2.1 Capacitor 混合式打包架構
-- **套件名稱**：`com.luke.dodoleddger`
-- **Capacitor 設定檔**：`capacitor.config.ts`
-- **原生 Android 專案**：`android/`（由 Capacitor 生成與管理）
-- **一鍵自愈打包腳本**：`./build-apk.sh` — 自動偵測並安裝 JDK 17、同步資源、編譯 Release APK
-- **產物輸出**：`build-artifacts/dodo-ledger-v{版號}.apk` 與 `build-artifacts/dodo-ledger-latest.apk`
-
-### 2.2 Android 版號管理規範（與 Web 脫鉤）
-- **唯一版本定義來源**：`android-version.json`（不得改動 `package.json` 來管控 Android 版本）
+### 2.2 Android 版本管理
+- 唯一來源：`android-version.json`
   ```json
   { "version": "1.0.0", "buildNumber": 1 }
   ```
-- **Gradle 動態對接**：`android/app/build.gradle` 在編譯時自動解析此檔案，同步 APK 內部的 `versionName` 與 `versionCode`。
-- **發布流程**：只需修改 `android-version.json` 並 push → GitHub Actions 自動觸發編譯，同時發布：
-  - `android-vX.Y.Z` Release Tag（保存歷史記錄）
-  - `latest` Release Tag（永遠指向最新版，固定下載連結）
+- `android/app/build.gradle` 會讀取此檔同步 `versionName` / `versionCode`。
+- 發版流程：修改 `android-version.json` 后 push，即觸發 GitHub Actions，發布：
+  - `android-vX.Y.Z`
+  - `latest`
 
-### 2.3 離線優先與雙向同步架構
-- **IndexedDB 離線快取**：`src/services/db.ts` 在未連網時自動啟用 Firestore 本地快取，離線記帳零延遲，上線後自動雙向同步。
-- **Last-Write-Wins 衝突解決**：所有交易均帶 `updatedAt` 毫秒時間戳記與防衝突隨機 ID，保障多裝置同步的資料一致性。
-- **SharedPreferences 解鎖持久化**：`src/composables/useAppLock.ts` — App 滑掉重開免重複解鎖；手動鎖定或更改密碼時立即重設。
+### 2.3 離線優先 / 同步
+- `src/services/db.ts` 啟用 Firestore + IndexedDB 離線快取。
+- 衝突策略：`updatedAt` + 隨機 ID，採 Last-Write-Wins。
+- `src/composables/useAppLock.ts` 使用 SharedPreferences 持久化解鎖狀態；手動鎖定或改密碼時立即重設。
 
-### 2.4 自建熱更新 (Live Updates) 引擎
-- **實作位置**：`src/composables/useLiveUpdates.ts`，並於 `src/App.vue` 的 `onMounted` 中整合觸發。
-- **工作原理**：每次 App 啟動時，背景向當前專案遠端 `https://linkdx.github.io/dodo_ledger/version.json` 對帳比對版本。若發現新版，則默默在背景下載 `app-update.zip` 寫入沙盒，並同時產生 `current_hot_version.txt` 版本信箱指標。
-- **原生極速解壓縮與重定向**：下一次 App 啟動（冷啟動）時，原生 Android 端 (`MainActivity.java`) 會在啟動第一時間讀取該指標，並使用 Java 原生 `ZipInputStream` 進行 **20ms 極速原生解壓縮**，解壓完畢自動掃除 ZIP 原始檔以節省硬碟空間，隨後動態執行 `this.bridge.setServerUrl()` 將 WebView 重新導向至沙盒 `index.html`，實現完美的無感熱更新閉環。
-- **資安合規防禦**：原生解壓縮代碼中內建了 **「防範 Zip Slip 漏洞路徑穿越攻擊」** 的安全過濾機制，100% 阻斷非法跨目錄寫入，確保金融級系統底座安全性。
-- **離線降級**：斷網或伺服器異常時自動跳過更新檢查，秒進 App 載入本地最新加載成功的沙盒版本或預置 bundled 資源，絕不影響任何既有功能。
-- **不依賴付費服務**：完全自建，無需 Appflow 或 Capgo 等第三方訂閱。
-- **覆蓋安裝版本自愈機制**：為防範覆蓋安裝新版 APK 後，因手機沙盒中殘留舊版熱更新資源而導致版本衝突，`MainActivity.java` 內置 `SharedPreferences` 比對機制。一旦偵測到當前 APK `versionCode` 大於上一次啟動紀錄，便主動刪除 `current_hot_version.txt` 與所有 `update_pack_*` 沙盒檔案，回退載入內置最新預置資源。同時 Web 端 `useLiveUpdates.ts` 也會同步將 `localStorage` 紀錄更新為內置網頁版本號，實現完美的雙重防護自愈閉環。
+### 2.4 Live Updates
+- 入口：`src/composables/useLiveUpdates.ts`，於 `src/App.vue` `onMounted` 觸發。
+- 版本對帳：`https://linkdx.github.io/dodo_ledger/version.json`
+- 發現新版時下載 `app-update.zip` 到沙盒，並寫入 `current_hot_version.txt`。
+- 下次冷啟動時，`MainActivity.java`：
+  - 讀取版本指標
+  - 以 `ZipInputStream` 原生解壓
+  - 清掉 ZIP
+  - 以 `this.bridge.setServerUrl()` 轉向沙盒 `index.html`
+- 安全要求：
+  - 必須保留 Zip Slip 路徑穿越防護
+  - 斷網 / 伺服器異常時要降級為本地資源
+  - 不依賴 Appflow / Capgo
+- 覆蓋安裝自癒：
+  - `MainActivity.java` 以 SharedPreferences 比對 `versionCode`
+  - 若 APK 版本升高，主動清除 `current_hot_version.txt` 與 `update_pack_*`
+  - `useLiveUpdates.ts` 同步刷新 `localStorage` 版本記錄
 
-### 2.5 本地通知與網路請求規範
-- **本地通知插件**：`@capacitor/local-notifications`
-- **網路請求 (CapacitorHttp)**：
-  - **原則**：禁止在 `capacitor.config.ts` 開啟全域 `CapacitorHttp` 補丁，以免干擾 Firebase SDK 連線。
-  - **實作**：僅在需要繞過 CORS 的特定場景（如熱更新下載）中，透過 `import { CapacitorHttp } from '@capacitor/core'` 手動呼叫插件 API。
-- **觸發時機**：App 重啟後，補記週期自動扣款成功時，發送系統層原生通知。
-- **注意事項**：一律使用動態 `import()` 引入 Capacitor 插件，確保 Web 端瀏覽器相容性：
-  ```typescript
+### 2.5 Capacitor 插件 / 網路
+- 本地通知：`@capacitor/local-notifications`
+- `CapacitorHttp` **禁止**在 `capacitor.config.ts` 開全域 patch；僅在需要繞過 CORS（如熱更新下載）時手動：
+  ```ts
+  import { CapacitorHttp } from '@capacitor/core'
+  ```
+- Capacitor 插件一律用動態 `import()`，保持 Web 相容：
+  ```ts
   import('@capacitor/local-notifications').then(({ LocalNotifications }) => {
     LocalNotifications.schedule({ ... })
   })
   ```
 
-### 2.6 App 內一鍵檢查更新與原生覆蓋安裝
-- **對帳源與動態發布**：在原生行動端（`Capacitor.isNativePlatform()`）上，設定頁面（`Settings.vue`）會渲染出「📱 原生 Android 系統更新」卡片。它直接向 GitHub 的公開 REST API（`releases/latest`）發起請求，避免了在伺服器端冗餘複製配置文件的麻煩。
-- **動態下載快取**：當發現遠端版本比本地更先進時，會調用 `@capacitor/filesystem` 的 `Filesystem.downloadFile()` 方法，將該 GitHub latest Release 中的 APK 默默下載到手機本地 cache 目錄下（`Directory.Cache`）。
-- **自訂原生安裝插件**：下載完畢後，Web 端會直接調用我們在 `MainActivity.java` 中手動註冊的原生插件 `DodoInstaller.installApk({ filePath })`。該插件會安全檢查 Android SDK 版本，並利用 `FileProvider` 安全地進行 File URI 轉換與 `FLAG_GRANT_READ_URI_PERMISSION` 讀取授權，隨即拉起系統覆蓋安裝，安全、標準地防止了 Android 7.0+ 原生的 `FileUriExposedException` 安全漏洞，達成完美的升級閉環！
-- **安裝權限配置**：此功能在原生層需要於 `AndroidManifest.xml` 中註冊 `<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />` 安裝權限。凡是涉及此原生修改，皆屬於**原生變更**，必須重新編譯與分發新 APK，且必須提升 `android-version.json` 中的版號。
+### 2.6 App 內更新 / 覆蓋安裝
+- 原生平台下，`Settings.vue` 顯示「📱 原生 Android 系統更新」卡片。
+- 更新來源：GitHub REST API `releases/latest`。
+- APK 下載：`@capacitor/filesystem` 的 `Filesystem.downloadFile()`，存至 `Directory.Cache`。
+- 安裝：呼叫 `MainActivity.java` 註冊的 `DodoInstaller.installApk({ filePath })`。
+- 原生層須使用 `FileProvider`、`FLAG_GRANT_READ_URI_PERMISSION`，避免 `FileUriExposedException`。
+- `AndroidManifest.xml` 必須含：
+  ```xml
+  <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+  ```
+- 以上原生變更都屬 **Android 原生變更**：必須重編 APK，且必須提升 `android-version.json` 版號。
 
-### 2.7 Android 移植 LLM Prompt 模組
-
-若需進行更深度的原生化移植（如改寫為 Kotlin / Jetpack Compose），可使用以下 Prompt：
-
-> **介面與資料層移植 Prompt：**
-> ```markdown
-> 你現在是高階 Android 專家。我們正在將一個名為 "Dodo Ledger" 的 Vue 3 記帳服務移植到 Android 原生系統。
-> 請參考 Vue 3 的狀態管理 Composable `src/composables/useLedger.ts` 以及系統規格 `SPEC.md`。
->
-> 請執行以下任務：
-> 1. 用 Kotlin 建立對應的 Firestore Data Class，並使用 Firebase Android SDK。
-> 2. 建立一個 Android Repository 模式的 `LedgerRepository`，實作「IndexedDB 快取 + Firestore 雙向同步」的雙儲存層架構。
-> 3. 特別注意：用 Kotlin 實作 SPEC.md 中規定的「信用卡額度當下全扣，分月攤還」以及「轉帳手續費獨立支出化」演算法。
-> ```
-
-> **UI 樣式與動畫移植 Prompt：**
-> ```markdown
-> 你現在是 Android UI 設計專家。請參考 Dodo Ledger 的 `src/index.css`、`DodoCat.vue`，以及 `public/dodo-icon.svg`（品牌圖示設計規範）。
->
-> 請執行以下任務：
-> 1. 在 Android 中，將 CSS 變數定義的馬卡龍色系（奶油黃 #FFF8EC、粉桃紅 #F9C4C4、薄荷綠 #A8E6CF）轉換為 Jetpack Compose 的 `Color.kt` 與 `Theme.kt`。
-> 2. 使用 Compose 的 `Animatable` 與 `Spring` 彈簧物理動畫，重現 Web 端的「QQ 果凍按鈕點擊反饋（Jelly Effect）」。
-> 3. 用 Compose `Canvas` 或 `Image` 配合 Lottie，重現逗逗貓在不同預算比例（玩毛線、流汗、遮眼哭哭）下的動態表情與泡泡對話框。
-> ```
+### 2.7 原生移植提示
+- 若要改寫為 Kotlin / Jetpack Compose，提示詞至少要涵蓋：
+  1. 參考 `src/composables/useLedger.ts` 與 `SPEC.md`
+  2. 建立 Firebase Data Class / Repository
+  3. 實作「信用卡額度當下全扣、分月攤還」與「轉帳手續費獨立支出化」
+  4. 把 `src/index.css` 色票、`DodoCat.vue`、`public/dodo-icon.svg` 移植到 Compose
+  5. 重現 Jelly 動畫與逗逗貓動態表情
 
 ---
 
-## 3. 自動化測試與 CI/CD 保護網
+## 3. 測試、CI/CD、版本與稽核
 
-為了確保專案長期維護的健康度：
-- **測試**：每次修改核心帳務計算、分期或轉帳邏輯時，必須執行 `npm run test:run`。
-- **CI 提交**：在提交代碼前，請確認已通過 TypeScript 編譯檢查與 Vitest 自動化測試。這在 GitHub Actions 中有強制檢驗，若未通過將無法成功部署至 GitHub Pages。
-- **更新 CHANGELOG**：每次完成新功能交付，請隨手在 `CHANGELOG.md` 中留下簡短的版本紀錄。
+### 3.1 測試 / 提交
+- 修改核心帳務、分期、轉帳邏輯時，必跑：
+  ```bash
+  npm run test:run
+  ```
+- 提交前需通過 TypeScript 編譯與 Vitest。
+- 每次交付功能後更新 `CHANGELOG.md`。
 
-### 3.1 CI/CD 雙管線架構（Web 與 Android 分流）
+### 3.2 CI/CD 雙管線
 
 | 管線 | 設定檔 | 觸發條件 | 產物 |
 |---|---|---|---|
-| Web 部署 | `.github/workflows/deploy.yml` | `src/**`、`public/**`、`index.html`、`package.json`、`package-lock.json` | GitHub Pages |
-| Android 建置 | `.github/workflows/android.yml` | `android-version.json`、`android/**`、`build-apk.sh`、`capacitor.config.ts` | Release APK（帶版號 Tag + latest） |
+| Web | `.github/workflows/deploy.yml` | `src/**`、`public/**`、`index.html`、`package.json`、`package-lock.json` | GitHub Pages |
+| Android | `.github/workflows/android.yml` | `android-version.json`、`android/**`、`build-apk.sh`、`capacitor.config.ts` | Release APK + version tag + `latest` |
 
-> [!IMPORTANT]
-> **Android 原生變更判定與版號強制升級規範 (CRITICAL)**：
-> 凡是修改了上述 `Android 建置` 的觸發條件檔案（特別是 `capacitor.config.ts`，**即使只是撤銷/Revert 裡面的設定**），皆屬於**原生變更**。
-> 身為 AI 助理，當您修改這些檔案時，**必須絕對主動執行以下動作**，不可遺漏：
-> 1. 修改 `android-version.json` 提升 `version` 與 `buildNumber`。
-> 2. 在 `CHANGELOG.md` 中新增專屬的 `[Android X.Y.Z]` 更新條目，說明原生層級的變更。
-> 3. 提醒使用者需要重新安裝 APK。
->
-> 兩條管線完全獨立：發布新 Android 版本不影響網頁 CI；反之亦然。
+### 3.3 Android 原生變更規則
+- 只要改到 Android 管線觸發檔（尤其 `capacitor.config.ts`，含 revert）就算 **原生變更**。
+- 必做：
+  1. 更新 `android-version.json` 的 `version` 與 `buildNumber`
+  2. 在 `CHANGELOG.md` 新增對應 Android 條目
+  3. 提醒使用者需重新安裝 APK
+- Web 與 Android 發版互不影響。
 
-### 3.2 財務日誌與核心安全稽核共識
-- **日誌過濾原則**：**絕不在 `SystemLog` 中記錄娛樂性質的操作（如摸貓、餵貓等）**。日誌應專注於核心財務與成員變更，以確保對帳與稽核資料的純粹性與高效性。
-- **日誌寫入時機**：務必在所有核心財務操作的 Vue Composable 方法中（記帳、刪除、還款、週期性自動執行）與身分管理（新增、刪除身分、預算變更、記帳分類變更）中，第一時間呼叫 `addSystemLog`。
-- **CLI 稽核運行**：稽核日誌工具 `./view-logs` 採用輕量化的 Firestore REST API，免去了在終端機安裝龐大 Firebase SDK 的複雜度。後續維護或移植時，請保持此 RESTful 高效連線設計，避免引入不必要的 Node 相依性套件。
+### 3.4 財務日誌 / 稽核
+- `SystemLog` 只記核心財務與成員變更；**不要記** 摸貓、餵貓等娛樂操作。
+- 記帳、刪除、還款、週期自動執行、成員 / 預算 / 分類變更時，第一時間呼叫 `addSystemLog`。
+- 日誌寫入一律採 **append-only**（`appendLog` / 單文件 `setDoc`）；禁止讀全量後覆蓋，避免多裝置互蓋。
+- `./view-logs` 維持 Firestore REST API 實作，不引入笨重 Firebase SDK。
 
-### 3.3 package-lock.json 官方 Registry 規範（已自動化）
+### 3.5 多人並發規範
+- 詳細規格見 [`SPEC_CONFLICT_RESOLUTION.md`](./SPEC_CONFLICT_RESOLUTION.md)。
+- 核心原則：
+  - 禁止對交易 / 帳戶使用 `writeCollection` 全量覆寫（初始化除外）
+  - 餘額變更一律用 `increment()`
+  - 交易 CRUD 一律包在 `atomicBatchWrite`
+  - 週期記帳用 `claimDocument` 防重複執行
 
-> [!NOTE]
-> **此步驟已由 `npm run prepare` 生命週期腳本自動處理。** 每次 `npm install` 後，`scripts/prepare.cjs` 會自動掃描並修復 `package-lock.json` 中的私有 registry 污染，無需手動執行 `sed` 指令。
-
-- **根本原因**：開發機環境設定了私有 npm registry（`npm.synology.inc`），每次 `npm install` 都會將新套件的下載路徑寫入 `package-lock.json` 為私有網址。GitHub Actions Runner 無法連線此私有位址，導致 `ENOTFOUND` 錯誤。
-- **自動修復機制**：`scripts/prepare.cjs` 在每次 `npm install` 結束後自動執行，以字串全域替換方式將所有 `https://npm.synology.inc` 修正為 `https://registry.npmjs.org`。
-- **手動驗證指令**（如需確認）：
-  ```bash
-  grep -c "synology" package-lock.json  # 輸出為 0 代表乾淨
-  ```
-- **建議工作流程**：
+### 3.6 `package-lock.json` 規範
+- 私有 registry 污染由 `scripts/prepare.cjs` 自動修復。
+- 安裝新套件建議流程：
   ```bash
   npm install <new-package> --legacy-peer-deps
-  # prepare 腳本已自動修復 registry，直接 commit 即可
+  grep -c "synology" package-lock.json
   git add package.json package-lock.json
   git commit -m "chore: 安裝 <new-package>"
   ```
 
-### 3.4 Android APK 簽名安全隔離架構
+### 3.7 APK 簽名
+- 共用金鑰：`android/app/dodo-shared.keystore`（已 commit）。
+- 密碼來源：
+  - 本地：`npm install` 時輸入，`prepare.cjs` 同步至 `android/local.properties`（Git ignore）
+  - CI：GitHub Secret `DODO_SIGNING_PASSWORD`
+- `build.gradle` 禁止硬編碼密碼，僅可由環境變數 / `local.properties` 讀取。
+- App 密碼、keystore 密碼、`DODO_SIGNING_PASSWORD` 刻意保持一致。
+- `npm run prepare` 可在密碼變更 / 金鑰缺失時自動備份並重建 keystore。
 
-> [!IMPORTANT]
-> 本專案採用「金鑰 commit 入倉庫，密碼隔離於環境變數」的方案，確保所有版本 APK 使用同一把金鑰簽名，解決覆蓋安裝衝突問題，同時保障密碼安全。
+### 3.8 CHANGELOG 規範
+- 標題格式：
+  - Web only：`## [Web X.Y.Z] - YYYY-MM-DD`
+  - Android only：`## [Android A.B.C / Build N] - YYYY-MM-DD`
+  - 雙端：`## [Web X.Y.Z / Android A.B.C / Build N] - YYYY-MM-DD`
+- 判定：
+  - 改 `src/`、`public/`、`package.json` => 含 Web
+  - 改 `android/`、`capacitor.config.ts`、`android-version.json` => 含 Android
+- 若前一版本 **尚未 push**：
+  - 不要再遞增版號
+  - 直接把新內容併入前一筆 `CHANGELOG`
+  - 維持 `package.json` / `android-version.json` 不變
+- 只有前版已發布，或此次是重大分發，才遞增版號。
 
-- **共享金鑰**：`android/app/dodo-shared.keystore` 已 commit 至 Git，本地與 CI/CD 使用同一把，消滅「無法覆蓋安裝」問題。
-- **密碼三層隔離**：
-  - **本地端**：`npm install` 時互動式詢問進入密碼，`prepare.cjs` 自動同步至 `android/local.properties`（Git 排除）。
-- **CI/CD 端**：透過單一 GitHub Secret `DODO_SIGNING_PASSWORD` 注入，同時作為儲存庫與金鑰兩個密碼。
-- **程式碼中**：`build.gradle` 完全無任何硬編碼密碼，100% 由環境變數 `DODO_SIGNING_PASSWORD` 或 `local.properties` 動態讀取。
-- **密碼一致性**：App 進入密碼、Android 金鑰密碼、GitHub Secret `DODO_SIGNING_PASSWORD` 三者刻意設為同一值，降低管理複雜度。
-- **`npm run prepare` 的金鑰重建邏輯**：若偵測到密碼變更或金鑰缺失，自動備份舊金鑰並用新密碼重新產生 `dodo-shared.keystore`，確保金鑰與密碼永遠同步一致。
-
-### 3.5 CHANGELOG 撰寫規範
-- **版本號標題格式**：應根據修改範圍決定標題內容，嚴格遵循以下格式：
-  - **僅網頁端更新**：`## [Web X.Y.Z] - YYYY-MM-DD`
-  - **僅行動端更新**：`## [Android A.B.C / Build N] - YYYY-MM-DD`
-  - **雙端同步更新**：`## [Web X.Y.Z / Android A.B.C / Build N] - YYYY-MM-DD`
-- **判定原則**：
-  - 若修改涉及 `src/`、`public/` 或 `package.json`（Web 版本號），則必須包含 **Web** 標籤。
-  - 若修改涉及 `android/`、`capacitor.config.ts` 或 `android-version.json`（Android 版本號/Build），則必須包含 **Android** 標籤。
-  - 若純粹是邏輯更新（如本次的貓咪系統）且同時推動了 Web 與 Android 的版本號更新，則使用「雙端同步更新」格式。
-- **未 Push Commit 的版號合併自癒原則 (CRITICAL)**：
-  - 若本地前一個版本（例如 `Web 2.0.4`）的 Commit **尚未 Push 至 GitHub 遠端倉庫**，則隨後的更新（不論是 Web 還是 Android）**不應盲目向下累加版號**（如跳至 `2.0.5`），而應將新的變更直接與前一個 Commit 進行合併。
-  - 同時，在 `CHANGELOG.md` 中亦**不應新增新版號標題**，而是直接將新功能描述併入前一個尚未 Push 的更新條目下（例如將標題修正為 `## [Web 2.0.4 / Android 1.0.7 / Build 8]` 雙端同步更新格式），並維持 `package.json` 或 `android-version.json` 的版號不變。
-  - 只有在確認前一個版本的 Commit **已經 Push 發布**，或當前變更屬於重大分發時，方可向下累加新版號。這能有效避免版號無謂碎片化，維持 Release 與 Commit 對帳的極致純粹性。
-
-### 3.6 語意化版本號（SemVer）升級判定規範
-自 `Web 2.0.9 / Android 1.1.0` 起，專案雙端（Web 與 Android）版號的升級必須嚴格遵循以下語意化標準：
-- **小版號 (Patch)** 升級（例如 `v1.0.9` $\rightarrow$ `v1.0.10`）：
-  - **適用情境**：向後相容的 Bug 修復、單純排版微調、拼字修正或微小的邏輯修補。
-  - **特色**：無任何功能新增或破壞，Web 端的 Patch 變更可透過熱更新在背景無感下載。
-- **中版號 (Minor)** 升級（例如 `v1.0.9` $\rightarrow$ `v1.1.0`）：
-  - **適用情境**：向後相容的新功能新增（例如新增分析圖表、搜尋篩選），**或重大的 Android 原生層代碼變更（例如修改了 MainActivity.java 插件、啟動畫面或圖示）**。
-  - **特色**：有新增功能，且舊資料 100% 向下相容。**由於 Android 原生變更必須重新打包分發實體 APK 才能生效，一律強制提升 Android 中版號**，以提示使用者需要重新下載覆蓋安裝。
-- **大阪號 (Major)** 升級（例如 `v1.0.0` $\rightarrow$ `v2.0.0`）：
-  - **適用情境**：不相容的 API、資料庫毀滅性 Schema 變更（Breaking Changes），或極重大的跨代品牌翻新。
-  - **特色**：舊版備份可能失效或不相容，使用者需重新適應。
-
-
+### 3.9 SemVer
+- **Patch**：向後相容的 bug fix / 微調 / 小修補。
+- **Minor**：向後相容新功能，或重大 Android 原生變更（如 `MainActivity.java`、啟動畫面、圖示）；Android minor 升級代表需重新安裝 APK。
+- **Major**：破壞相容的 API / 資料 Schema / 品牌大改版。
 

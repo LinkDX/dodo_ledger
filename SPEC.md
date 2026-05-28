@@ -25,7 +25,7 @@
 
 ## 2. 資料庫 Schema 規格 (Firestore)
 
-> **正規化架構說明**：所有實體以子集合（subcollection）形式儲存於 `ledgers/dodo_shared_ledger/` 路徑下，避免單一文件超過 Firestore 1MB 限制，並支援未來的即時監聽（`onSnapshot`）與分頁查詢。
+> **正規化架構說明**：所有實體以子集合（subcollection）形式儲存於 `ledgers/dodo_shared_ledger/` 路徑下，避免單一文件超過 Firestore 1MB 限制，並支援即時監聽（`onSnapshot`）與分頁查詢。所有財務操作使用原子批次寫入（`writeBatch` + `increment()`），確保多裝置並發時帳戶餘額與交易記錄一致性。
 
 ```
 ledgers/

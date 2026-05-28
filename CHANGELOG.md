@@ -2,6 +2,17 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Web 2.2.0] - 2026-05-28
+
+### 🔒 多人並發衝突解決架構重構
+- **原子批次寫入引擎**：新增 `atomicBatchWrite` API，所有記帳操作（新增/刪除/編輯/信用卡繳款）的「交易文件寫入」與「帳戶餘額增減」現在在同一原子邊界內完成，徹底消滅餘額漂移問題。
+- **Firestore `increment()` 原子餘額**：帳戶餘額不再以「覆蓋整個 balance 值」的方式寫入，改為使用 Firestore 原生 `increment()` 運算子進行原子加減，多裝置並發記帳時餘額永遠精確。
+- **Per-document CRUD 操作**：新增 `addDocument`、`updateDocument`、`deleteDocument` 方法取代全量覆寫模式，任何裝置的寫入操作不再意外刪除其他裝置新增的文件。
+- **即時同步訂閱 (onSnapshot)**：帳戶、交易、週期記帳、分類四大集合全面啟用 Firestore `onSnapshot` 即時監聽，多裝置資料變更秒級同步。
+- **週期記帳防重複執行**：引入 `claimDocument` 條件寫入機制（Firestore `runTransaction`），保證同一筆週期性自動扣款在多裝置同時冷啟動時僅被執行一次。
+- **系統日誌追加模式**：新增 `appendLog` 方法，日誌寫入不再讀取-覆蓋全量資料，避免並發日誌丟失。
+- **衝突解決測試套件**：新增 `tests/conflict-resolution.test.ts`（16 個測試案例），涵蓋原子操作、防重複執行、delta 餘額、編輯回退等場景。
+
 ## [Web 2.1.0] - 2026-05-28
 
 ### 🏆 錢包帳戶管理篩選與搜尋功能正式發布
