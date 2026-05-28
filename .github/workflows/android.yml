@@ -82,10 +82,18 @@ jobs:
           APK="dodo-ledger-v${VERSION}.apk"
 
           # 產生 release notes 檔案
+          node scripts/extract-changelog.cjs "${VERSION}"
+
           echo "🐱 **Dodo Ledger Android v${VERSION}**" > release-notes.md
           echo "" >> release-notes.md
           echo "此版本由 GitHub Actions 自動建置。免解壓，下載 APK 即可直接安裝至手機！" >> release-notes.md
           echo "" >> release-notes.md
+
+          if [ -f "release-notes-body.md" ]; then
+            cat release-notes-body.md >> release-notes.md
+            echo "" >> release-notes.md
+          fi
+
           echo "📋 下載檔案：\`${APK}\`" >> release-notes.md
           echo "🕐 建置時間：$(date +'%Y-%m-%d %H:%M:%S') UTC" >> release-notes.md
 
@@ -111,10 +119,18 @@ jobs:
           git push origin :refs/tags/latest || true
 
           # 產生 release notes 檔案
+          node scripts/extract-changelog.cjs "${VERSION}"
+
           echo "🐱 這是由 GitHub Actions 自動建置的最新 Android Release APK（v${VERSION}）。" > latest-notes.md
           echo "" >> latest-notes.md
           echo "此 Release 永遠指向最新版本。若需查看特定版本，請至 [Releases 頁面](https://github.com/${{ github.repository }}/releases) 尋找對應的 \`android-vX.Y.Z\` 標籤。" >> latest-notes.md
           echo "" >> latest-notes.md
+
+          if [ -f "release-notes-body.md" ]; then
+            cat release-notes-body.md >> latest-notes.md
+            echo "" >> latest-notes.md
+          fi
+
           echo "📋 下載檔案：\`${APK}\`" >> latest-notes.md
           echo "🕐 更新時間：$(date +'%Y-%m-%d %H:%M:%S') UTC" >> latest-notes.md
 

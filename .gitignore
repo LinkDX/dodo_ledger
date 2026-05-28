@@ -27,3 +27,9 @@ build-artifacts
 # Antigravity CLI
 .antigravitycli/
 
+# GitHub Actions dynamic release notes
+release-notes-body.md
+release-notes.md
+latest-notes.md
+
+

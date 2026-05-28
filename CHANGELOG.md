@@ -2,11 +2,15 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
-## [Web 2.0.8] - 2026-05-28
+## [Web 2.0.8 / Android 1.0.9 / Build 10] - 2026-05-28
 
-### 📱 專屬 App 原生 Release 過濾與真實更新日誌渲染
+### 📱 專屬 App 原生 Release 過濾與真實更新日誌渲染 (雙端聯動優化)
 - **專屬過濾原生 App 發布**：將更新檢查的 API 端點由 `/releases/latest` 改為遍歷整個 `/releases` 清單。這能智慧排除「純 Web 發布（無 APK 檔案）」的干擾，真正定位最新的一個有提供原生安裝包的 Android 版本，徹底根治先前因純網頁發布導致 App 誤判為無可用安裝包的 bug。
 - **渲染真正的原生 Changelog**：成功串接最新原生 Release 的 `body` 更新日誌，並以精緻、支援縱向滾動的馬卡龍手繪虛線框（`border-style: dashed;`）呈現於更新卡片中，讓主人在點擊「一鍵覆蓋安裝」前，能完整且真實地預覽此版本的更新細節。
+
+### 🤖 CI/CD Build Pipeline 原生自動化發布升級 (GitHub Release Notes)
+- **智慧 Changelog 提取器 (`extract-changelog.cjs`)**：新增了極致穩健的 Node.js 文本抓取腳本。能在 CI 打包時，自動掃描並精準解析 `CHANGELOG.md` 中對應當前 Android 版本（如 `[Android 1.0.9]`）的變更描述，並寫入發布檔案中。
+- **自動發布完美同步**：重構了 GitHub Actions 腳本（`android.yml`）。在自動發布 Android 專屬 tag（`android-v1.0.9`）與最新的 `latest` release 時，自動將上述提取出的**真正更新細節**注入 GitHub Release Body 說明中，徹底告別先前 Release notes 與實際內容脫鉤的體驗缺陷。
 
 ## [Web 2.0.7] - 2026-05-28
 
