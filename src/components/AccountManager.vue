@@ -319,6 +319,46 @@ watch(selectedCardId, (newCardId, oldCardId) => {
     selectedPeriod.value = getDefaultBillPeriod(newCardId)
   }
 })
+
+// 搜尋與篩選狀態
+const searchQuery = ref('')
+const activeFilter = ref<'all' | AccountType>('all')
+
+const filteredAccounts = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase()
+  return accounts.value.filter(acct => {
+    // 1. 類型篩選
+    if (activeFilter.value !== 'all' && acct.type !== activeFilter.value) {
+      return false
+    }
+
+    // 2. 關鍵字搜尋篩選
+    if (query) {
+      const nameMatch = acct.name.toLowerCase().includes(query)
+      const typeText = (
+        acct.type === 'cash' ? '現金' :
+        acct.type === 'bank' ? '銀行' :
+        acct.type === 'credit_card' ? '信用卡' :
+        '電子票證'
+      ).toLowerCase()
+      
+      const typeTextAlt = (
+        acct.type === 'cash' ? '現金' :
+        acct.type === 'bank' ? '銀行存款' :
+        acct.type === 'credit_card' ? '信用卡' :
+        '電子票證'
+      ).toLowerCase()
+
+      const typeMatch = typeText.includes(query) || typeTextAlt.includes(query)
+      const avatarMatch = acct.avatar && acct.avatar.includes(query)
+      
+      if (!nameMatch && !typeMatch && !avatarMatch) {
+        return false
+      }
+    }
+    return true
+  })
+})
 </script>
 
 <template>
@@ -359,15 +399,62 @@ watch(selectedCardId, (newCardId, oldCardId) => {
       </div>
     </div>
 
+    <!-- 搜尋欄 -->
+    <div v-show="activeSection === 'accounts' && accounts.length > 0" class="search-bar card-jelly">
+      <div class="search-input-wrapper">
+        <span class="search-icon">🔍</span>
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="搜尋帳戶名稱、類型..."
+          class="search-input"
+        />
+        <button v-if="searchQuery" class="btn-clear btn-jelly" @click="searchQuery = ''" title="清除搜尋">
+          <X :size="12" />
+        </button>
+      </div>
+      <div v-if="searchQuery" class="search-options">
+        <span class="results-count">
+          共 {{ filteredAccounts.length }} 個帳戶
+        </span>
+      </div>
+    </div>
+
+    <!-- 類型篩選 Tab -->
+    <div v-show="activeSection === 'accounts' && accounts.length > 0" class="filter-tabs">
+      <button
+        v-for="f in ([
+          { key: 'all',                label: '全部' },
+          { key: 'cash',               label: '現金' },
+          { key: 'bank',               label: '銀行' },
+          { key: 'credit_card',        label: '信用卡' },
+          { key: 'electronic_ticket',  label: '電子票證' }
+        ] as const)"
+        :key="f.key"
+        class="filter-tab btn-jelly"
+        :class="{ active: activeFilter === f.key }"
+        @click="activeFilter = f.key"
+      >
+        {{ f.label }}
+      </button>
+    </div>
+
     <!-- 帳戶列表展示 (大圓角馬卡龍卡片) -->
     <div v-show="activeSection === 'accounts'" class="accounts-list">
       <div v-if="accounts.length === 0" class="empty-placeholder card-jelly">
         <p class="empty-text">主人目前還沒有建立任何帳戶喔喵～</p>
         <p class="empty-hint">請點擊上方「新增帳戶」建立第一個記帳卡片吧！</p>
       </div>
+      <div v-else-if="filteredAccounts.length === 0" class="empty-placeholder card-jelly">
+        <p class="empty-emoji">🔍</p>
+        <p class="empty-text">找不到符合條件的理財帳戶喔～喵🐾</p>
+        <button class="btn-jelly btn-clear-search" @click="searchQuery = ''; activeFilter = 'all'">
+          清除搜尋篩選條件 🧹
+        </button>
+      </div>
 
       <div 
-        v-for="acct in accounts" 
+        v-for="acct in filteredAccounts" 
         :key="acct.id"
         class="account-card card-jelly"
         :class="acct.color"
@@ -1506,4 +1593,109 @@ watch(selectedCardId, (newCardId, oldCardId) => {
   border-width: 3px;
 }
 
+/* ===== 搜尋欄設計 ===== */
+.search-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px !important;
+  margin-bottom: 12px;
+  background-color: #fff;
+}
+
+.search-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.search-icon {
+  font-size: 16px;
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text-dark);
+  outline: none;
+  padding: 2px 0;
+}
+
+.search-input::placeholder {
+  color: var(--color-text-muted);
+  font-weight: 600;
+  opacity: 0.65;
+}
+
+.btn-clear {
+  padding: 4px !important;
+  background-color: var(--color-bg-warm) !important;
+  border-radius: 50% !important;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none !important;
+  border-width: 1.5px !important;
+  flex-shrink: 0;
+}
+
+.btn-clear:active {
+  transform: scale(0.9);
+}
+
+.search-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1.5px dashed var(--color-border);
+  padding-top: 10px;
+  margin-top: 4px;
+}
+
+.results-count {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--color-text-muted);
+  background-color: var(--color-bg-warm);
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1.5px solid var(--color-border);
+}
+
+/* 類型篩選 Tab */
+.filter-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.filter-tab {
+  flex: 1;
+  padding: 8px 4px !important;
+  font-size: 12px;
+  background-color: #fff;
+}
+
+.filter-tab.active {
+  background-color: var(--color-accent-gold) !important;
+  border-width: 2.5px;
+}
+
+/* 搜尋為空時的按鈕樣式 */
+.btn-clear-search {
+  margin-top: 10px;
+  background-color: var(--color-accent-gold) !important;
+  padding: 8px 16px !important;
+  font-size: 12px;
+}
+
+.empty-emoji {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
 </style>
