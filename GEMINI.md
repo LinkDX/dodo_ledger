@@ -153,7 +153,7 @@
 
 ### 2.6 App 內更新 / 覆蓋安裝
 - 原生平台下，`Settings.vue` 顯示「📱 原生 Android 系統更新」卡片。
-- 更新來源：GitHub REST API `releases/latest`。
+- 更新來源：GitHub REST API `releases?per_page=100`（**不用 `releases/latest`**，因最新 release 可能是純 Web 發布無 APK）。遍歷列表找第一個含 `.apk` 附件的 release。
 - APK 下載：`@capacitor/filesystem` 的 `Filesystem.downloadFile()`，存至 `Directory.Cache`。
 - 安裝：呼叫 `MainActivity.java` 註冊的 `DodoInstaller.installApk({ filePath })`。
 - 原生層須使用 `FileProvider`、`FLAG_GRANT_READ_URI_PERMISSION`，避免 `FileUriExposedException`。

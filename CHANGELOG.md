@@ -2,7 +2,14 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
-## [Web 2.3.2] - 2026-05-28
+## [Web 2.3.3] - 2026-05-28
+
+### 🔧 APK 版本查詢改用 releases 列表，修復可能找不到最新 APK 的問題
+- **問題**：`Settings.vue` 原本呼叫 `releases/latest`，但最新 release 可能是純 Web 發布（只有 `app-update.zip`，沒有 APK），導致原生更新卡顯示「找不到 APK」。
+- **修復**：改呼叫 `releases?per_page=100`，遍歷列表找第一個含 `.apk` 附件的 release，略過所有純 Web release。
+- **文件同步**：更新 `SPEC_ANDROID.md` 第 9.3 節、`GEMINI.md` 第 2.6 節，反映正確的 API 查詢行為。
+
+
 
 ### 🐛 補齊近期收支明細與信用卡帳單的同日排序修復
 - **Dashboard 近期收支明細**：`recentTransactions` 排序同步套用 `floorDay()` + `updatedAt` 次要鍵，修復轉帳永遠排最頂的問題。

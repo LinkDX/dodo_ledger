@@ -241,8 +241,9 @@ android/app/build.gradle
 ### 9.3 遠端版本對帳與防禦性渲染 (Web 配合層)
 - **防禦性渲染**：在設定頁面 `Settings.vue` 中，該更新卡片以 `v-if="Capacitor.isNativePlatform()"` 包裹，保證**僅在實體 Android 手機環境下渲染**，桌面瀏覽器則隱藏。
 - **動態對帳流程**：
-  1. 進入設定頁時，會在 `onMounted` 裡發起非同步 GitHub Release API 請求 (`https://api.github.com/repos/LinkDX/dodo_ledger/releases/latest`)。
-  2. 走訪遠端 `assets` 陣列，動態尋找檔名以 `.apk` 結尾的 APK 資產，並利用正規表達式 `/v(\d+\.\d+\.\d+)/` 提取其遠端版本號（如 `dodo-ledger-v1.0.8.apk -> 1.0.8`）。
+  1. 進入設定頁時，會在 `onMounted` 裡發起非同步 GitHub Release API 請求 (`https://api.github.com/repos/LinkDX/dodo_ledger/releases?per_page=100`)。
+     > ⚠️ **不使用 `releases/latest`**：最新 release 可能是純 Web 發布（只含 `app-update.zip`，無 APK）。因此改用 releases 列表，並加 `?per_page=100` 確保不遺漏超過 30 筆的歷史版本。
+  2. 遍歷 releases 列表（依發布時間由新到舊），找到**第一個含有 `.apk` 附件的 release**，略過所有純 Web release。利用正規表達式 `/v(\d+\.\d+\.\d+)/` 從檔名提取版本號（如 `dodo-ledger-v1.0.8.apk -> 1.0.8`）。
   3. 將本地端當前執行的 APK 版本（讀取自 `androidVersion.version`）與遠端版本利用三段式 Semantic Version 比對演算法 (`compareVersions`) 進行核對。
   4. 若遠端較新，則展示薄荷綠（`var(--color-income)`）的「立即一鍵覆蓋安裝」果凍按鈕。
   5. 點擊按鈕後，調用 `@capacitor/filesystem` 的 `Filesystem.downloadFile()` 方法，默默將 remote APK `browser_download_url` 的資源下載到私有沙盒 `Directory.Cache` 底下。

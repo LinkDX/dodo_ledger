@@ -76,7 +76,7 @@ const handleAppVersionCheck = async (showNoUpdateAlert = false) => {
   }
   try {
     // 💡 改為向 releases 列表請求，以防 latest release 是純 web 的無 APK 版本
-    const res = await fetch('https://api.github.com/repos/LinkDX/dodo_ledger/releases')
+    const res = await fetch('https://api.github.com/repos/LinkDX/dodo_ledger/releases?per_page=100')
     if (!res.ok) {
       throw new Error(`無法獲取版本清單 (${res.status})`)
     }
