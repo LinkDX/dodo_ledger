@@ -43,6 +43,8 @@ const isAppChecking = ref(false)
 const appUpdateProgress = ref(0)
 const hasAppUpdate = ref(false)
 const appUpdateError = ref('')
+const isLatestVersion = ref(false)
+const hasNoRemoteApk = ref(false)
 const remoteApkUrl = ref('')
 const remoteApkName = ref('')
 const remoteTagName = ref('')
@@ -52,9 +54,15 @@ const handleAppVersionCheck = async (showNoUpdateAlert = false) => {
   isAppChecking.value = true
   appUpdateError.value = ''
   hasAppUpdate.value = false
+  isLatestVersion.value = false
+  hasNoRemoteApk.value = false
   try {
     const res = await fetch('https://api.github.com/repos/LinkDX/dodo_ledger/releases/latest')
     if (!res.ok) {
+      if (res.status === 404) {
+        hasNoRemoteApk.value = true
+        return
+      }
       throw new Error(`無法獲取最新版本資訊 (${res.status})`)
     }
     const data = await res.json()
@@ -64,12 +72,14 @@ const handleAppVersionCheck = async (showNoUpdateAlert = false) => {
     // 尋找 APK 格式的資產
     const apkAsset = assets.find((asset: any) => asset.name && asset.name.endsWith('.apk'))
     if (!apkAsset) {
-      throw new Error('遠端版本庫中沒有發現可用於安裝的 APK 檔案喵！')
+      hasNoRemoteApk.value = true
+      return
     }
     
     const remoteVer = parseVersionFromApkName(apkAsset.name)
     if (!remoteVer) {
-      throw new Error(`無法從遠端檔案名稱 ${apkAsset.name} 解析出版本號喵！`)
+      hasNoRemoteApk.value = true
+      return
     }
 
     const localVer = appVersion
@@ -81,13 +91,20 @@ const handleAppVersionCheck = async (showNoUpdateAlert = false) => {
       remoteApkName.value = apkAsset.name
       remoteTagName.value = tagName
     } else {
+      isLatestVersion.value = true
       if (showNoUpdateAlert) {
         await showAlert(`✨ 報告主人！當前 App 版本 v${localVer} 已經是最新版囉！不用再更新喵🐾`)
       }
     }
   } catch (e: any) {
     console.error('App 版本檢查失敗：', e)
-    appUpdateError.value = e.message || '未知對帳錯誤'
+    let userFriendlyMsg = e.message || '未知對帳錯誤'
+    if (e.name === 'TypeError' && e.message.includes('fetch')) {
+      userFriendlyMsg = '無法連線至 GitHub 伺服器，請檢查您的網路狀態或稍後再試喵！'
+    } else if (e.message.includes('403')) {
+      userFriendlyMsg = 'GitHub API 請求過於頻繁 (403)，請稍後再試喵！'
+    }
+    appUpdateError.value = userFriendlyMsg
   } finally {
     isAppChecking.value = false
   }
@@ -372,7 +389,10 @@ const formatCurrency = (val: number) => {
               🎉 發現最新版本 {{ remoteTagName }}！快點擊下方按鈕進行覆蓋升級吧！🐾
             </span>
             <span v-else-if="appUpdateError" class="status-error">
-              ❌ 對帳失敗：{{ appUpdateError }}。請檢查網路或稍後再試。
+              ❌ 連線失敗：{{ appUpdateError }}。請檢查網路或稍後再試。
+            </span>
+            <span v-else-if="hasNoRemoteApk" style="color: var(--color-text-muted);">
+              ⚠️ 遠端版本庫中目前沒有發現可用於安裝的 APK 檔案喵！
             </span>
             <span v-else>
               🟢 您的 Dodo Ledger App 目前已是最新版本，安全無虞！
