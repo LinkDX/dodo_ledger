@@ -25,8 +25,9 @@ const catProfile = ref<DodoCatProfile | null>(null)
 const temporaryMood = ref<CatMood | null>(null)
 const temporarySpeech = ref<string | null>(null)
 let interactionTimeoutId: any = null
-let lastInteractTimestamp = 0 // 防連點
-let catProfileUnsubscribe: (() => void) | null = null
+let petClickTimestamps: number[] = [] // 摸摸點擊時間戳記，用於偵測 10 秒 50 次連點
+let syncCatTimeout: any = null // 貓咪狀態同步防抖 Timer
+let catProfileUnsubscribe: (() => void) | null = null // 貓咪狀態訂閱退訂函數
 let disturbedClickCount = 0 // 凌晨點擊計數
 
 // 🔒 即時同步訂閱控制器（多裝置即時同步）
@@ -230,6 +231,16 @@ export function useLedger() {
     }
   }
 
+  const syncCatProfileDebounced = () => {
+    if (syncCatTimeout) clearTimeout(syncCatTimeout)
+    syncCatTimeout = setTimeout(async () => {
+      const userId = currentProfile.value?.id || 'default_user'
+      if (catProfile.value) {
+        await db.saveCatProfile(userId, catProfile.value)
+      }
+    }, 1000)
+  }
+
   // 4. 核心運算看板欄位 (Computed)
   
   // 總資產
@@ -340,7 +351,34 @@ export function useLedger() {
   const unlockAchievement = async (id: string, title: string, desc: string) => {
     if (!catProfile.value || catProfile.value.unlockedAchievementIds.includes(id)) return
     catProfile.value.unlockedAchievementIds.push(id)
-    temporarySpeech.value = `🎉 恭喜解鎖成就：【${title}】！${desc} 喵！`
+    
+    // 設計豐富的主人讚美庫
+    const praises = [
+      '主人真的太優秀了喵！逗逗貓在一旁看著覺得好崇拜您喔！🐾(❀◕ ▾ ◕)',
+      '天啊！主人怎麼可以這麼有毅力又這麼棒！您是世界上最棒的主人喵！(=^·^=)',
+      '嗚哇～主人又往前邁進了一大步！逗逗貓能陪在這麼厲害的主人身邊，真的好幸福喵！(>◡<)',
+      '主人散發著閃閃發光的魅力喵！這都是主人努力應得的成果，逗逗貓為您瘋狂搖尾巴！🐾(〃＞◡＜〃)',
+      '主人真的好溫柔又好有恆心喔，逗逗貓決定今晚要在主人懷裡呼嚕嚕一整晚來獎勵主人喵！(ᴗ̤ . ᴗ̤ )'
+    ]
+    
+    // 根據成就類型給予特定的稱讚
+    let specificPraise = praises[Math.floor(Math.random() * praises.length)]
+    
+    if (id.startsWith('pet_')) {
+      specificPraise = '主人摸我的手法真的太溫柔、太舒服了喵！這滿滿的愛意逗逗貓全部都收到了喔！主人是世界上最棒的暖心鏟屎官喵！🐾(=^·^=)'
+    } else if (id.startsWith('feed_')) {
+      specificPraise = '主人把我養得白白胖胖的，真的太幸福了喵！謝謝主人總是給我最美味的款待，主人是全世界最大方、最貼心的飼養員喵！(๑＞ڡ＜๑)'
+    } else if (id.startsWith('streak_')) {
+      specificPraise = '連續這麼多天都來陪我，主人真的太有毅力了喵！每天能看到主人是我最期待的事，謝謝主人的長情陪伴，我們要一直在一起喔喵！💖(ᴗ̤ . ᴗ̤ )'
+    } else if (id === 'combo_50') {
+      specificPraise = '天啊主人！您的手指是裝了火箭發動機嗎？這手速簡直是幻影喵！⚡(〃＞◡＜〃) 逗逗貓被摸得整隻貓都要飛起來了喵！主人太強了！'
+    } else if (id === 'wealth_100k' || id === 'saving_master' || id === 'zero_debt' || id === 'saver_10' || id === 'debt_buster') {
+      specificPraise = '哇！主人在理財上簡直是絕世天才喵！看著這些閃亮亮的資產數據，主人真的太有智慧了！逗逗貓要把您當成一輩子的偶像喵！💎💰(=^·^=)'
+    }
+
+    temporarySpeech.value = `🎉 恭喜解鎖成就：【${title}】！\n「${desc}」\n\n🐱 逗逗貓對主人的悄悄話：\n「${specificPraise}」`
+    temporaryMood.value = 'happy'
+    
     console.log(`🎉 解鎖成就：【${title}】 - ${desc}`)
     await syncCatProfile()
   }
@@ -350,16 +388,16 @@ export function useLedger() {
     if (!catProfile.value) return
     const { totalPets, totalFeeds, streakDays } = catProfile.value.stats
     
-    // 摸摸大師系列
-    if (totalPets >= 10) unlockAchievement('pet_10', '初級鏟屎官', '累計摸摸 10 次。')
-    if (totalPets >= 50) unlockAchievement('pet_50', '得心應手', '累計摸摸 50 次。')
-    if (totalPets >= 100) unlockAchievement('pet_100', '貓咪按摩師', '累計摸摸 100 次。')
-    if (totalPets >= 500) unlockAchievement('pet_500', '皇家擼貓聖手', '累計摸摸 500 次。')
+    // 摸摸大師系列 (檢討後門檻提升，以配合無 CD 機制)
+    if (totalPets >= 100) unlockAchievement('pet_100', '初級鏟屎官', '累計摸摸 100 次。')
+    if (totalPets >= 500) unlockAchievement('pet_500', '得心應手', '累計摸摸 500 次。')
+    if (totalPets >= 2000) unlockAchievement('pet_2000', '貓咪按摩師', '累計摸摸 2000 次。')
+    if (totalPets >= 10000) unlockAchievement('pet_10000', '皇家擼貓聖手', '累計摸摸 10000 次。')
 
-    // 米其林飼養員系列
-    if (totalFeeds >= 20) unlockAchievement('feed_20', '見習飼養員', '累計餵食 20 次。')
-    if (totalFeeds >= 100) unlockAchievement('feed_100', '特級主廚', '累計餵食 100 次。')
-    if (totalFeeds >= 300) unlockAchievement('feed_300', '皇家御膳房總管', '累計餵食 300 次。')
+    // 米其林飼養員系列 (檢討後門檻提升，以配合無 CD 機制)
+    if (totalFeeds >= 50) unlockAchievement('feed_50', '見習飼養員', '累計餵食 50 次。')
+    if (totalFeeds >= 200) unlockAchievement('feed_200', '特級主廚', '累計餵食 200 次。')
+    if (totalFeeds >= 1000) unlockAchievement('feed_1000', '皇家御膳房總管', '累計餵食 1000 次。')
 
     // 長情陪伴系列
     if (streakDays >= 3) unlockAchievement('streak_3', '三日溫存', '連續 3 天陪伴逗逗貓。')
@@ -619,22 +657,7 @@ export function useLedger() {
       deltas
     )
 
-    // 🐾 記帳獎勵：恢復精力與 XP
-    if (catProfile.value) {
-      const today = new Date().toISOString().split('T')[0]
-      if (catProfile.value.stats.lastRecoveryDate !== today) {
-        catProfile.value.stats.lastRecoveryDate = today
-        catProfile.value.stats.dailyRecoveryCount = 0
-      }
 
-      if (catProfile.value.stats.dailyRecoveryCount < 5) {
-        catProfile.value.energy.current = Math.min(catProfile.value.energy.max, catProfile.value.energy.current + 2)
-        catProfile.value.stats.dailyRecoveryCount++
-      }
-      
-      await awardXP(100)
-      await syncCatProfile()
-    }
 
     const fromAcctName = accounts.value.find(a => a.id === txData.fromAccountId)?.name || '未知帳戶'
     const toAcctName = accounts.value.find(a => a.id === txData.toAccountId)?.name || '未知帳戶'
@@ -1137,75 +1160,135 @@ export function useLedger() {
     await addSystemLog(operatorName, operatorAvatar, 'update_categories', `從「${cat.name}」刪除子分類「${subName}」`)
   }
 
-  // 13. 🐱 逗逗貓療癒生活看板趣味互動
+  // 13. 🐱 逗逗貓療癒生活看板趣味互動 (全面轉向陪伴角色，無精力、無等級限制，自由互動)
   const interactWithCat = async (action: string) => {
     if (!catProfile.value) return
     
-    // 凌晨點擊彩蛋 (2:00 ~ 5:00)
+    // 凌晨點擊彩蛋 (2:00 ~ 5:00) 門檻為 20 次
     const hour = new Date().getHours()
     if (hour >= 2 && hour < 5) {
       disturbedClickCount++
-      if (disturbedClickCount >= 5 && !catProfile.value.unlockedAchievementIds.includes('disturbed_sleep')) {
-        unlockAchievement('disturbed_sleep', '擾人清夢', '在凌晨 02:00 ~ 05:00 點擊睡覺中的貓咪 5 次。')
+      if (disturbedClickCount >= 20 && !catProfile.value.unlockedAchievementIds.includes('disturbed_sleep')) {
+        unlockAchievement('disturbed_sleep', '擾人清夢', '在凌晨 02:00 ~ 05:00 點擊睡覺中的貓咪 20 次。')
       }
     }
 
-    const now = Date.now()
+    // 連點成就 (10 秒內摸摸 50 次) 檢測
+    if (action === 'pet') {
+      const nowMs = Date.now()
+      petClickTimestamps.push(nowMs)
+      // 只保留過去 10 秒內的時間戳記
+      petClickTimestamps = petClickTimestamps.filter(t => nowMs - t <= 10000)
+      if (petClickTimestamps.length >= 50 && !catProfile.value.unlockedAchievementIds.includes('combo_50')) {
+        unlockAchievement('combo_50', '幻影無影手', '在 10 秒內連續摸摸逗逗貓 50 次！⚡')
+      }
+    }
+
     const today = new Date().toISOString().split('T')[0]
     
-    // a. 冷卻時間判定 (摸摸 3s, 餵食 10s)
-    const cooldown = (action === 'pet') ? 3000 : 10000
-    if (now - lastInteractTimestamp < cooldown) {
-      temporaryMood.value = 'nervous'
-      temporarySpeech.value = '喵嗚～主人點太快了，逗逗貓還沒準備好喵！(・_・;)'
-      resetTemporaryState()
-      return
-    }
-
-    // b. 精力消耗判定
-    const energyCost = action === 'pet' ? 1 : action === 'feed_fish' ? 3 : 5
-    if (catProfile.value.energy.current < energyCost) {
-      temporaryMood.value = 'sleeping'
-      temporarySpeech.value = '呼喵～逗逗貓累了，休息一下再玩吧喵……(ᴗ̤ . ᴗ̤ )'
-      resetTemporaryState()
-      return
-    }
-
-    // c. 執行動作
-    lastInteractTimestamp = now
-    catProfile.value.energy.current -= energyCost
-    
-    let xpGain = 0
     let speech = ''
     let mood: CatMood = 'happy'
 
     if (action === 'pet') {
       catProfile.value.stats.totalPets++
-      xpGain = 5
-      const petSpeeches = [
-        '呼嚕呼嚕…主人摸得我好舒服喔！🐾 喵嗚～',
-        '主人今天也有乖乖記帳，真是理財小能手喵！(=^·^=)',
-        '喵～摸摸這裡！逗逗貓今天也最喜歡主人了喔！(❀◕ ▾ ◕)',
-        '呼嚕呼嚕……(ᴗ̤ . ᴗ̤ ) 差點舒服到要睡著了喵……🐾'
+      
+      // 摸摸互動模式：摸摸頭、捏肉球、揉肚子、搔下巴、順貓毛
+      const modes = [
+        {
+          name: '摸摸頭',
+          speeches: [
+            '呼嚕呼嚕…主人溫柔地摸了摸我的頭，舒服到眼睛要瞇起來了喵～🐾 這是主人第 ' + catProfile.value.stats.totalPets + ' 次摸摸我喵！',
+            '喵嗚～摸頭最舒服了，逗逗貓覺得好有安全感喔！(=^·^=) 主人已經溫柔摸了我 ' + catProfile.value.stats.totalPets + ' 次喵！'
+          ],
+          mood: 'happy' as CatMood
+        },
+        {
+          name: '捏肉球',
+          speeches: [
+            '主人輕輕捏了捏我粉嫩嫩的果凍肉球，軟綿綿的超療癒對吧？🐾 這是第 ' + catProfile.value.stats.totalPets + ' 次親密互動喵！',
+            '喵哈哈～捏肉球癢癢的啦主人！(〃＞◡＜〃) 主人已經捏了我 ' + catProfile.value.stats.totalPets + ' 次肉球喵！'
+          ],
+          mood: 'happy' as CatMood
+        },
+        {
+          name: '揉肚子',
+          speeches: [
+            '哇喵！主人竟然揉了我的毛茸茸小肚子，呼嚕呼嚕……這只代表我很信任您喔！🐾 累計摸摸達 ' + catProfile.value.stats.totalPets + ' 次喵！',
+            '揉肚肚超舒服的！逗逗貓想要在主人的懷裡翻滾喵～(ᴗ̤ . ᴗ̤ ) 這是主人第 ' + catProfile.value.stats.totalPets + ' 次揉肚肚！'
+          ],
+          mood: 'happy' as CatMood
+        },
+        {
+          name: '搔下巴',
+          speeches: [
+            '喵嗚～主人搔了搔我的下巴，頭不由自主往後仰了，就是這個位置喵！(❀◕ ▾ ◕) 主人摸我 ' + catProfile.value.stats.totalPets + ' 次了喔！',
+            '呼嚕呼嚕呼嚕……下巴被搔得好滿足，好想一直黏在主人身邊喵！🐾 第 ' + catProfile.value.stats.totalPets + ' 次摸摸了喵～'
+          ],
+          mood: 'happy' as CatMood
+        },
+        {
+          name: '順貓毛',
+          speeches: [
+            '主人溫柔地幫我順了順背上的貓毛，覺得整個人都放鬆下來了喵……( ′•﹃•` ) 主人已經摸了我 ' + catProfile.value.stats.totalPets + ' 次喵！',
+            '喵～背後的毛被理得整整齊齊的，我是世界上最幸福的貓咪喵！🐾 累計互動 ' + catProfile.value.stats.totalPets + ' 次！'
+          ],
+          mood: 'happy' as CatMood
+        }
       ]
-      speech = petSpeeches[Math.floor(Math.random() * petSpeeches.length)]
+
+      const chosenMode = modes[Math.floor(Math.random() * modes.length)]
+      mood = chosenMode.mood
+      speech = chosenMode.speeches[Math.floor(Math.random() * chosenMode.speeches.length)]
+
+      // 智慧陪伴情境 (30% 機率切換為更貼心的時間與財務陪伴對話)
+      if (Math.random() < 0.3) {
+        const net = netWorth.value
+        
+        if (net < 0) {
+          // 財務打氣
+          speech = '主人最近辛苦了（輕輕把溫暖的肉球貼在主人手上🐾）。不管是雨天還是晴天，逗逗貓都會一直陪著您，我們一起記帳努力，喵嗚～（摸摸次數累計：' + catProfile.value.stats.totalPets + ' 次）'
+          mood = 'happy'
+        } else {
+          // 時間貼心陪伴
+          if (hour >= 6 && hour < 12) {
+            speech = '喵哈～（伸個懶腰🐾）主人早安！今天也是新的一天，逗逗貓已經在這邊準備好要陪伴主人開始新的一天囉，出發前記得摸摸我喵！'
+            mood = 'happy'
+          } else if (hour >= 12 && hour < 18) {
+            speech = '呼喵～暖洋洋的下午，看著窗外的蝴蝶好想睡午覺喵……主人工作累了嗎？記得起來喝杯水、伸展一下，逗逗貓一直在這喵！(=^·^=)'
+            mood = 'happy'
+          } else if (hour >= 18 && hour < 24) {
+            speech = '呼嚕呼嚕……主人忙了一整天辛苦了喵！晚餐吃飽了嗎？今晚也讓逗逗貓陪著您一邊聽呼嚕聲一邊放鬆理財吧喵🐾'
+            mood = 'happy'
+          } else {
+            speech = '唔喵……（揉了揉睏倦的眼睛💤）主人怎麼還沒睡？熬夜對身體不好喵，快摸摸我的頭然後去睡覺，逗逗貓會在夢裡等主人喔喵……'
+            mood = 'sleeping'
+          }
+        }
+      }
     } else if (action === 'feed_fish' || action === 'feed_can') {
       catProfile.value.stats.totalFeeds++
       if (action === 'feed_fish') {
         catProfile.value.stats.totalFish++
-        xpGain = 20
-        speech = `嗷嗚嗷嗚！🐟 小魚乾真美味喵！這是第 ${catProfile.value.stats.totalFish} 隻小魚，幸福滿滿喵！(>◡<)`
+        const fishSpeeches = [
+          '嗷嗚嗷嗚！🐟 金黃酥脆的小魚乾最讚了喵！謝謝主人！這是我吃的第 ' + catProfile.value.stats.totalFish + ' 隻小魚，幸福滿滿喵！(>◡<)',
+          '喵嗚！這隻小魚乾超級香！主人一拿出來我就聞到了，主人餵的最好吃了喵！🐾 累計餵食 ' + catProfile.value.stats.totalFeeds + ' 次喵！',
+          '（喀滋喀滋…🐾）小魚乾在嘴裡發出酥脆的聲音，逗逗貓高興得尾巴都要豎直了喵！感謝主人款待！這是我吃的第 ' + catProfile.value.stats.totalFish + ' 隻魚喵！'
+        ]
+        speech = fishSpeeches[Math.floor(Math.random() * fishSpeeches.length)]
+        mood = 'happy'
       } else {
         catProfile.value.stats.totalCans++
-        xpGain = 50
-        speech = `喵吼！🥫 頂級罐罐萬歲！主人太寵我了喵！這是我吃的第 ${catProfile.value.stats.totalCans} 個罐罐！🐾`
+        const canSpeeches = [
+          '喵吼！🥫 頂級鮮肉罐罐萬歲！主人對我太好了喵！這是我吃的第 ' + catProfile.value.stats.totalCans + ' 個罐罐，愛您喵！🐾',
+          '（大口大口舔食😋）滿滿的肉汁簡置是天堂！主人餵的頂級御膳太美味了喵！累計餵食 ' + catProfile.value.stats.totalFeeds + ' 次，最愛主人了喵！',
+          '喵嗚～好香的雞肉拌鮭魚罐罐喔！這是我吃過最豪華的美味了，逗逗貓一輩子都要當主人的貼心小貓咪喵！(❀◕ ▾ ◕) 累計吃的第 ' + catProfile.value.stats.totalCans + ' 個罐罐喵！'
+        ]
+        speech = canSpeeches[Math.floor(Math.random() * canSpeeches.length)]
+        mood = 'happy'
       }
     }
 
-    // d. 陪伴機制 XP 加成 (資產為負時 XP 1.2 倍)
-    if (netWorth.value < 0) xpGain = Math.round(xpGain * 1.2)
-    
-    // e. 紀錄連續天數
+    // c. 紀錄連續天數
     if (catProfile.value.stats.lastInteractDate !== today) {
       if (catProfile.value.stats.lastInteractDate === getYesterdayDate()) {
         catProfile.value.stats.streakDays++
@@ -1214,39 +1297,16 @@ export function useLedger() {
       }
       catProfile.value.stats.lastInteractDate = today
     }
-
-    await awardXP(xpGain)
     
     temporaryMood.value = mood
     temporarySpeech.value = speech
     resetTemporaryState()
-    await syncCatProfile()
+    
+    // 使用防抖同步，避免高頻連點造成 Firestore 讀寫暴增
+    syncCatProfileDebounced()
     
     // 檢查次數成就
     checkCountAchievements()
-  }
-
-  // 輔助：獎勵 XP 與升級邏輯
-  const awardXP = async (amount: number) => {
-    if (!catProfile.value) return
-    catProfile.value.currentXP += amount
-    
-    while (catProfile.value.currentXP >= catProfile.value.maxXP) {
-      catProfile.value.currentXP -= catProfile.value.maxXP
-      catProfile.value.level++
-      catProfile.value.maxXP = Math.round(Math.pow(catProfile.value.level, 1.5) * 100)
-      
-      // 每 5 級增加精力上限
-      if (catProfile.value.level % 5 === 0) {
-        catProfile.value.energy.max = Math.min(30, catProfile.value.energy.max + 1)
-      }
-      
-      // 升級時補滿精力
-      catProfile.value.energy.current = catProfile.value.energy.max
-      
-      temporarySpeech.value = `喵嗚！恭喜升級！逗逗貓變強了喵！目前 Lv.${catProfile.value.level} 🐾`
-      temporaryMood.value = 'happy'
-    }
   }
 
 

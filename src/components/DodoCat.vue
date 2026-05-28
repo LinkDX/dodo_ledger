@@ -350,16 +350,16 @@ const catMiau = computed(() => {
 /* 手繪對話泡泡樣式 (方案 B: 側邊漫畫旁白氣泡) */
 .speech-bubble {
   position: relative; /* 改為相對定位，成為 Flex item */
-  margin-bottom: 48px; /* 向上提，精準避開底部的餵食互動按鈕 */
+  margin-bottom: 48px; /* 還原高位，避開餵食按鈕 */
   background-color: #FFFFFF;
   border: var(--border-width) solid var(--color-border);
   border-radius: 18px;
   padding: 10px 14px;
   flex: 1; /* 彈性寬度 */
-  max-width: 180px; /* 限制最大寬度，在大螢幕也精緻 */
+  max-width: 240px; /* 繼續維持加寬至 240px，讓長文字輕鬆顯示 */
   min-width: 120px; /* 限制最小寬度，在小螢幕也能正常顯示 */
   box-shadow: var(--shadow-jelly-sm);
-  z-index: 20;
+  z-index: 35; /* 繼續維持高 z-index 層次 */
   word-wrap: break-word;
 }
 

@@ -86,16 +86,16 @@ const getTxAmountStyle = (tx: any) => {
 const showAchievements = ref(false)
 
 const achievementList = [
-  // 摸摸大師系列
-  { id: 'pet_10', title: '初級鏟屎官', desc: '累計摸摸逗逗貓 10 次。', emoji: '👋' },
-  { id: 'pet_50', title: '得心應手', desc: '累計摸摸逗逗貓 50 次。', emoji: '💆' },
-  { id: 'pet_100', title: '貓咪按摩師', desc: '累計摸摸逗逗貓 100 次。', emoji: '🖐️' },
-  { id: 'pet_500', title: '皇家擼貓聖手', desc: '累計摸摸逗逗貓 500 次。', emoji: '👑' },
+  // 摸摸大師系列 (檢討後門檻提升，以配合無 CD 機制)
+  { id: 'pet_100', title: '初級鏟屎官', desc: '累計摸摸逗逗貓 100 次。', emoji: '👋' },
+  { id: 'pet_500', title: '得心應手', desc: '累計摸摸逗逗貓 500 次。', emoji: '💆' },
+  { id: 'pet_2000', title: '貓咪按摩師', desc: '累計摸摸逗逗貓 2000 次。', emoji: '🖐️' },
+  { id: 'pet_10000', title: '皇家擼貓聖手', desc: '累計摸摸逗逗貓 10000 次。', emoji: '👑' },
 
-  // 米其林飼養員系列
-  { id: 'feed_20', title: '見習飼養員', desc: '累計餵食（魚乾或罐罐） 20 次。', emoji: '🐟' },
-  { id: 'feed_100', title: '特級主廚', desc: '累計餵食（魚乾或罐罐） 100 次。', emoji: '🧑‍🍳' },
-  { id: 'feed_300', title: '皇家御膳房總管', desc: '累計餵食（魚乾或罐罐） 300 次。', emoji: '🍣' },
+  // 米其林飼養員系列 (檢討後門檻提升，以配合無 CD 機制)
+  { id: 'feed_50', title: '見習飼養員', desc: '累計餵食（魚乾或罐罐） 50 次。', emoji: '🐟' },
+  { id: 'feed_200', title: '特級主廚', desc: '累計餵食（魚乾或罐罐） 200 次。', emoji: '🧑‍🍳' },
+  { id: 'feed_1000', title: '皇家御膳房總管', desc: '累計餵食（魚乾或罐罐） 1000 次。', emoji: '🍣' },
 
   // 長情陪伴系列
   { id: 'streak_3', title: '三日溫存', desc: '連續 3 天開啟 App 並與逗逗貓互動。', emoji: '🌱' },
@@ -111,8 +111,9 @@ const achievementList = [
 
   // 隱藏彩蛋
   { id: 'cat_vault', title: '貓咪保險箱', desc: '成功建立並啟用至少一個「週期性自動記帳」設定項目。', emoji: '🔐', isHidden: true },
-  { id: 'disturbed_sleep', title: '擾人清夢', desc: '在凌晨 02:00 ~ 05:00 之間，點擊睡覺中的貓咪 5 次。', emoji: '⏰', isHidden: true },
-  { id: 'cold_war', title: '冷戰期', desc: '超過 7 天未開啟 App 後重新回來陪伴。', emoji: '❄️', isHidden: true }
+  { id: 'disturbed_sleep', title: '擾人清夢', desc: '在凌晨 02:00 ~ 05:00 之間，點擊睡覺中的貓咪 20 次。', emoji: '⏰', isHidden: true },
+  { id: 'cold_war', title: '冷戰期', desc: '超過 7 天未開啟 App 後重新回來陪伴。', emoji: '❄️', isHidden: true },
+  { id: 'combo_50', title: '幻影無影手', desc: '在 10 秒內連續摸摸逗逗貓 50 次！⚡', emoji: '⚡', isHidden: true }
 ]
 
 const isAchievementUnlocked = (id: string) => {
@@ -154,42 +155,35 @@ const isAchievementUnlocked = (id: string) => {
 
     <!-- 1. 🐱 逗逗貓療癒生活看板 (最上方 30-40% 畫面高) -->
     <div class="mascot-board card-jelly">
-      <!-- 貓咪等級與精力狀態列 -->
+      <!-- 貓咪陪伴狀態列 (拿掉精力與等級，改為溫馨相伴指標) -->
       <div v-if="catProfile" class="cat-status-overlay pop-jelly">
-        <div class="level-badge">Lv.{{ catProfile.level }}</div>
-        <div class="status-bars">
-          <div class="energy-bar">
-            <div class="bar-label">精力 {{ catProfile.energy.current }}/{{ catProfile.energy.max }}</div>
-            <div class="bar-track">
-              <div class="bar-fill energy-fill" :style="{ width: `${(catProfile.energy.current / catProfile.energy.max) * 100}%` }"></div>
-            </div>
+        <div class="status-bars" style="min-width: 100px; gap: 4px;">
+          <div class="companion-stat-item" style="display: flex; justify-content: space-between; font-size: 10px; font-weight: 800;">
+            <span class="companion-label" style="color: var(--color-text-muted);">相伴天數</span>
+            <span class="companion-value" style="color: var(--color-expense); background: rgba(0,0,0,0.05); padding: 0 4px; border-radius: 4px;">{{ catProfile.stats.streakDays }} 天</span>
           </div>
-          <div class="xp-bar">
-            <div class="bar-label">XP {{ catProfile.currentXP }}/{{ catProfile.maxXP }}</div>
-            <div class="bar-track">
-              <div class="bar-fill xp-fill" :style="{ width: `${(catProfile.currentXP / catProfile.maxXP) * 100}%` }"></div>
-            </div>
+          <div class="companion-stat-item" style="display: flex; justify-content: space-between; font-size: 10px; font-weight: 800;">
+            <span class="companion-label" style="color: var(--color-text-muted);">親密互動</span>
+            <span class="companion-value" style="color: var(--color-income); background: rgba(0,0,0,0.05); padding: 0 4px; border-radius: 4px;">{{ catProfile.stats.totalPets + catProfile.stats.totalFeeds }} 次</span>
           </div>
         </div>
       </div>
 
       <DodoCat :mood="dodoCatMood" :speech="dodoCatSpeech" @pet="interactWithCat('pet')" />
       
-      <!-- 🐾 逗逗貓趣味互動餵食箱 -->
+      <!-- 🐾 逗逗貓趣味互動餵食箱 (拿掉精力消耗，自由餵食) -->
       <div class="cat-interaction-bar pop-jelly">
         <button 
           class="btn-interact btn-jelly" 
-          :class="{ 'btn-disabled': catProfile && catProfile.energy.current < 3 }"
           @click="interactWithCat('feed_fish')"
         >
-          🐟 餵魚乾 <span class="cost-tag">-3</span>
+          🐟 餵小魚乾
         </button>
         <button 
           class="btn-interact btn-jelly" 
-          :class="{ 'btn-disabled': catProfile && catProfile.energy.current < 5 }"
           @click="interactWithCat('feed_can')"
         >
-          🥫 餵罐罐 <span class="cost-tag">-5</span>
+          🥫 餵好罐罐
         </button>
       </div>
     </div>
