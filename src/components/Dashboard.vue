@@ -298,15 +298,19 @@ const handleTeaserMove = (e: MouseEvent | TouchEvent) => {
 
   if (lastMousePos.time > 0) {
     const dt = now - lastMousePos.time
-    if (dt > 15) {
+    // 只有在時間累積大於等於 16ms 時才進行計算與更新 lastMousePos
+    // 這能防範手機高頻觸控 (如 120Hz 螢幕，dt 經常 < 15ms) 下每次更新 lastMousePos 導致事件被全部過濾的 Bug
+    if (dt >= 16) {
       const dxMouse = x - lastMousePos.x
       const dyMouse = y - lastMousePos.y
       const dist = Math.sqrt(dxMouse * dxMouse + dyMouse * dyMouse)
       const speed = dist / dt // px/ms
 
       if (speed > 0.05) {
-        // 大幅調柔和累積速度 (原 speed * 12 太快，調為 speed * 1.6)
-        let excitementGain = speed * 1.6
+        // 偵測是否為觸控事件。手機螢幕窄、滑動像素距離小，因此給予觸控更高的靈敏度係數 (3.6)，PC 保持 1.6
+        const isTouch = !(e instanceof MouseEvent)
+        let excitementGain = speed * (isTouch ? 3.6 : 1.6)
+        
         if (currentWand.value === 'laser') excitementGain *= 1.5
         if (currentWand.value === 'bell') excitementGain *= 1.1
 
@@ -319,9 +323,12 @@ const handleTeaserMove = (e: MouseEvent | TouchEvent) => {
         }
         isTickled.value = false
       }
+      // 完成一輪計算後才更新 lastMousePos，讓小於 16ms 的高頻事件能完美累加
+      lastMousePos = { x, y, time: now }
     }
+  } else {
+    lastMousePos = { x, y, time: now }
   }
-  lastMousePos = { x, y, time: now }
 
   // 臉部搔癢偵測
   const isNearFace = Math.abs(lookX) < 0.35 && lookY > -0.2 && lookY < 0.4
