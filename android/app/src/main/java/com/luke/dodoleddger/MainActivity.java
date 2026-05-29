@@ -140,7 +140,7 @@ public class MainActivity extends BridgeActivity {
     /**
      * ⚡️ 高防護的原生 Zip 解壓縮核心 (自動建立多級資料夾，並防範 Zip Slip 安全性路徑攻擊)
      */
-    private void unzip(File zipFile, File targetDirectory) throws Exception {
+    void unzip(File zipFile, File targetDirectory) throws Exception {
         ZipInputStream zis = new ZipInputStream(new BufferedInputStream(new FileInputStream(zipFile)));
         try {
             ZipEntry ze;
@@ -264,6 +264,64 @@ class DodoInstallerPlugin extends Plugin {
         } catch (Exception e) {
             Log.e(TAG, "無法獲取原生版本資訊", e);
             call.reject("無法獲取原生版本資訊: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void performHotReload(PluginCall call) {
+        String versionCode = call.getString("versionCode");
+        if (versionCode == null || versionCode.isEmpty()) {
+            call.reject("versionCode 參數不得為空");
+            return;
+        }
+
+        try {
+            MainActivity activity = (MainActivity) getActivity();
+            File filesDir = activity.getFilesDir();
+            File zipFile = new File(filesDir, "update_pack_" + versionCode + ".zip");
+            File updateDir = new File(filesDir, "update_pack_" + versionCode);
+            File indexFile = new File(updateDir, "index.html");
+
+            // 1. 🔍 如果解壓目錄中的 index.html 不存在，但 ZIP 存在，則立即在背景解壓
+            if (!indexFile.exists() && zipFile.exists()) {
+                Log.d("DodoLedger_HotReload", "📦 熱重載：偵測到 ZIP 壓縮包，執行原生解壓縮...");
+                if (!updateDir.exists()) {
+                    updateDir.mkdirs();
+                }
+                activity.unzip(zipFile, updateDir);
+                Log.d("DodoLedger_HotReload", "⚡ 熱重載：解壓完成");
+
+                // 刪除原始 ZIP
+                if (zipFile.delete()) {
+                    Log.d("DodoLedger_HotReload", "🧹 已刪除原始熱更新 ZIP 包");
+                }
+            }
+
+            // 2. 🚀 再次確認 index.html 存在，重定向 WebView 加載路徑！
+            if (updateDir.exists() && indexFile.exists()) {
+                String localPath = updateDir.getAbsolutePath();
+
+                // 必須在 UI 執行緒操作 WebView
+                activity.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            activity.getBridge().setServerBasePath(localPath);
+                            activity.getBridge().getWebView().reload();
+                            Log.d("DodoLedger_HotReload", "✨ [熱重載成功] WebView 已切換至沙盒並重載: " + localPath);
+                            call.resolve();
+                        } catch (Exception e) {
+                            Log.e("DodoLedger_HotReload", "熱重載 WebView 操作失敗", e);
+                            call.reject("熱重載 WebView 操作失敗: " + e.getMessage());
+                        }
+                    }
+                });
+            } else {
+                call.reject("找不到解壓後的熱更新資源或 index.html");
+            }
+        } catch (Exception e) {
+            Log.e("DodoLedger_HotReload", "熱重載處理失敗", e);
+            call.reject("熱重載處理失敗: " + e.getMessage());
         }
     }
 }

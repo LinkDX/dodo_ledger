@@ -188,10 +188,25 @@ const {
   updateProgress: hotUpdateProgress,
   hasUpdate: hasHotUpdate,
   updateError: hotUpdateError,
-  checkForUpdates: runHotUpdateCheck
+  checkForUpdates: runHotUpdateCheck,
+  performImmediateReload
 } = useLiveUpdates()
 
 const localHotVersion = ref(localStorage.getItem('dodo_app_hot_version_code') || '100')
+
+// 💡 監聽熱更新下載進度，完成後立刻詢問是否進行免重開的「即時熱重載」！
+watch(hotUpdateProgress, async (newProgress) => {
+  if (newProgress === 100 && Capacitor.isNativePlatform()) {
+    const newestVersionCode = parseInt(localStorage.getItem('dodo_app_hot_version_code') || '100', 10)
+    const confirm = await showConfirm(
+      '✨ 發現新功能！熱更新套件已布署完成。是否要立即重新載入 App 套用新版？🐾',
+      '🚀 立即套用新版本'
+    )
+    if (confirm) {
+      await performImmediateReload(newestVersionCode)
+    }
+  }
+})
 
 const handleManualHotUpdate = async () => {
   await runHotUpdateCheck()
@@ -518,7 +533,7 @@ const formatCurrency = (val: number) => {
                   📥 正在背景默默下載最新網頁包：{{ hotUpdateProgress }}%
                 </span>
                 <span v-else-if="hotUpdateProgress === 100">
-                  🎉 下載成功！熱更新套件已布署，請徹底「關閉 App 重開」以套用新版！🐾
+                  🎉 下載成功！熱更新套件已布署，您可立即套用或於下次啟動時生效！🐾
                 </span>
                 <span v-else-if="hotUpdateError" class="status-error">
                   ❌ 更新失敗：{{ hotUpdateError }}。請檢查網路連線或稍後再試。

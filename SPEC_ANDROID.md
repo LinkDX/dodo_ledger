@@ -137,6 +137,13 @@ Dodo Ledger 的首頁逗逗貓表情不能因為斷網而失效，規格如下�
 3. **安全回退與儲存**：掃除完畢後，WebView 會安全回退並加載當前 APK 內置最新預置資源，並將新的 `versionCode` 寫入 `SharedPreferences`。
 4. **網頁端雙重防護**：網頁端 `useLiveUpdates.ts` 啟動後亦會比對當前程式碼內置的 Web 版本號（`package.json` 的 `builtInVersionCode`）與 `localStorage` 的 `dodo_app_hot_version_code` 紀錄。一旦發現內置版本較新，便自動升級 `localStorage` 的紀錄為最新內置版，保障版本監控閣數據一致性，並阻斷重複下載舊包的 Bug。
 
+### 6.4 App 內即時熱重載（Hot Reload）規格
+為了提供極致的熱更新體驗，本專案打破了「必須關閉 App 重開才能生效」的限制，支援 App 內免重開一鍵即時熱重載：
+1. **原生插件橋接**：於自訂的 `DodoInstallerPlugin` 插件中註冊 `@PluginMethod public void performHotReload(PluginCall call)`。
+2. **即時背景解壓縮**：當 Web 端背景下載熱更新 ZIP 壓縮包成功（進度達到 `100%`），Web 端會呼叫 `performHotReload({ versionCode })`。原生端收到請求後，會立即在原生背景執行 ZIP 解壓縮與原始包清除，不需要等待冷啟動。
+3. **動態路徑切換與 WebView 重載**：解壓完成後，原生端會在 UI 執行緒（Main Thread）中呼叫 `activity.getBridge().setServerBasePath(localPath)`，將 WebView 本地伺服器的根路徑動態指引向新的沙盒解壓目錄，並緊接著執行 `activity.getBridge().getWebView().reload()` 對 WebView 進行熱重載。
+4. **貼心互動引導**：Web 端在 `Settings.vue` 內置進度 watcher，一旦背景下載進度達到 `100%`，系統會主動彈出馬卡龍色「🚀 立即套用新版本」對話框，詢問使用者是否立即熱重載，並在使用者確認後觸發，實現 1 秒內無縫套用最新網頁資源的流暢閉環。
+
 ---
 
 ## 7. 本地快速建置與測試指南 (CLI)

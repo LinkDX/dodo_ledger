@@ -2,6 +2,20 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Web 2.6.0 / Android 1.2.0 / Build 12] - 2026-05-29
+
+### 🚀 支援免重開、一鍵即時「熱重載（Hot Reload）」功能
+- **Android 原生層重大變更（需要重新安裝 APK 啟用）**：
+  - 在自訂 Capacitor 插件 `DodoInstaller` 中，全新實作並註冊了原生熱重載方法 `performHotReload(versionCode)`。
+  - 當 Web 端發出重載請求時，原生端將在背景執行熱更新 ZIP 壓縮包的原生閃電解壓（若尚未解壓），並在 UI 執行緒即時切換 WebView 的 `BasePath` 以重載 WebView 畫面。
+  - 將 `MainActivity.java` 內建的 `unzip` 工具方法之存取權限放寬為 package-private，以供同套件下的自訂插件靈活調用。
+- **Web 與 Composable 聯動更新**：
+  - 在背景熱更新引擎 `useLiveUpdates.ts` 中，全新設計並導出 `performImmediateReload(newVersionCode)` 方法，完美銜接 Android 原生插件的熱重載橋樑。
+- **貼心可愛的熱重載 UI 互動設計**：
+  - 於「設定與雲端備份」頁面中，新增針對熱更新下載進度 `hotUpdateProgress` 的智慧監聽器（watcher）。
+  - 一旦背景熱更新靜默下載進度達到 `100%`，且偵測到平台為原生 Android 時，系統將主動彈出高質感的馬卡龍色 **「🚀 立即套用新版本」** 萌系確認 Dialog，引導主人點選「立即套用 ✨」或「下次再說 🐾」。
+  - 點擊「立即套用」後，App 將在 1 秒內無縫切換至最新版網頁資源，徹底告別傳統必須「手動關閉 App 再重開」才能套用更新的繁瑣痛點！
+
 ## [Web 2.5.1] - 2026-05-29
 
 ### 🎨 優化收支明細極致體驗、小計分欄對齊與果凍按鈕防折行

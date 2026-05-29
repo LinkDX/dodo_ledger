@@ -137,12 +137,34 @@ export function useLiveUpdates() {
     }
   }
 
+  /**
+   * 🚀 立即套用熱更新（App 內即時重載）
+   */
+  const performImmediateReload = async (newVersionCode: number) => {
+    if (!Capacitor.isNativePlatform()) return
+    try {
+      console.log(`[LiveUpdate] 🚀 請求原生端執行熱重載，目標版本: ${newVersionCode}`)
+      
+      // 動態載入自訂原生插件 DodoInstaller
+      // @ts-ignore
+      const { registerPlugin } = await import('@capacitor/core')
+      const DodoInstaller = registerPlugin<any>('DodoInstaller')
+      
+      await DodoInstaller.performHotReload({ versionCode: newVersionCode.toString() })
+      console.log('[LiveUpdate] ✅ 原生端熱重載已完成')
+    } catch (e) {
+      console.error('[LiveUpdate] 原生端熱重載失敗：', e)
+      updateError.value = '無法立即重新載入，請手動重啟 App。'
+    }
+  }
+
   return {
     isChecking,
     updateProgress,
     hasUpdate,
     newReleaseNote,
     updateError,
-    checkForUpdates
+    checkForUpdates,
+    performImmediateReload
   }
 }
