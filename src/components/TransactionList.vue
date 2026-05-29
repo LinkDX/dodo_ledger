@@ -478,19 +478,27 @@ const scrollToDay = async (dateStr: string) => {
 
 // ===== 回到頂部功能 =====
 const showScrollTopBtn = ref(false)
-const listPageRef = ref<HTMLElement | null>(null)
 
 const handleScroll = () => {
-  if (listPageRef.value) {
-    const rect = listPageRef.value.getBoundingClientRect()
-    // 透過測量明細頁面頂部相對於視窗的物理位移量，來判定是否已滾動超過 300px。
-    // 這能 100% 避開全域 window 滾動與其他 Tab 頁面間的相互干擾！
-    showScrollTopBtn.value = rect.top < -250
+  // 1. 如果當前不是明細分頁，按鈕絕對不可以出現！
+  if (props.activeTab !== 'transactions') {
+    showScrollTopBtn.value = false
+    return
   }
+  
+  // 2. 同時測量主容器與 window/body 滾動高度，滿足其一即代表已下捲
+  const mainEl = document.querySelector('.app-main-content')
+  const mainScrollTop = mainEl ? mainEl.scrollTop : 0
+  const winScrollTop = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop
+  
+  showScrollTopBtn.value = mainScrollTop > 300 || winScrollTop > 300
 }
 
 const scrollToTop = () => {
-  // 一鍵平滑滾動所有可能的滾動載體，保證 100% 成功回到頂部
+  // 1. 點擊瞬間立即使按鈕消失，提供零延遲的反饋感！
+  showScrollTopBtn.value = false
+  
+  // 2. 一鍵平滑滾動所有可能的滾動載體，保證 100% 成功回到頂部
   window.scrollTo({ top: 0, behavior: 'smooth' })
   document.documentElement.scrollTo({ top: 0, behavior: 'smooth' })
   document.body.scrollTo({ top: 0, behavior: 'smooth' })
@@ -501,10 +509,14 @@ const scrollToTop = () => {
   }
 }
 
-// 監聽其他頁面進入時，自動收合所有每日彙整項目
-watch(() => props.activeTab, (newTab) => {
+// 監聽 Tab 切換，自動收合每日彙整項目，並同步檢查/重設回到頂部按鈕狀態
+watch(() => props.activeTab, async (newTab) => {
   if (newTab === 'transactions') {
     expandedDays.value = {}
+    await nextTick()
+    handleScroll()
+  } else {
+    showScrollTopBtn.value = false
   }
 })
 
@@ -519,7 +531,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="tx-list-page pop-jelly" ref="listPageRef">
+  <div class="tx-list-page pop-jelly">
     <!-- 頁首 + 搜尋/檢視模式/排序按鈕 -->
     <div class="page-header">
       <h2 class="page-title"><Sparkles class="icon-inline" /> 收支明細</h2>
@@ -1913,6 +1925,16 @@ onUnmounted(() => {
 .fade-drop-leave-to {
   opacity: 0;
   transform: translateY(-8px) scale(0.98);
+}
+
+/* 回到頂部按鈕極速淡入淡出動畫 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease-out;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 /* 快速定位日期的閃爍特效 */

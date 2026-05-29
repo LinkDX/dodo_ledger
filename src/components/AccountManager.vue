@@ -392,22 +392,7 @@ const onAcctDrop = async (targetAcct: Account) => {
   await reorderAccounts(newOrder)
 }
 
-// 手機端快速排序：上移或下移帳戶
-const moveAccount = async (acct: Account, direction: 'up' | 'down') => {
-  const newOrder = [...accounts.value]
-  const idx = newOrder.findIndex(a => a.id === acct.id)
-  if (idx === -1) return
-  
-  if (direction === 'up' && idx > 0) {
-    const [item] = newOrder.splice(idx, 1)
-    newOrder.splice(idx - 1, 0, item)
-    await reorderAccounts(newOrder)
-  } else if (direction === 'down' && idx < newOrder.length - 1) {
-    const [item] = newOrder.splice(idx, 1)
-    newOrder.splice(idx + 1, 0, item)
-    await reorderAccounts(newOrder)
-  }
-}
+
 </script>
 
 <template>
@@ -536,27 +521,7 @@ const moveAccount = async (acct: Account, direction: 'up' | 'down') => {
           </div>
           <!-- 右：操作按鈕 -->
           <div class="card-top-actions">
-            <!-- 手機快速排序上移下移按鈕 -->
-            <button 
-              class="btn-edit-card" 
-              style="font-size: 9px; font-weight: 800; padding: 2px !important; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px;"
-              @click.stop="moveAccount(acct, 'up')"
-              @touchstart.stop
-              @mousedown.stop
-              title="上移"
-            >
-              ▲
-            </button>
-            <button 
-              class="btn-edit-card" 
-              style="font-size: 9px; font-weight: 800; padding: 2px !important; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; margin-right: 6px;"
-              @click.stop="moveAccount(acct, 'down')"
-              @touchstart.stop
-              @mousedown.stop
-              title="下移"
-            >
-              ▼
-            </button>
+
 
             <button class="btn-edit-card" @click="openEditModal(acct)" title="編輯帳戶">
               <Pencil :size="13" />

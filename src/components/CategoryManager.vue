@@ -208,41 +208,7 @@ const onSubDrop = async (catId: string, targetSub: string) => {
   await reorderSubCategories(catId, subs)
 }
 
-// 手機端快速排序：主分類上移與下移
-const moveCategory = async (cat: any, direction: 'up' | 'down') => {
-  const list = [...filteredCategories.value]
-  const idx = list.findIndex(c => c.id === cat.id)
-  if (idx === -1) return
-  
-  if (direction === 'up' && idx > 0) {
-    const [item] = list.splice(idx, 1)
-    list.splice(idx - 1, 0, item)
-    await reorderCategories(list, activeCatType.value)
-  } else if (direction === 'down' && idx < list.length - 1) {
-    const [item] = list.splice(idx, 1)
-    list.splice(idx + 1, 0, item)
-    await reorderCategories(list, activeCatType.value)
-  }
-}
 
-// 手機端快速排序：子分類左移與右移
-const moveSubCategory = async (catId: string, sub: string, direction: 'up' | 'down') => {
-  const cat = categories.value.find(c => c.id === catId)
-  if (!cat) return
-  const subs = [...cat.subCategories]
-  const idx = subs.indexOf(sub)
-  if (idx === -1) return
-  
-  if (direction === 'up' && idx > 0) {
-    const [item] = subs.splice(idx, 1)
-    subs.splice(idx - 1, 0, item)
-    await reorderSubCategories(catId, subs)
-  } else if (direction === 'down' && idx < subs.length - 1) {
-    const [item] = subs.splice(idx, 1)
-    subs.splice(idx + 1, 0, item)
-    await reorderSubCategories(catId, subs)
-  }
-}
 </script>
 
 <template>
@@ -355,27 +321,7 @@ const moveSubCategory = async (catId: string, sub: string, direction: 'up' | 'do
               <span class="sub-count-tag tag-jelly">{{ cat.subCategories.length }} 個子類</span>
             </div>
             <div class="header-right">
-              <!-- 手機快速排序上移下移按鈕 -->
-              <button 
-                class="btn-edit-cat" 
-                style="font-size: 9px; font-weight: 800; padding: 2px !important; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px;"
-                title="上移" 
-                @click.stop="moveCategory(cat, 'up')"
-                @touchstart.stop
-                @mousedown.stop
-              >
-                ▲
-              </button>
-              <button 
-                class="btn-edit-cat" 
-                style="font-size: 9px; font-weight: 800; padding: 2px !important; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; margin-right: 6px;"
-                title="下移" 
-                @click.stop="moveCategory(cat, 'down')"
-                @touchstart.stop
-                @mousedown.stop
-              >
-                ▼
-              </button>
+
 
               <button 
                 class="btn-edit-cat" 
@@ -429,42 +375,35 @@ const moveSubCategory = async (catId: string, sub: string, direction: 'up' | 'do
                     v-else
                     class="tag-jelly sub-cute-pill"
                     :class="{ 'is-dragging': subDragKey === subKey(cat.id, sub), 'drag-over': subDragOverKey === subKey(cat.id, sub) }"
-                    draggable="true"
-                    @dragstart="onSubDragStart(cat.id, sub)"
                     @dragover.prevent="onSubDragOver(cat.id, sub)"
                     @dragleave="onSubDragLeave"
                     @drop.prevent="onSubDrop(cat.id, sub)"
-                    @dragend="onSubDragEnd"
                   >
-                    <GripVertical :size="10" class="sub-grip" />
-                    <span @click.stop="startEditSubCategory(cat.id, sub)" style="cursor: pointer; font-weight: 800;" title="點擊編輯名稱">{{ sub }}</span>
-                    <!-- 子分類微型左右排序點擊按鈕 -->
-                    <button 
-                      class="btn-edit-sub"
-                      title="往左移"
-                      style="background: transparent; border: none; padding: 2px; cursor: pointer; color: var(--color-text-muted); display: inline-flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 800;"
-                      @click.stop="moveSubCategory(cat.id, sub, 'up')"
+                    <!-- 強化拖曳手把：將 draggable 屬性與事件轉移到此元素上，並防誤觸與防冒泡 -->
+                    <span
+                      class="sub-grip"
+                      draggable="true"
+                      @dragstart.stop="onSubDragStart(cat.id, sub)"
+                      @dragend="onSubDragEnd"
+                      title="拖曳調整順序"
                     >
-                      ◀
-                    </button>
-                    <button 
-                      class="btn-edit-sub"
-                      title="往右移"
-                      style="background: transparent; border: none; padding: 2px; cursor: pointer; color: var(--color-text-muted); display: inline-flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 800; margin-right: 2px;"
-                      @click.stop="moveSubCategory(cat.id, sub, 'down')"
-                    >
-                      ▶
-                    </button>
+                      <GripVertical :size="10" />
+                    </span>
+                    <span @click.stop="startEditSubCategory(cat.id, sub)" class="sub-pill-name" title="點擊編輯名稱">{{ sub }}</span>
                     <!-- 子分類編輯小鉛筆 -->
                     <button 
                       class="btn-edit-sub" 
                       @click.stop="startEditSubCategory(cat.id, sub)" 
                       title="編輯名稱"
-                      style="background: transparent; border: none; padding: 2px; cursor: pointer; color: var(--color-text-muted); display: inline-flex; align-items: center; justify-content: center; margin-left: 2px; transition: transform 0.1s ease, color 0.15s ease;"
                     >
                       <Pencil :size="9" />
                     </button>
-                    <button class="btn-remove-sub" @click="handleDeleteSubCategory(cat.id, sub)" title="刪除此子分類">
+                    <!-- 子分類刪除按鈕 -->
+                    <button 
+                      class="btn-remove-sub" 
+                      @click="handleDeleteSubCategory(cat.id, sub)" 
+                      title="刪除此子分類"
+                    >
                       <X :size="10" />
                     </button>
                   </span>
@@ -727,10 +666,39 @@ const moveSubCategory = async (catId: string, sub: string, direction: 'up' | 'do
   stroke: #FF5A5A !important;
 }
 
-/* 子分類編輯小按鈕特效 */
+/* 子分類編輯與刪除小按鈕重構 (馬卡龍底座效果) */
+.btn-edit-sub,
+.btn-remove-sub {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50% !important;
+  color: var(--color-text-muted) !important;
+  transition: all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  padding: 0 !important;
+  margin: 0 !important;
+  flex-shrink: 0;
+}
+
 .btn-edit-sub:hover {
-  color: var(--color-text-dark) !important;
-  transform: scale(1.2);
+  background-color: var(--color-bg-warm) !important;
+  color: var(--color-accent-gold) !important;
+  transform: scale(1.15) !important;
+}
+
+.btn-remove-sub:hover {
+  background-color: #FFDADA !important;
+  color: #FF5A5A !important;
+  transform: scale(1.15) !important;
+}
+
+.btn-remove-sub :deep(svg) {
+  stroke: currentColor !important;
 }
 
 .accordion-body {
@@ -743,20 +711,25 @@ const moveSubCategory = async (catId: string, sub: string, direction: 'up' | 'do
 .sub-pills-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px; /* 增加到 8px，更有呼吸空間 */
   margin-bottom: 12px;
 }
 
+/* 子分類膠囊 Pill 極致高雅重構 */
 .sub-cute-pill {
   background-color: #FFFFFF !important;
-  font-size: 13px !important;
-  padding: 4px 8px 4px 6px !important;
+  border: 1.5px solid var(--color-border) !important;
+  border-radius: 15px !important; /* 完美的半圓形膠囊 */
+  height: 28px !important;
+  font-size: 12px !important;
+  font-weight: 800;
+  padding: 0 8px 0 6px !important; /* 手把離左側剛好是 6px，右側按鈕離右邊剛好是 8px */
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  box-shadow: var(--shadow-jelly-sm-sm, 1px 1px 0 0 #2C1E1B) !important;
-  cursor: grab;
-  transition: opacity 0.15s, box-shadow 0.15s;
+  gap: 6px;
+  box-shadow: var(--shadow-jelly-sm) !important;
+  cursor: default;
+  transition: all 0.15s ease;
 }
 
 .sub-cute-pill.is-dragging {
@@ -767,43 +740,44 @@ const moveSubCategory = async (catId: string, sub: string, direction: 'up' | 'do
   box-shadow: 0 0 0 2px var(--color-text-dark) !important;
 }
 
+/* 強化子分類拖曳手把按鈕 */
 .sub-grip {
-  opacity: 0.5;
-  color: var(--color-text-dark);
-  cursor: grab;
-  padding: 4px;
-  margin-left: -6px;
-  margin-right: 2px;
-  border-radius: 4px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  cursor: grab;
+  color: var(--color-text-dark);
+  width: 18px;
+  height: 18px;
+  background-color: var(--color-bg-warm);
+  border: 1.2px solid var(--color-border);
+  border-radius: 5px;
+  box-shadow: 1px 1px 0 0 #2C1E1B;
+  margin-left: 0px; /* 與左側保持呼吸間距，不往左推 */
+  margin-right: 0px;
   flex-shrink: 0;
+  touch-action: none;
   transition: all 0.1s ease;
 }
 
 .sub-grip:hover {
-  background-color: var(--color-bg-warm);
-  opacity: 0.9;
+  background-color: #fff2d6;
+  border-color: var(--color-accent-gold);
 }
 
-.btn-remove-sub {
-  background: none;
-  border: none;
+.sub-grip:active {
+  cursor: grabbing;
+  transform: scale(0.9);
+  background-color: var(--color-accent-gold);
+}
+
+.sub-pill-name {
+  font-weight: 800;
+  color: var(--color-text-dark);
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2px;
-  border-radius: 50%;
-}
-
-.btn-remove-sub:hover {
-  background-color: var(--color-bg-warm);
-}
-
-.btn-remove-sub :deep(svg) {
-  stroke: #FF5A5A;
+  user-select: none;
+  line-height: 1; /* 精確垂直居中 */
+  margin-right: 2px;
 }
 
 .empty-sub-hint {
