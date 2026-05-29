@@ -84,7 +84,7 @@ public class MainActivity extends BridgeActivity {
 
             // 1. 取得手機內部私有沙盒實體目錄 (Directory.Data 對應於 Android 的 getFilesDir())
             File filesDir = this.getFilesDir();
-            File versionFile = new File(filesDir, "current_hot_version.txt");
+            final File versionFile = new File(filesDir, "current_hot_version.txt");
             
             if (versionFile.exists()) {
                 BufferedReader br = new BufferedReader(new FileReader(versionFile));
@@ -94,40 +94,86 @@ public class MainActivity extends BridgeActivity {
                 if (versionCodeStr != null && !versionCodeStr.trim().isEmpty()) {
                     String ver = versionCodeStr.trim();
                     File zipFile = new File(filesDir, "update_pack_" + ver + ".zip");
-                    File updateDir = new File(filesDir, "update_pack_" + ver);
+                    final File updateDir = new File(filesDir, "update_pack_" + ver);
+                    File tempUpdateDir = new File(filesDir, "update_pack_" + ver + "_temp");
                     File indexFile = new File(updateDir, "index.html");
                     
-                    // 2. 🔍 檢查是否需要啟動原生解壓縮
+                    // 2. 🔍 檢查是否需要啟動原生解壓縮 (採用強健的原子解壓縮)
                     if (!indexFile.exists() && zipFile.exists()) {
-                        Log.d(TAG, "🐱 偵測到新版熱更新 ZIP 壓縮包，啟動閃電原生解壓縮...");
-                        if (!updateDir.exists()) {
-                            updateDir.mkdirs();
+                        Log.d(TAG, "🐱 偵測到新版熱更新 ZIP 壓縮包，啟動閃電原生原子解壓縮...");
+                        if (tempUpdateDir.exists()) {
+                            deleteRecursive(tempUpdateDir);
                         }
+                        tempUpdateDir.mkdirs();
                         
-                        // 執行極速原生解壓縮 (約 20ms)
-                        long startTime = System.currentTimeMillis();
-                        unzip(zipFile, updateDir);
-                        long endTime = System.currentTimeMillis();
-                        
-                        Log.d(TAG, "⚡ 原生解壓完成！耗時: " + (endTime - startTime) + "ms");
-                        
-                        // 3. 🧹 解壓完畢後刪除 ZIP 原始包以釋放硬碟空間
-                        if (zipFile.delete()) {
-                            Log.d(TAG, "🧹 已刪除原始熱更新 ZIP 包，維持硬碟整潔。");
+                        try {
+                            long startTime = System.currentTimeMillis();
+                            unzip(zipFile, tempUpdateDir);
+                            
+                            File tempIndex = new File(tempUpdateDir, "index.html");
+                            if (tempIndex.exists()) {
+                                if (updateDir.exists()) {
+                                    deleteRecursive(updateDir);
+                                }
+                                if (tempUpdateDir.renameTo(updateDir)) {
+                                    long endTime = System.currentTimeMillis();
+                                    Log.d(TAG, "⚡ 原生原子解壓並重命名完成！耗時: " + (endTime - startTime) + "ms");
+                                    
+                                    // 3. 🧹 解壓完畢後刪除 ZIP 原始包以釋放硬碟空間
+                                    if (zipFile.delete()) {
+                                        Log.d(TAG, "🧹 已刪除原始熱更新 ZIP 包，維持硬碟整潔。");
+                                    }
+                                } else {
+                                    throw new Exception("暫存目錄重命名為正式目錄失敗");
+                                }
+                            } else {
+                                throw new Exception("暫存目錄中找不到 index.html，解壓不完整");
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "❌ 原生原子解壓失敗，清除暫存目錄", e);
+                            deleteRecursive(tempUpdateDir);
                         }
                     }
                     
                     // 4. 🚀 再次確認 index.html 存在，重定向 WebView 加載路徑！
                     if (indexFile.exists()) {
-                        String localPath = updateDir.getAbsolutePath();
+                        final String localPath = updateDir.getAbsolutePath();
                         
                         // 💡 Capacitor 6 正確熱更新方式：變更 WebViewLocalServer 的 BasePath
                         try {
                             this.bridge.setServerBasePath(localPath);
                             Log.d(TAG, "✨ [熱更新注入成功] WebViewLocalServer 已切換沙盒路徑: " + localPath);
+                            
+                            // 🚀 關鍵修復：冷啟動時 WebView 已經在 super.onCreate 中以預設路徑啟動載入，
+                            // 我們必須在 UI 執行緒中強制清除快取並重新載入，否則會載入混合資源導致白畫面 (重啟失敗)！
+                            this.runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    try {
+                                        MainActivity.this.bridge.getWebView().clearCache(true);
+                                        MainActivity.this.bridge.getWebView().reload();
+                                        Log.d(TAG, "⚡ [冷啟動 WebView 重載成功] 已從沙盒重啟 WebView 載入新版資源");
+                                    } catch (Exception e) {
+                                        Log.e(TAG, "❌ 冷啟動重載 WebView 失敗，主動清除損毀的熱更新版本以安全自癒", e);
+                                        try {
+                                            if (versionFile.exists()) {
+                                                versionFile.delete();
+                                            }
+                                        } catch (Exception dE) {
+                                            Log.e(TAG, "刪除損毀版本檔失敗", dE);
+                                        }
+                                    }
+                                }
+                            });
                         } catch (Exception ex) {
-                            Log.e(TAG, "❌ 切換 BasePath 失敗，嘗試 fallback: " + ex.getMessage());
-                            this.bridge.getWebView().loadUrl("file://" + indexFile.getAbsolutePath());
+                            Log.e(TAG, "❌ 切換 BasePath 失敗，清除損毀的熱更新版本，安全回退至內置版", ex);
+                            try {
+                                if (versionFile.exists()) {
+                                    versionFile.delete();
+                                }
+                            } catch (Exception dE) {
+                                Log.e(TAG, "刪除損毀版本檔失敗", dE);
+                            }
                         }
                     } else {
                         Log.w(TAG, "⚠️ 找不到沙盒 index.html，回退加載 APK 內建預置版本。");
@@ -144,7 +190,7 @@ public class MainActivity extends BridgeActivity {
     /**
      * ⚡️ 高防護的原生 Zip 解壓縮核心 (自動建立多級資料夾，並防範 Zip Slip 安全性路徑攻擊)
      */
-    void unzip(File zipFile, File targetDirectory) throws Exception {
+    static void unzip(File zipFile, File targetDirectory) throws Exception {
         ZipInputStream zis = new ZipInputStream(new BufferedInputStream(new FileInputStream(zipFile)));
         try {
             ZipEntry ze;
@@ -185,7 +231,7 @@ public class MainActivity extends BridgeActivity {
     /**
      * 🧹 遞迴刪除檔案或資料夾
      */
-    private void deleteRecursive(File fileOrDirectory) {
+    static void deleteRecursive(File fileOrDirectory) {
         if (fileOrDirectory.isDirectory()) {
             File[] children = fileOrDirectory.listFiles();
             if (children != null) {
@@ -354,40 +400,66 @@ class DodoInstallerPlugin extends Plugin {
         }
 
         try {
-            MainActivity activity = (MainActivity) getActivity();
-            File filesDir = activity.getFilesDir();
+            Context context = getContext();
+            File filesDir = context.getFilesDir();
             File zipFile = new File(filesDir, "update_pack_" + versionCode + ".zip");
             File updateDir = new File(filesDir, "update_pack_" + versionCode);
+            File tempUpdateDir = new File(filesDir, "update_pack_" + versionCode + "_temp");
             File indexFile = new File(updateDir, "index.html");
 
-            // 1. 🔍 如果解壓目錄中的 index.html 不存在，但 ZIP 存在，則立即在背景解壓
+            // 1. 🔍 如果解壓目錄中的 index.html 不存在，但 ZIP 存在，則立即在背景解壓 (原子解壓縮)
             if (!indexFile.exists() && zipFile.exists()) {
-                Log.d("DodoLedger_HotReload", "📦 熱重載：偵測到 ZIP 壓縮包，執行原生解壓縮...");
-                if (!updateDir.exists()) {
-                    updateDir.mkdirs();
+                Log.d("DodoLedger_HotReload", "📦 熱重載：偵測到 ZIP 壓縮包，執行原生原子解壓縮...");
+                if (tempUpdateDir.exists()) {
+                    MainActivity.deleteRecursive(tempUpdateDir);
                 }
-                activity.unzip(zipFile, updateDir);
-                Log.d("DodoLedger_HotReload", "⚡ 熱重載：解壓完成");
-
-                // 刪除原始 ZIP
-                if (zipFile.delete()) {
-                    Log.d("DodoLedger_HotReload", "🧹 已刪除原始熱更新 ZIP 包");
+                tempUpdateDir.mkdirs();
+                
+                try {
+                    MainActivity.unzip(zipFile, tempUpdateDir);
+                    File tempIndex = new File(tempUpdateDir, "index.html");
+                    if (tempIndex.exists()) {
+                        if (updateDir.exists()) {
+                            MainActivity.deleteRecursive(updateDir);
+                        }
+                        if (tempUpdateDir.renameTo(updateDir)) {
+                            Log.d("DodoLedger_HotReload", "⚡ 熱重載：解壓與重命名完成");
+                            // 刪除原始 ZIP
+                            if (zipFile.delete()) {
+                                Log.d("DodoLedger_HotReload", "🧹 已刪除原始熱更新 ZIP 包");
+                            }
+                        } else {
+                            throw new Exception("暫存目錄重命名為正式目錄失敗");
+                        }
+                    } else {
+                        throw new Exception("暫存目錄中找不到 index.html，解壓可能不完整");
+                    }
+                } catch (Exception e) {
+                    Log.e("DodoLedger_HotReload", "❌ 熱重載原子解壓失敗，清除暫存目錄", e);
+                    MainActivity.deleteRecursive(tempUpdateDir);
+                    call.reject("熱重載解壓縮失敗: " + e.getMessage());
+                    return;
                 }
             }
 
             // 2. 🚀 再次確認 index.html 存在，重定向 WebView 加載路徑！
             if (updateDir.exists() && indexFile.exists()) {
-                String localPath = updateDir.getAbsolutePath();
+                final String localPath = updateDir.getAbsolutePath();
+
+                if (getActivity() == null) {
+                    call.reject("Activity 實例不存在，無法執行 UI 重載");
+                    return;
+                }
 
                 // 必須在 UI 執行緒操作 WebView
-                activity.runOnUiThread(new Runnable() {
+                getActivity().runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         try {
-                            activity.getBridge().setServerBasePath(localPath);
+                            getBridge().setServerBasePath(localPath);
                             // 💡 關鍵修復：清除 WebView 快取，避免載入舊版暫存資源，導致使用者覺得「重載完沒反應」
-                            activity.getBridge().getWebView().clearCache(true);
-                            activity.getBridge().getWebView().reload();
+                            getBridge().getWebView().clearCache(true);
+                            getBridge().getWebView().reload();
                             Log.d("DodoLedger_HotReload", "✨ [熱重載成功] WebView 已切換至沙盒並清除快取、重載: " + localPath);
                             call.resolve();
                         } catch (Exception e) {

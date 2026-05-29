@@ -126,9 +126,9 @@
 - 發現新版時下載 `app-update.zip` 到沙盒，並寫入 `current_hot_version.txt`。
 - 下次冷啟動時，`MainActivity.java`：
   - 讀取版本指標
-  - 以 `ZipInputStream` 原生解壓
-  - 清掉 ZIP
-  - 以 `this.bridge.setServerUrl()` 轉向沙盒 `index.html`
+  - 採用 **原子解壓機制**：先解壓縮至 `_temp` 暫存目錄，確認 `index.html` 完整解壓後原子重命名為正式 `update_pack_*` 目錄，防範解壓中斷導致的白畫面 Bug，並刪除原始 `.zip`
+  - 呼叫 `this.bridge.setServerBasePath(localPath)` 正確指向沙盒，並在 UI 執行緒強制呼叫 WebView 的 `clearCache(true)` 與 `reload()`，避免冷載入時混合舊預置資源與新沙盒資源而導致重啟白畫面失敗
+  - **自癒降級機制**：一旦 WebView 重載出錯或發生 Exception，主動刪除 `current_hot_version.txt`，確保安全退回內置穩定版，絕不卡死
 - 安全要求：
   - 必須保留 Zip Slip 路徑穿越防護
   - 斷網 / 伺服器異常時要降級為本地資源

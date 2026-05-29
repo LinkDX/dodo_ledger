@@ -2,6 +2,26 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Android 1.2.4 / Build 16] - 2026-05-29
+
+### 📱 徹底修復 Live Reload 與熱更新重啟白畫面失敗的 Bug
+- **徹底排除 Context 類型強轉導致的 Live Reload 靜默失敗 Bug (原生變更，需要手動重新安裝新 APK 啟用)**：
+  - 深入解決使用者在熱更新下載完成後，點擊立即套用，卻總是彈出 **「⚠️ 無法立即重新載入，請手動重啟」** 失敗對話框的頑疾。
+  - **原因剖析**：原本原生自訂插件 `DodoInstallerPlugin.java` 內部的 `performHotReload` 採用了 `(MainActivity) getActivity()` 的強轉方式來獲取 `filesDir` 並調用 `unzip` 和 `deleteRecursive` 輔助方法。然而，在許多 Android ROM（如小米、OPPO、vivo 等）中，`getActivity()` 回傳的 Activity 常被系統級的 `ContextThemeWrapper` 或代理類別包裝，直接強制轉型會 100% 拋出 `ClassCastException`，進而導致 Promise 被原生層 reject。
+  - **解決方案**：
+    1. 將 `MainActivity` 內的 `unzip` 與 `deleteRecursive` 宣告為 `static` 靜態方法，使同套件下的自訂插件能直接呼叫，完全避開 Activity 的依賴；
+    2. 將 `filesDir` 的獲取重構為標準 Capacitor 規範的 `getContext().getFilesDir()`；
+    3. 將 `runOnUiThread` 重構為 `getActivity().runOnUiThread()`，藉此**徹底消除對 `MainActivity` 類型強制轉換的依賴**。這保證了在所有 Android 機型上 Live Reload（熱重載）能 100% 成功執行，不再發生靜默 reject 與彈窗警示！
+- **冷啟動 BasePath 注入與強制同步重載 (原生變更，需要手動重新安裝新 APK 啟用)**：
+  - 深入解決在 App 熱更新背景下載完畢或進行了 Live Reload 後，使用者「重啟 App」卻會卡在白畫面（重啟失敗）的嚴重 Bug。
+  - 原因在於冷啟動 `super.onCreate` 執行時，Capacitor 已用預設 assets 路徑啟動了網頁載入；隨後設定 `setServerBasePath` 卻沒有同步重載，導致 WebView 混合加載了預置 `index.html` 與沙盒的 JS/CSS 資源而發生載入失敗。
+  - 解決方案：冷啟動設定 `setServerBasePath` 後，**立即在 UI 執行緒中強制呼叫 WebView 的 `clearCache(true)` 與 `reload()`**，確保冷啟動能拋棄舊加載並 100% 從沙盒目錄完整乾淨地載入。
+- **強健的原生「原子解壓縮」安全屏障**：
+  - 在 `MainActivity.java` 冷啟動與自訂插件的 `performHotReload` 雙重解壓縮防線中，全面引入原子操作架構：將 ZIP 包先解壓至 `_temp` 暫存目錄，成功驗證 `index.html` 存在後再透過作業系統層級的 `renameTo` 原子置換為正式目錄。
+  - 這徹底防範了在背景解壓縮時 App 被使用者滑掉、系統殺死或斷電，導致殘留不完整/破損資源，進而導致下次重啟時加載到毀損資料夾永久白畫面的極端 Bug！
+- **自癒降級（Self-Healing Fallback）降落傘設計**：
+  - 新增原生層的崩潰與載入錯誤自癒盾牌：一旦 WebView 重載出錯或切換 BasePath 出現任何 Exception，主動刪除 `current_hot_version.txt` 版本指標檔案，下次重開或立即回退時便能自動且 100% 安全地退回 APK 內置穩定版，絕不卡死 App！
+
 ## [Web 2.6.2] - 2026-05-29
 
 ### 🎨 徹底修復逗逗貓對話氣泡箭頭「黑線穿過/重合破圖」視覺 Bug

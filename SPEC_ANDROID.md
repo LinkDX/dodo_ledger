@@ -127,7 +127,7 @@ Dodo Ledger 的首頁逗逗貓表情不能因為斷網而失效，規格如下�
 2. **背景比對**：啟動後，App 在背景發送非同步 GET 請求至 `https://linkdx.github.io/dodo_ledger/version.json`，對帳核對最新版本。
 3. **安全下載**：若發現遠端 `versionCode` 大於本地，App 會自動在背景下載 `app-update.zip`。
 4. **指標傳遞**：下載完成後，App 在背景將 `app-update.zip` 寫入沙盒根目錄，同時生成 `current_hot_version.txt` 版本指標文字檔以傳遞版本信號。
-5. **原生極速解壓與重定向**：下一次 App 開啟（冷啟動）時，原生 Android `MainActivity.java` 會在啟動第一時間讀取 `current_hot_version.txt` 內指明的版號，比對解壓目錄。若對應解壓目錄不存在，原生端會調用 Java 底層 `ZipInputStream` 進行極速解壓（耗時僅約 20ms）並清除 `.zip` 原始包以防硬碟塞滿，同時內建 **Zip Slip 漏洞路徑穿越防護** 機制。解壓無誤後，WebView 會動態重定向 `setServerUrl()` 載入沙盒 `index.html`，實現完美的無感熱更新閉環。
+5. **原生原子解壓與重定向**：下一次 App 開啟（冷啟動）時，原生 Android `MainActivity.java` 會在啟動第一時間讀取 `current_hot_version.txt` 內指明的版號，比對解壓目錄。若對應解壓目錄不存在，原生端會啟動「原子解壓機制」，先解壓縮至 `_temp` 暫存目錄，成功驗證 `index.html` 存在後，再原子重命名（`renameTo`）為正式目錄，以杜絕背景解壓中斷導致資料破損的 Bug，並清除原始 `.zip` 包。隨後，WebView 會調用 `setServerBasePath(localPath)` 動態切換沙盒，並立即在 UI 執行緒呼交 `clearCache(true)` 與 `reload()` 強制重載畫面，防止冷載入時舊預置與新沙盒資源混合載入導致的白畫面（重啟失敗）問題。同時內建崩潰與載入 Exception 自癒降級機制，一旦出錯自動刪除 `current_hot_version.txt` 以便安全退回內置穩定版，實現完美的 100% 強健無感熱更新閉環。
 6. **優雅降級**：離線、伺服器異常或下載失敗時，直接忽略，自動降級讀取本地最新成功的沙盒快取或 APK 預置 bundled 版本，絕不卡頓 App。
 
 ### 6.3 覆蓋安裝版本自愈機制 (Crossover Installation Self-Healing)
@@ -140,8 +140,8 @@ Dodo Ledger 的首頁逗逗貓表情不能因為斷網而失效，規格如下�
 ### 6.4 App 內即時熱重載（Hot Reload）規格
 為了提供極致的熱更新體驗，本專案打破了「必須關閉 App 重開才能生效」的限制，支援 App 內免重開一鍵即時熱重載：
 1. **原生插件橋接**：於自訂的 `DodoInstallerPlugin` 插件中註冊 `@PluginMethod public void performHotReload(PluginCall call)`。
-2. **即時背景解壓縮**：當 Web 端背景下載熱更新 ZIP 壓縮包成功（進度達到 `100%`），Web 端會呼叫 `performHotReload({ versionCode })`。原生端收到請求後，會立即在原生背景執行 ZIP 解壓縮與原始包清除，不需要等待冷啟動。
-3. **動態路徑切換與 WebView 重載**：解壓完成後，原生端會在 UI 執行緒（Main Thread）中呼叫 `activity.getBridge().setServerBasePath(localPath)`，將 WebView 本地伺服器的根路徑動態指引向新的沙盒解壓目錄，並緊接著執行 `activity.getBridge().getWebView().reload()` 對 WebView 進行熱重載。
+2. **強健原子背景解壓**：當 Web 端背景下載熱更新 ZIP 壓縮包成功（進度達到 `100%`），Web 端會呼叫 `performHotReload({ versionCode })`。原生端收到請求後，會立即以「原子解壓機制」執行 ZIP 解壓與原始包清除，確保解壓縮被中斷時不會有損毀的殘留資源被載入。
+3. **動態路徑切換與 WebView 重載**：解壓與原子更名完成後，原生端會在 UI 執行緒（Main Thread）中呼叫 `activity.getBridge().setServerBasePath(localPath)`，將 WebView 本地伺服器的根路徑動態指引向新的沙盒解壓目錄，並緊接著執行 `activity.getBridge().getWebView().clearCache(true)` 與 `reload()` 對 WebView 進行熱重載。
 4. **貼心互動引導**：Web 端在 `Settings.vue` 內置進度 watcher，一旦背景下載進度達到 `100%`，系統會主動彈出馬卡龍色「🚀 立即套用新版本」對話框，詢問使用者是否立即熱重載，並在使用者確認後觸發，實現 1 秒內無縫套用最新網頁資源的流暢閉環。
 
 ---
