@@ -300,38 +300,53 @@ const isAchievementUnlocked = (id: string) => {
           class="tx-item-cute card-jelly"
         >
           <!-- 交易主子分類與 icon -->
-          <div class="tx-left-side">
-            <div 
-              class="tx-icon-circle"
-              :style="{ 
-                backgroundColor: tx.type === 'expense' ? '#FFDADA' : tx.type === 'income' ? '#E1F8EB' : '#E3EFFF'
-              }"
-            >
-              <ArrowLeftRight v-if="tx.type === 'transfer'" :size="16" />
-              <span v-else class="tx-type-dot">{{ tx.type === 'expense' ? '💸' : '💰' }}</span>
+          <div class="tx-left-side" style="display: flex; align-items: center; gap: 10px;">
+            <!-- 左側 Avatar 與記帳人垂直頭像區 -->
+            <div class="tx-avatar-area" style="display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; width: 44px; min-width: 44px; max-width: 44px;">
+              <div 
+                class="tx-icon-circle"
+                :style="{ 
+                  backgroundColor: tx.type === 'expense' ? '#FFDADA' : tx.type === 'income' ? '#E1F8EB' : '#E3EFFF'
+                }"
+                style="margin-bottom: 0;"
+              >
+                <ArrowLeftRight v-if="tx.type === 'transfer'" :size="16" />
+                <span v-else class="tx-type-dot">{{ tx.type === 'expense' ? '💸' : '💰' }}</span>
+              </div>
+              <span 
+                v-if="tx.createdBy" 
+                class="creator-tag-micro" 
+                style="font-size: 8px; font-weight: 800; color: var(--color-text-dark); background-color: var(--color-bg-warm); border: 1.2px solid var(--color-border); border-radius: 6px; padding: 1.5px 2px; white-space: nowrap; max-width: 100%; width: 100%; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; line-height: 1.1; text-align: center; display: block;"
+                :title="tx.createdBy"
+              >
+                {{ tx.createdByAvatar }}{{ tx.createdBy }}
+              </span>
             </div>
             <div class="tx-info-block">
-              <span class="tx-category-tag">
-                {{ tx.category }}{{ tx.subCategory ? ` ➜ ${tx.subCategory}` : '' }}
-              </span>
+              <div class="tx-category-row" style="display: flex; align-items: center; flex-wrap: wrap; gap: 6px;">
+                <span class="tx-category-tag">
+                  {{ tx.category }}{{ tx.subCategory ? ` ➜ ${tx.subCategory}` : '' }}
+                </span>
+              </div>
               <div class="tx-note-row">
                 <span class="tx-note">{{ tx.note || '無備註' }}</span>
               </div>
-              <div class="tx-details-row">
-                <span class="tx-account-info">
-                  <template v-if="tx.type === 'transfer'">
-                    {{ getAccountName(tx.fromAccountId) }} → {{ getAccountName(tx.toAccountId) }}
-                  </template>
-                  <template v-else-if="tx.fromAccountId">
-                    {{ getAccountName(tx.fromAccountId) }}
-                  </template>
-                  <template v-else-if="tx.toAccountId">
-                    {{ getAccountName(tx.toAccountId) }}
-                  </template>
-                </span>
-                <span v-if="tx.createdBy" class="tag-jelly tx-creator-badge">
-                  ✍️ {{ tx.createdByAvatar }} {{ tx.createdBy }}
-                </span>
+              <div class="tx-details-row" style="display: flex; flex-direction: column; align-items: flex-start; gap: 3px; width: 100%;">
+                <template v-if="tx.type === 'transfer'">
+                  <div class="tx-account-info transfer-line" style="display: flex; align-items: center; gap: 4px;">
+                    <span class="transfer-label" style="background-color: #E3EFFF; color: #4A7FE0; font-size: 9px; padding: 1px 4px; border-radius: 4px; font-weight: 800;">從</span>
+                    <span class="acct-name-pill">{{ getAccountName(tx.fromAccountId) }}</span>
+                  </div>
+                  <div class="tx-account-info transfer-line" style="display: flex; align-items: center; gap: 4px;">
+                    <span class="transfer-label" style="background-color: #E1F8EB; color: #2C8C67; font-size: 9px; padding: 1px 4px; border-radius: 4px; font-weight: 800;">到</span>
+                    <span class="acct-name-pill">{{ getAccountName(tx.toAccountId) }}</span>
+                  </div>
+                </template>
+                <template v-else>
+                  <span class="tx-account-info">
+                    <span class="acct-name-pill">{{ getAccountName(tx.fromAccountId || tx.toAccountId) }}</span>
+                  </span>
+                </template>
               </div>
             </div>
           </div>
@@ -803,6 +818,9 @@ const isAchievementUnlocked = (id: string) => {
 .tx-category-tag {
   font-size: 14px;
   font-weight: 800;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.3;
 }
 
 .tx-note {
@@ -821,7 +839,22 @@ const isAchievementUnlocked = (id: string) => {
   font-size: 12px;
   font-weight: 700;
   color: var(--color-text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 100%;
+  min-width: 0;
+  vertical-align: middle;
 }
+
+.acct-name-pill {
+  display: inline-block;
+  vertical-align: middle;
+  font-weight: 700;
+  word-break: break-all;
+}
+
+
 
 .tx-details-row {
   display: flex;

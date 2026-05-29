@@ -86,7 +86,7 @@
 
 ### 1.5 UI 元件原則
 - 禁止使用原生 `select`、`alert`、`confirm` 等瀏覽器原生 UI。
-- 一律使用自製 SFC + 馬卡龍配色 + Jelly 動畫。
+- 一律使用自製 SFC + 馬卡龍配色 + Jelly 動畫。自訂選單（例如 `src/components/AccountDropdown.vue`）必須支援 RWD 寬度適配，當帳戶名稱過長時自動透過 `text-overflow: ellipsis` 進行「...」截斷，且與金額採上下雙行排版，防範手機畫面擠壓跑版。
 - 全域 Dialog：
   - Confirm：`src/composables/useConfirm.ts` + `<CuteConfirmDialog />`
   - Alert：`src/composables/useAlert.ts` + `<CuteAlertDialog />`

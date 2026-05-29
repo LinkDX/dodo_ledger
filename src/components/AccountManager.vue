@@ -20,6 +20,8 @@ import {
 } from 'lucide-vue-next'
 import MonthYearPicker from './MonthYearPicker.vue'
 import AccountPicker from './AccountPicker.vue'
+import AccountDropdown from './AccountDropdown.vue'
+
 
 const { 
   accounts,
@@ -805,16 +807,12 @@ const onAcctDrop = async (targetAcct: Account) => {
 
           <div class="form-group">
             <label class="label-cute">來源帳戶 (扣款)</label>
-            <select v-model="fromAccountId" class="input-jelly">
-              <option v-for="a in accounts" :key="a.id" :value="a.id">{{ a.name }} (${{ formatCurrency(a.balance) }})</option>
-            </select>
+            <AccountDropdown v-model="fromAccountId" :accounts="accounts" placeholder="請選擇來源帳戶..." />
           </div>
 
           <div class="form-group">
             <label class="label-cute">目的帳戶 (存款)</label>
-            <select v-model="toAccountId" class="input-jelly">
-              <option v-for="a in accounts" :key="a.id" :value="a.id">{{ a.name }} (${{ formatCurrency(a.balance) }})</option>
-            </select>
+            <AccountDropdown v-model="toAccountId" :accounts="accounts" placeholder="請選擇目的帳戶..." />
           </div>
 
           <div class="form-group">

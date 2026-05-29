@@ -744,37 +744,49 @@ onUnmounted(() => {
           class="tx-item card-jelly"
         >
           <!-- 左側：icon + 分類資訊 -->
-          <div class="tx-left">
-            <div class="tx-icon-circle" :style="{ backgroundColor: getTxStyle(tx).bg }">
-              <ArrowLeftRight v-if="tx.type === 'transfer'" :size="18" :stroke="'#4A7FE0'" />
-              <span v-else class="tx-emoji">{{ getTxStyle(tx).icon }}</span>
+          <div class="tx-left" style="display: flex; align-items: flex-start; gap: 12px; flex: 1; min-width: 0;">
+            <!-- 左側 Avatar 與記帳人垂直頭像區 -->
+            <div class="tx-avatar-area" style="display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; width: 44px; min-width: 44px; max-width: 44px;">
+              <div class="tx-icon-circle" :style="{ backgroundColor: getTxStyle(tx).bg }" style="margin-bottom: 0;">
+                <ArrowLeftRight v-if="tx.type === 'transfer'" :size="18" :stroke="'#4A7FE0'" />
+                <span v-else class="tx-emoji">{{ getTxStyle(tx).icon }}</span>
+              </div>
+              <span 
+                v-if="tx.createdBy" 
+                class="creator-tag-micro" 
+                style="font-size: 8px; font-weight: 800; color: var(--color-text-dark); background-color: var(--color-bg-warm); border: 1.2px solid var(--color-border); border-radius: 6px; padding: 1.5px 2px; white-space: nowrap; max-width: 100%; width: 100%; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; line-height: 1.1; text-align: center; display: block;"
+                :title="tx.createdBy"
+              >
+                {{ tx.createdByAvatar }}{{ tx.createdBy }}
+              </span>
             </div>
             <div class="tx-info">
-              <div class="tx-category-row" style="display: flex; align-items: center; flex-wrap: wrap;">
+              <div class="tx-category-row" style="display: flex; align-items: center; flex-wrap: wrap; gap: 6px;">
                 <span class="tx-category">
                   {{ tx.category }}{{ tx.subCategory ? ` ➜ ${tx.subCategory}` : '' }}
                 </span>
-                <span v-if="isTransactionPaid(tx)" class="tag-jelly paid-tag" style="background-color: #E1F8EB; color: #2C8C67; font-size: 8px; padding: 1px 4px; font-weight: 800; border: 1.2px solid #2C8C67; border-radius: 8px; margin-left: 6px; display: inline-flex; align-items: center; gap: 2px;">
+                <span v-if="isTransactionPaid(tx)" class="tag-jelly paid-tag" style="background-color: #E1F8EB; color: #2C8C67; font-size: 8px; padding: 1px 4px; font-weight: 800; border: 1.2px solid #2C8C67; border-radius: 8px; display: inline-flex; align-items: center; gap: 2px;">
                   ✓ 已繳清
                 </span>
               </div>
               <span class="tx-note">{{ tx.note || '無備註' }}</span>
-              <!-- 帳戶與記帳人資訊 -->
-              <div class="tx-details-row">
-                <span class="tx-account-info">
-                  <template v-if="tx.type === 'transfer'">
-                    {{ getAccountName(tx.fromAccountId) }} → {{ getAccountName(tx.toAccountId) }}
-                  </template>
-                  <template v-else-if="tx.fromAccountId">
-                    {{ getAccountName(tx.fromAccountId) }}
-                  </template>
-                  <template v-else-if="tx.toAccountId">
-                    {{ getAccountName(tx.toAccountId) }}
-                  </template>
-                </span>
-                <span v-if="tx.createdBy" class="tag-jelly creator-tag">
-                  ✍️ {{ tx.createdByAvatar }} {{ tx.createdBy }}
-                </span>
+              <!-- 帳戶資訊 -->
+              <div class="tx-details-row" style="display: flex; flex-direction: column; align-items: flex-start; gap: 3px; width: 100%;">
+                <template v-if="tx.type === 'transfer'">
+                  <div class="tx-account-info transfer-line" style="display: flex; align-items: center; gap: 4px;">
+                    <span class="transfer-label" style="background-color: #E3EFFF; color: #4A7FE0; font-size: 9px; padding: 1px 4px; border-radius: 4px; font-weight: 800;">從</span>
+                    <span class="acct-name-pill">{{ getAccountName(tx.fromAccountId) }}</span>
+                  </div>
+                  <div class="tx-account-info transfer-line" style="display: flex; align-items: center; gap: 4px;">
+                    <span class="transfer-label" style="background-color: #E1F8EB; color: #2C8C67; font-size: 9px; padding: 1px 4px; border-radius: 4px; font-weight: 800;">到</span>
+                    <span class="acct-name-pill">{{ getAccountName(tx.toAccountId) }}</span>
+                  </div>
+                </template>
+                <template v-else>
+                  <span class="tx-account-info">
+                    <span class="acct-name-pill">{{ getAccountName(tx.fromAccountId || tx.toAccountId) }}</span>
+                  </span>
+                </template>
               </div>
             </div>
           </div>
@@ -787,7 +799,7 @@ onUnmounted(() => {
             <span class="tx-date">
               {{ new Date(tx.date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }) }}
             </span>
-            <div class="tx-actions">
+            <div class="tx-actions" style="display: flex; align-items: center; gap: 6px;">
               <button class="btn-edit btn-jelly" @click="openEditModal(tx)" title="編輯此筆">
                 <Pencil :size="11" />
               </button>
@@ -847,36 +859,49 @@ onUnmounted(() => {
               :style="idx > 0 ? 'border-top: 1px dashed var(--color-border);' : ''"
             >
               <!-- 左側：icon + 分類資訊 -->
-              <div class="tx-left">
-                <div class="tx-icon-circle" :style="{ backgroundColor: getTxStyle(tx).bg }">
-                  <ArrowLeftRight v-if="tx.type === 'transfer'" :size="18" :stroke="'#4A7FE0'" />
-                  <span v-else class="tx-emoji">{{ getTxStyle(tx).icon }}</span>
+              <div class="tx-left" style="display: flex; align-items: flex-start; gap: 12px; flex: 1; min-width: 0;">
+                <!-- 左側 Avatar 與記帳人垂直頭像區 -->
+                <div class="tx-avatar-area" style="display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; width: 44px; min-width: 44px; max-width: 44px;">
+                  <div class="tx-icon-circle" :style="{ backgroundColor: getTxStyle(tx).bg }" style="margin-bottom: 0;">
+                    <ArrowLeftRight v-if="tx.type === 'transfer'" :size="18" :stroke="'#4A7FE0'" />
+                    <span v-else class="tx-emoji">{{ getTxStyle(tx).icon }}</span>
+                  </div>
+                  <span 
+                    v-if="tx.createdBy" 
+                    class="creator-tag-micro" 
+                    style="font-size: 8px; font-weight: 800; color: var(--color-text-dark); background-color: var(--color-bg-warm); border: 1.2px solid var(--color-border); border-radius: 6px; padding: 1.5px 2px; white-space: nowrap; max-width: 100%; width: 100%; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; line-height: 1.1; text-align: center; display: block;"
+                    :title="tx.createdBy"
+                  >
+                    {{ tx.createdByAvatar }}{{ tx.createdBy }}
+                  </span>
                 </div>
                 <div class="tx-info">
-                  <div class="tx-category-row" style="display: flex; align-items: center; flex-wrap: wrap;">
+                  <div class="tx-category-row" style="display: flex; align-items: center; flex-wrap: wrap; gap: 6px;">
                     <span class="tx-category">
                       {{ tx.category }}{{ tx.subCategory ? ` ➜ ${tx.subCategory}` : '' }}
                     </span>
-                    <span v-if="isTransactionPaid(tx)" class="tag-jelly paid-tag" style="background-color: #E1F8EB; color: #2C8C67; font-size: 8px; padding: 1px 4px; font-weight: 800; border: 1.2px solid #2C8C67; border-radius: 8px; margin-left: 6px; display: inline-flex; align-items: center; gap: 2px;">
+                    <span v-if="isTransactionPaid(tx)" class="tag-jelly paid-tag" style="background-color: #E1F8EB; color: #2C8C67; font-size: 8px; padding: 1px 4px; font-weight: 800; border: 1.2px solid #2C8C67; border-radius: 8px; display: inline-flex; align-items: center; gap: 2px;">
                       ✓ 已繳清
                     </span>
                   </div>
                   <span class="tx-note">{{ tx.note || '無備註' }}</span>
-                  <div class="tx-details-row">
-                    <span class="tx-account-info">
-                      <template v-if="tx.type === 'transfer'">
-                        {{ getAccountName(tx.fromAccountId) }} ➜ {{ getAccountName(tx.toAccountId) }}
-                      </template>
-                      <template v-else-if="tx.fromAccountId">
-                        {{ getAccountName(tx.fromAccountId) }}
-                      </template>
-                      <template v-else-if="tx.toAccountId">
-                        {{ getAccountName(tx.toAccountId) }}
-                      </template>
-                    </span>
-                    <span v-if="tx.createdBy" class="tag-jelly creator-tag">
-                      ✍️ {{ tx.createdByAvatar }} {{ tx.createdBy }}
-                    </span>
+                  <!-- 帳戶資訊 -->
+                  <div class="tx-details-row" style="display: flex; flex-direction: column; align-items: flex-start; gap: 3px; width: 100%;">
+                    <template v-if="tx.type === 'transfer'">
+                      <div class="tx-account-info transfer-line" style="display: flex; align-items: center; gap: 4px;">
+                        <span class="transfer-label" style="background-color: #E3EFFF; color: #4A7FE0; font-size: 9px; padding: 1px 4px; border-radius: 4px; font-weight: 800;">從</span>
+                        <span class="acct-name-pill">{{ getAccountName(tx.fromAccountId) }}</span>
+                      </div>
+                      <div class="tx-account-info transfer-line" style="display: flex; align-items: center; gap: 4px;">
+                        <span class="transfer-label" style="background-color: #E1F8EB; color: #2C8C67; font-size: 9px; padding: 1px 4px; border-radius: 4px; font-weight: 800;">到</span>
+                        <span class="acct-name-pill">{{ getAccountName(tx.toAccountId) }}</span>
+                      </div>
+                    </template>
+                    <template v-else>
+                      <span class="tx-account-info">
+                        <span class="acct-name-pill">{{ getAccountName(tx.fromAccountId || tx.toAccountId) }}</span>
+                      </span>
+                    </template>
                   </div>
                 </div>
               </div>
@@ -886,7 +911,7 @@ onUnmounted(() => {
                 <span class="tx-amount" :style="{ color: getTxStyle(tx).color }">
                   {{ getTxStyle(tx).prefix }}${{ formatCurrency(tx.amount) }}
                 </span>
-                <div class="tx-actions">
+                <div class="tx-actions" style="display: flex; align-items: center; gap: 6px;">
                   <button class="btn-edit btn-jelly" @click="openEditModal(tx)" title="編輯此筆">
                     <Pencil :size="11" />
                   </button>
@@ -984,36 +1009,49 @@ onUnmounted(() => {
                 :style="idx > 0 ? 'border-top: 1px dashed var(--color-border);' : ''"
               >
                 <!-- 左側：icon + 分類資訊 -->
-                <div class="tx-left">
-                  <div class="tx-icon-circle" :style="{ backgroundColor: getTxStyle(tx).bg }">
-                    <ArrowLeftRight v-if="tx.type === 'transfer'" :size="18" :stroke="'#4A7FE0'" />
-                    <span v-else class="tx-emoji">{{ getTxStyle(tx).icon }}</span>
+                <div class="tx-left" style="display: flex; align-items: flex-start; gap: 12px; flex: 1; min-width: 0;">
+                  <!-- 左側 Avatar 與記帳人垂直頭像區 -->
+                  <div class="tx-avatar-area" style="display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; width: 44px; min-width: 44px; max-width: 44px;">
+                    <div class="tx-icon-circle" :style="{ backgroundColor: getTxStyle(tx).bg }" style="margin-bottom: 0;">
+                      <ArrowLeftRight v-if="tx.type === 'transfer'" :size="18" :stroke="'#4A7FE0'" />
+                      <span v-else class="tx-emoji">{{ getTxStyle(tx).icon }}</span>
+                    </div>
+                    <span 
+                      v-if="tx.createdBy" 
+                      class="creator-tag-micro" 
+                      style="font-size: 8px; font-weight: 800; color: var(--color-text-dark); background-color: var(--color-bg-warm); border: 1.2px solid var(--color-border); border-radius: 6px; padding: 1.5px 2px; white-space: nowrap; max-width: 100%; width: 100%; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; line-height: 1.1; text-align: center; display: block;"
+                      :title="tx.createdBy"
+                    >
+                      {{ tx.createdByAvatar }}{{ tx.createdBy }}
+                    </span>
                   </div>
                   <div class="tx-info">
-                    <div class="tx-category-row" style="display: flex; align-items: center; flex-wrap: wrap;">
+                    <div class="tx-category-row" style="display: flex; align-items: center; flex-wrap: wrap; gap: 6px;">
                       <span class="tx-category">
                         {{ tx.category }}{{ tx.subCategory ? ` ➜ ${tx.subCategory}` : '' }}
                       </span>
-                      <span v-if="isTransactionPaid(tx)" class="tag-jelly paid-tag" style="background-color: #E1F8EB; color: #2C8C67; font-size: 8px; padding: 1px 4px; font-weight: 800; border: 1.2px solid #2C8C67; border-radius: 8px; margin-left: 6px; display: inline-flex; align-items: center; gap: 2px;">
+                      <span v-if="isTransactionPaid(tx)" class="tag-jelly paid-tag" style="background-color: #E1F8EB; color: #2C8C67; font-size: 8px; padding: 1px 4px; font-weight: 800; border: 1.2px solid #2C8C67; border-radius: 8px; display: inline-flex; align-items: center; gap: 2px;">
                         ✓ 已繳清
                       </span>
                     </div>
                     <span class="tx-note">{{ tx.note || '無備註' }}</span>
-                    <div class="tx-details-row">
-                      <span class="tx-account-info">
-                        <template v-if="tx.type === 'transfer'">
-                          {{ getAccountName(tx.fromAccountId) }} ➜ {{ getAccountName(tx.toAccountId) }}
-                        </template>
-                        <template v-else-if="tx.fromAccountId">
-                          {{ getAccountName(tx.fromAccountId) }}
-                        </template>
-                        <template v-else-if="tx.toAccountId">
-                          {{ getAccountName(tx.toAccountId) }}
-                        </template>
-                      </span>
-                      <span v-if="tx.createdBy" class="tag-jelly creator-tag">
-                        ✍️ {{ tx.createdByAvatar }} {{ tx.createdBy }}
-                      </span>
+                    <!-- 帳戶資訊 -->
+                    <div class="tx-details-row" style="display: flex; flex-direction: column; align-items: flex-start; gap: 3px; width: 100%;">
+                      <template v-if="tx.type === 'transfer'">
+                        <div class="tx-account-info transfer-line" style="display: flex; align-items: center; gap: 4px;">
+                          <span class="transfer-label" style="background-color: #E3EFFF; color: #4A7FE0; font-size: 9px; padding: 1px 4px; border-radius: 4px; font-weight: 800;">從</span>
+                          <span class="acct-name-pill">{{ getAccountName(tx.fromAccountId) }}</span>
+                        </div>
+                        <div class="tx-account-info transfer-line" style="display: flex; align-items: center; gap: 4px;">
+                          <span class="transfer-label" style="background-color: #E1F8EB; color: #2C8C67; font-size: 9px; padding: 1px 4px; border-radius: 4px; font-weight: 800;">到</span>
+                          <span class="acct-name-pill">{{ getAccountName(tx.toAccountId) }}</span>
+                        </div>
+                      </template>
+                      <template v-else>
+                        <span class="tx-account-info">
+                          <span class="acct-name-pill">{{ getAccountName(tx.fromAccountId || tx.toAccountId) }}</span>
+                        </span>
+                      </template>
                     </div>
                   </div>
                 </div>
@@ -1023,7 +1061,7 @@ onUnmounted(() => {
                   <span class="tx-amount" :style="{ color: getTxStyle(tx).color }">
                     {{ getTxStyle(tx).prefix }}${{ formatCurrency(tx.amount) }}
                   </span>
-                  <div class="tx-actions">
+                  <div class="tx-actions" style="display: flex; align-items: center; gap: 6px;">
                     <button class="btn-edit btn-jelly" @click="openEditModal(tx)" title="編輯此筆">
                       <Pencil :size="11" />
                     </button>
@@ -1502,7 +1540,7 @@ onUnmounted(() => {
 .tx-category-row {
   display: flex;
   align-items: center;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 6px;
   min-width: 0;
 }
@@ -1510,11 +1548,11 @@ onUnmounted(() => {
 .tx-category {
   font-size: 18px;
   font-weight: 800;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
   flex: 1;
   min-width: 0;
+  line-height: 1.3;
 }
 
 @media (max-width: 360px) {
@@ -1536,7 +1574,22 @@ onUnmounted(() => {
   font-size: 13px;
   font-weight: 700;
   color: var(--color-text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 100%;
+  min-width: 0;
+  vertical-align: middle;
 }
+
+.acct-name-pill {
+  display: inline-block;
+  vertical-align: middle;
+  font-weight: 700;
+  word-break: break-all;
+}
+
+
 
 .tx-details-row {
   display: flex;

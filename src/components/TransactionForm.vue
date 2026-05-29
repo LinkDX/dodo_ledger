@@ -107,11 +107,24 @@ const handleKeyPress = (key: string) => {
     return
   }
 
-  // 處理運算子 (+, -)
-  if (key === '+' || key === '-') {
+  // 處理數字 00 輸入
+  if (key === '00') {
+    if (isNewInput.value || displayFormula.value === '0') {
+      displayFormula.value = '0'
+      isNewInput.value = true
+    } else {
+      displayFormula.value += '00'
+      isNewInput.value = false
+      instantCalculate()
+    }
+    return
+  }
+
+  // 處理運算子 (+, -, ×, ÷)
+  if (key === '+' || key === '-' || key === '×' || key === '÷') {
     calculateResult()
     const lastChar = displayFormula.value.slice(-1)
-    if (lastChar === '+' || lastChar === '-') {
+    if (lastChar === '+' || lastChar === '-' || lastChar === '×' || lastChar === '÷') {
       // 替換運算子
       displayFormula.value = displayFormula.value.slice(0, -1) + key
     } else {
@@ -123,7 +136,7 @@ const handleKeyPress = (key: string) => {
 
   // 處理小數點
   if (key === '.') {
-    const parts = displayFormula.value.split(/[\+\-]/)
+    const parts = displayFormula.value.split(/[\+\-×÷]/)
     const currentNum = parts[parts.length - 1]
     if (currentNum.includes('.')) return // 防止重複小數點
     displayFormula.value += '.'
@@ -146,19 +159,20 @@ const handleKeyPress = (key: string) => {
 // 即時計算 (不影響算式，只更新預覽金額)
 const instantCalculate = () => {
   try {
-    // 替換簡單加減進行 eval 模擬 (安全解析，僅包含數字、小數與加減)
-    const sanitized = displayFormula.value.replace(/[^0-9\.\+\-]/g, '')
+    // 替換加減乘除進行過濾
+    const sanitized = displayFormula.value.replace(/[^0-9\.\+\-×÷]/g, '')
     if (!sanitized) {
       displayResult.value = 0
       return
     }
     // 結尾若是運算子，先去掉再算
     let toEval = sanitized
-    if (sanitized.endsWith('+') || sanitized.endsWith('-')) {
+    if (sanitized.endsWith('+') || sanitized.endsWith('-') || sanitized.endsWith('×') || sanitized.endsWith('÷')) {
       toEval = sanitized.slice(0, -1)
     }
-    // 用簡單的手寫加減解析器代替危險的 eval
-    displayResult.value = safeEval(toEval)
+    // 把畫面展示的 × 轉換成代碼中的 *，把 ÷ 轉換成 / 進行解析
+    const formulaToCalc = toEval.replace(/×/g, '*').replace(/÷/g, '/')
+    displayResult.value = safeEval(formulaToCalc)
   } catch (e) {
     // 解析失敗時不更新
   }
@@ -169,23 +183,47 @@ const calculateResult = () => {
   displayFormula.value = String(displayResult.value)
 }
 
-// 簡單安全的手寫加減數學解析器 (防範安全性漏洞)
+// 簡單安全的手寫四則運算解析器 (先乘除，後加減，防範安全性漏洞)
 const safeEval = (str: string): number => {
-  // 將字串拆分為數字與運算子
-  const tokens = str.match(/([+-]?\d*\.?\d+)|([+-])/g) || []
-  let result = 0
-  let currentOp = '+'
+  try {
+    // 1. 將字串分割成數字與運算子 Token
+    const tokens = str.match(/(\d*\.?\d+)|([\+\-\*\/])/g) || []
+    if (tokens.length === 0) return 0
 
-  for (const token of tokens) {
-    if (token === '+' || token === '-') {
-      currentOp = token
-    } else {
-      const val = parseFloat(token)
-      if (currentOp === '+') result += val
-      else result -= val
+    // 2. 處理第一優先順序：乘除法
+    const queue: (string | number)[] = []
+    let i = 0
+    while (i < tokens.length) {
+      const token = tokens[i]
+      if (token === '*' || token === '/') {
+        const prev = parseFloat(queue.pop() as string)
+        const next = parseFloat(tokens[i + 1])
+        const res = token === '*' ? prev * next : (next !== 0 ? prev / next : 0)
+        queue.push(res)
+        i += 2 // 跳過運算子和下一個數字
+      } else {
+        queue.push(token)
+        i++
+      }
     }
+
+    // 3. 處理第二優先順序：加減法
+    let result = typeof queue[0] === 'number' ? queue[0] : parseFloat(queue[0] as string)
+    let op = '+'
+    for (let j = 1; j < queue.length; j++) {
+      const token = queue[j]
+      if (token === '+' || token === '-') {
+        op = token
+      } else {
+        const val = typeof token === 'number' ? token : parseFloat(token)
+        if (op === '+') result += val
+        else result -= val
+      }
+    }
+    return Math.max(result, 0) // 金額不能為負數
+  } catch (e) {
+    return 0
   }
-  return Math.max(result, 0) // 金額不能為負數
 }
 
 // 5. 信用卡分期付款配置
@@ -417,38 +455,44 @@ const handleSubmit = async () => {
         </div>
       </div>
 
-      <!-- 4x4 可愛果凍按鍵群 -->
+      <!-- 5x4 可愛果凍計算機按鍵群 -->
       <div class="calc-keyboard-grid">
-        <!-- 第一橫列 -->
+        <!-- 第一橫列：全部為運算子 -->
+        <button class="btn-jelly key-btn key-operator" @click="handleKeyPress('+')">+</button>
+        <button class="btn-jelly key-btn key-operator" @click="handleKeyPress('-')">-</button>
+        <button class="btn-jelly key-btn key-operator" @click="handleKeyPress('×')">×</button>
+        <button class="btn-jelly key-btn key-operator" @click="handleKeyPress('÷')">÷</button>
+
+        <!-- 第二橫列：7, 8, 9 加上退格 ⌫ -->
         <button class="btn-jelly key-btn" @click="handleKeyPress('7')">7</button>
         <button class="btn-jelly key-btn" @click="handleKeyPress('8')">8</button>
         <button class="btn-jelly key-btn" @click="handleKeyPress('9')">9</button>
-        <button class="btn-jelly key-btn key-operator" @click="handleKeyPress('+')">+</button>
-
-        <!-- 第二橫列 -->
-        <button class="btn-jelly key-btn" @click="handleKeyPress('4')">4</button>
-        <button class="btn-jelly key-btn" @click="handleKeyPress('5')">5</button>
-        <button class="btn-jelly key-btn" @click="handleKeyPress('6')">6</button>
-        <button class="btn-jelly key-btn key-operator" @click="handleKeyPress('-')">-</button>
-
-        <!-- 第三橫列 -->
-        <button class="btn-jelly key-btn" @click="handleKeyPress('1')">1</button>
-        <button class="btn-jelly key-btn" @click="handleKeyPress('2')">2</button>
-        <button class="btn-jelly key-btn" @click="handleKeyPress('3')">3</button>
-        <button class="btn-jelly key-btn key-clear" @click="handleKeyPress('C')">C</button>
-
-        <!-- 第四橫列 -->
         <button class="btn-jelly key-btn key-backspace" @click="handleKeyPress('⌫')">
           <Delete :size="18" />
         </button>
-        <button class="btn-jelly key-btn" @click="handleKeyPress('0')">0</button>
-        <button class="btn-jelly key-btn" @click="handleKeyPress('.')">.</button>
+
+        <!-- 第三橫列：4, 5, 6 加上清除 C -->
+        <button class="btn-jelly key-btn" @click="handleKeyPress('4')">4</button>
+        <button class="btn-jelly key-btn" @click="handleKeyPress('5')">5</button>
+        <button class="btn-jelly key-btn" @click="handleKeyPress('6')">6</button>
+        <button class="btn-jelly key-btn key-clear" @click="handleKeyPress('C')">C</button>
+
+        <!-- 第四橫列：1、2、3 以及跨兩列的 OK 🐾 鍵 -->
+        <button class="btn-jelly key-btn" @click="handleKeyPress('1')">1</button>
+        <button class="btn-jelly key-btn" @click="handleKeyPress('2')">2</button>
+        <button class="btn-jelly key-btn" @click="handleKeyPress('3')">3</button>
         <button 
           class="btn-jelly key-btn key-confirm" 
           @click="handleSubmit"
+          style="grid-row: span 2; height: auto;"
         >
           OK 🐾
         </button>
+
+        <!-- 第五橫列：0、00、. (OK鍵佔了最右邊一格) -->
+        <button class="btn-jelly key-btn" @click="handleKeyPress('0')">0</button>
+        <button class="btn-jelly key-btn" @click="handleKeyPress('00')">00</button>
+        <button class="btn-jelly key-btn" @click="handleKeyPress('.')">.</button>
       </div>
     </div>
 
