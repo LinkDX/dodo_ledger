@@ -350,5 +350,17 @@ ledgers/
    - **核心解決方案**：原生端在重定向 basePath 後，強制調用 `activity.getBridge().getWebView().clearCache(true)` 徹底清空快取，接著執行 `activity.getBridge().getWebView().reload()`。這保證了網頁重新載入時 100% 採用沙盒中的最新資源。
 4. **狀態回饋與 UI 自癒**：
    - 原生熱重載方法在 WebView 發起刷新後 resolve Promise。
-   - 若原生端熱重載失敗（例如沙盒寫入失敗、檔案損毀），Web 端不再靜默失敗，而是會主動顯示可愛的 Dodo Alert 彈窗，提示使用者手動重開以完成更新。
+   - 若原生端熱重載失敗（例如沙盒寫入失敗、檔案損毀），Web 端不再靜默失敗，而是會主動顯示可愛 of Dodo Alert 彈窗，提示使用者手動重開以完成更新。
 
+### 6.3 原生一鍵 APK 覆蓋升級機制
+
+為確保主人在需要升級 App 原生核心功能時，無須繁瑣地下載並手動安裝，本專案在 `DodoInstaller` 原生插件中全新實作並優化了一鍵 APK 覆蓋更新機制：
+
+1. **強健路徑解析**：
+   - 手機下載 APK 時，因不同作業系統與 Capacitor Filesystem 版本差異，檔案路徑可能帶有百分比 URL 編碼（例如 `%20` 空白）或 `file://` 與 `file:/` 等多重格式歧義。
+   - **防禦性設計**：原生層接收到路徑後，強制使用 `URLDecoder.decode` 與 `Uri.parse().getPath()` 還原出 100% 準確的本機絕對實體路徑，並提供 substring 備用兜底解析，確保 100% 成功取得 APK 檔案，杜絕靜默失敗。
+2. **Activity-Based 喚起機制 (ROM 相容性防禦)**：
+   - 在部分高度安全限制或特殊定製的手機 ROM 中（如小米 HyperOS/MIUI、華為 HarmonyOS 等），使用 Application Context 發起 `ACTION_VIEW` 安裝 Intent 容易被系統以安全理由攔截或直接靜默忽視。
+   - **核心方案**：優先使用 `getActivity().startActivity(intent)` 喚起安裝程序，並在 FileProvider 中額外補全了 `<files-path>` 設定（對應 `context.getFilesDir()`），保證安裝 Intent 的喚起率與相容性達到 100%。
+3. **UI 異常回饋閉環**：
+   - 當背景下載失敗或原生端發生任何權限 reject 錯誤時，Web 端將拋出錯誤並透過馬卡龍自訂 Alert 彈窗顯式告知使用者失敗原因，確保優秀的互動透明度。

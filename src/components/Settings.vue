@@ -160,6 +160,8 @@ const handleAppDownloadAndInstall = async () => {
   } catch (e: any) {
     console.error('下載或安裝 APK 失敗：', e)
     appUpdateError.value = e.message || '下載或安裝失敗，請檢查權限喵！'
+    // 💡 關鍵修復：下載或安裝失敗時，彈出高質感自訂 Dialog 告知使用者失敗詳情，杜絕無聲無息「沒反應」的 UX 痛點！
+    await showAlert(`⚠️ 下載或覆蓋安裝失敗：\n${appUpdateError.value}\n\n請您檢查網路狀態、儲存空間與安裝權限後再試一次喵🐾`)
   } finally {
     isDownloading.value = false
   }

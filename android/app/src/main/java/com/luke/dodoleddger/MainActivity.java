@@ -214,15 +214,35 @@ class DodoInstallerPlugin extends Plugin {
         }
 
         try {
-            // 清理可能附帶的 file:// 前綴
-            if (filePath.startsWith("file://")) {
-                filePath = filePath.substring(7);
+            // 💡 採用 Android 原生 Uri 與 URLDecoder 解析，100% 強健還原實體絕對路徑，防範 URL 編碼與 file:// 格式歧義
+            String cleanPath = filePath;
+            try {
+                if (cleanPath.startsWith("file:") || cleanPath.contains("%")) {
+                    cleanPath = java.net.URLDecoder.decode(cleanPath, "UTF-8");
+                }
+                Uri parsedUri = Uri.parse(cleanPath);
+                if (parsedUri.getScheme() != null && parsedUri.getScheme().equals("file")) {
+                    cleanPath = parsedUri.getPath();
+                } else if (cleanPath.startsWith("file://")) {
+                    cleanPath = cleanPath.substring(7);
+                } else if (cleanPath.startsWith("file:/")) {
+                    cleanPath = cleanPath.substring(6);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "解析 filePath 時出錯，將嘗試直接使用原字串", e);
             }
 
-            File file = new File(filePath);
+            File file = new File(cleanPath);
             if (!file.exists()) {
-                call.reject("找不到指定的 APK 檔案：" + filePath);
-                return;
+                // 💡 嘗試兜底：如果沒解碼過的原 filePath 存在，就用它
+                File fallbackFile = new File(filePath.startsWith("file://") ? filePath.substring(7) : filePath);
+                if (fallbackFile.exists()) {
+                    file = fallbackFile;
+                } else {
+                    Log.e(TAG, "❌ 找不到 APK 檔案。解析後路徑: " + file.getAbsolutePath() + "，原始路徑: " + filePath);
+                    call.reject("找不到指定的 APK 檔案，請檢查儲存權限或重新下載喵🐾");
+                    return;
+                }
             }
 
             Context context = getContext();
@@ -276,7 +296,7 @@ class DodoInstallerPlugin extends Plugin {
                 // 授權
                 intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 
-                // 顯式地為所有符合條件的 Activity 授予權限
+                // 顯式地為所有符合條件 of Activity 授予權限
                 List<ResolveInfo> resInfoList = context.getPackageManager().queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY);
                 for (ResolveInfo resolveInfo : resInfoList) {
                     String packageName = resolveInfo.activityInfo.packageName;
@@ -289,7 +309,12 @@ class DodoInstallerPlugin extends Plugin {
             intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             
-            context.startActivity(intent);
+            // 💡 關鍵優化：在 Activity Context 下呼叫 startActivity 喚起安裝，比起 Application Context 具有極佳的手機 ROM 相容性
+            if (getActivity() != null) {
+                getActivity().startActivity(intent);
+            } else {
+                context.startActivity(intent);
+            }
             call.resolve();
             Log.d(TAG, "🚀 已成功發起系統原生覆蓋安裝 Intent，實際安裝檔案: " + finalFile.getAbsolutePath());
         } catch (Exception e) {

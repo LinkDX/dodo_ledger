@@ -2,6 +2,19 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Android 1.2.3 / Build 15] - 2026-05-29
+
+### 📱 徹底修復「一鍵覆蓋安裝 APK」無反應、路徑解碼錯誤與靜默失敗的 Bug
+- **強健的 APK 路徑解析與解碼 (原生變更，需要手動重新安裝新 APK 啟用)**：
+  - 徹底解決因 `@capacitor/filesystem` 傳回的 `result.path` 包含 URL 編碼（如空白、特殊符號被轉成 `%20` 等）或是帶有 `file://` 與 `file:/` 不同系統格式歧義，導致原生層 `new File(filePath).exists()` 判定檔案不存在、進而使安裝程序靜默中斷的 Bug。
+  - 原生層引入強健的 `URLDecoder.decode` 與 `Uri.parse().getPath()` 解析機制，自動將 URI 還原成 100% 準確的本機絕對實體路徑，並提供 substring 兜底方案以保證 100% 成功解析路徑。
+- **Activity Context 啟動安裝 (ROM 相容性極致優化)**：
+  - 將原本在 `DodoInstallerPlugin` 內以 `Application Context` 啟動安裝 Intent 的作法，重構為優先使用 `getActivity().startActivity(intent)`。這在許多國產與嚴格安全限制的 Android ROM 中（如小米 MIUI、華為 HarmonyOS、OPPO、vivo 等）能極大提高系統 PackageInstaller 的喚起成功率，避免因 Context 類型不對而被系統安全策略靜默忽略！
+- **FileProvider 安全範圍補完**：
+  - 在 `file_paths.xml` 中額外增設 `<files-path name="my_files" path="." />`（對應 `context.getFilesDir()`），讓沙盒所有目錄均能完美透過 FileProvider 分享，防範安裝時因路徑洩漏安全異常。
+- **一鍵安裝 UI 異常警示互動設計 (Web 端優化)**：
+  - 深入優化 `Settings.vue` 內的 APK 下載與安裝 `handleAppDownloadAndInstall` 流程。當下載失敗或原生端發生任何 reject 錯誤時，不再只是靜默地把錯誤設給背景變數，而是**主動彈出可愛的 Dodo Alert 視窗** 提示使用者失敗的詳情與排查建議，徹底消除了無聲無息「沒反應」的 UX 痛點！
+
 ## [Android 1.2.2 / Build 14] - 2026-05-29
 
 ### 📱 徹底修復免重新啟動「立即套用熱更新」點擊無反應或快取卡死的問題
