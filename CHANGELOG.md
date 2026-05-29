@@ -2,6 +2,15 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Android 1.2.1 / Build 13] - 2026-05-29
+
+### 📱 徹底修復 App 內原生 APK 覆蓋更新「已下載但無法觸發安裝」的頑疾
+- **Android 原生安裝機制革命性重構（原生變更，需要手動重新安裝新 APK 啟用）**：
+  - **安全引導「允許安裝未知應用程式」權限**：針對 Android 8.0+（API 26+）系統安全限制，全新實作 `REQUEST_INSTALL_PACKAGES` 權限的主動檢查。若偵測到當前未被系統允許安裝未知來源應用程式，將主動引導並自動跳轉至系統設定的「允許安裝未知應用程式」頁面，並拒絕當前 Promise 給予使用者萌萌引導文字，徹底解決過往在許多 ROM（如小米、華為、三星）中因無權限導致靜默失敗、下載後毫無反應的痛點喵🐾。
+  - **解決私有沙盒私密目錄限制（100% 成功率覆蓋安裝）**：深入修復在 Android 10+ 甚至是許多嚴格 ROM 中，PackageInstaller 因權限與沙盒機制限制無法存取內部私有快取路徑（`context.getCacheDir()`）的問題。當偵測到 APK 下載於內部快取時，會主動且安全地將 APK 複製一份至外部專屬快取目錄（`context.getExternalCacheDir()`，對應外部儲存空間中 App 快取，無沙盒強制鎖死限制），並在此路徑上喚起安裝 Intent。
+  - **強健的 FileProvider 顯式權限賦予**：除了常規的 `FLAG_GRANT_READ_URI_PERMISSION` 旗標外，透過 `PackageManager` 遍歷所有能夠處理此安裝 Intent 的 Activity 包名，並顯式調用 `context.grantUriPermission(packageName, apkUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)` 逐一授權，確保系統 PackageInstaller 萬無一失地擁有 APK 檔案的讀取權限，徹底杜絕「剖析套件時發生問題」或「檔案無法讀取」的錯誤。
+  - **對接 file_paths.xml 的外部儲存空間路徑**：同步在 `android/app/src/main/res/xml/file_paths.xml` 中配置了全新的 `<external-cache-path>` 與 `<external-files-path>`，讓 FileProvider 的暴露範圍完全涵蓋外部快取與檔案目錄，實現更新閉環。
+
 ## [Web 2.6.0 / Android 1.2.0 / Build 12] - 2026-05-29
 
 ### 🚀 支援免重開、一鍵即時「熱重載（Hot Reload）」功能

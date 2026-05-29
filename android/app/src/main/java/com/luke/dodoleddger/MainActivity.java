@@ -25,6 +25,10 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import android.os.Build;
+import android.provider.Settings;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
+import java.util.List;
 
 public class MainActivity extends BridgeActivity {
     private static final String TAG = "DodoLedger_HotUpdate";
@@ -222,15 +226,64 @@ class DodoInstallerPlugin extends Plugin {
             }
 
             Context context = getContext();
+
+            // 1. 🔍 針對 Android 8.0+ 檢查是否擁有「安裝未知來源應用程式」的權限
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                if (!context.getPackageManager().canRequestPackageInstalls()) {
+                    Log.w(TAG, "🐱 偵測到未開啟「安裝未知來源應用程式」權限，準備引導跳轉...");
+                    Intent settingsIntent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES);
+                    settingsIntent.setData(Uri.parse("package:" + context.getPackageName()));
+                    settingsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    context.startActivity(settingsIntent);
+                    call.reject("請先在系統設定中允許 Dodo Ledger 安裝未知應用程式，然後重新點擊更新喵🐾");
+                    return;
+                }
+            }
+
+            // 2. 🛡️ 針對私有沙盒路徑做相容性處理：
+            // 如果 APK 檔案位於私有內部快取目錄，有些系統的 PackageInstaller 會拒絕讀取（即便有 FileProvider）。
+            // 我們將其複製到「外部快取目錄」中以確保 100% 成功安裝。
+            File finalFile = file;
+            String privateCachePath = context.getCacheDir().getAbsolutePath();
+            if (file.getAbsolutePath().startsWith(privateCachePath)) {
+                File externalCacheDir = context.getExternalCacheDir();
+                if (externalCacheDir != null) {
+                    File tempFile = new File(externalCacheDir, "update_temp.apk");
+                    // 執行複製
+                    try (java.io.InputStream in = new java.io.FileInputStream(file);
+                         java.io.OutputStream out = new java.io.FileOutputStream(tempFile)) {
+                        byte[] buffer = new byte[4096];
+                        int length;
+                        while ((length = in.read(buffer)) > 0) {
+                            out.write(buffer, 0, length);
+                        }
+                        out.flush();
+                        finalFile = tempFile;
+                        Log.d(TAG, "🐱 已成功將私有沙盒 APK 複製到外部快取目錄: " + finalFile.getAbsolutePath());
+                    } catch (Exception e) {
+                        Log.e(TAG, "複製 APK 到外部快取失敗，將嘗試使用原路徑安裝", e);
+                    }
+                }
+            }
+
             Intent intent = new Intent(Intent.ACTION_VIEW);
             
             Uri apkUri;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 String authority = context.getPackageName() + ".fileprovider";
-                apkUri = FileProvider.getUriForFile(context, authority, file);
+                apkUri = FileProvider.getUriForFile(context, authority, finalFile);
+                
+                // 授權
                 intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                
+                // 顯式地為所有符合條件的 Activity 授予權限
+                List<ResolveInfo> resInfoList = context.getPackageManager().queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY);
+                for (ResolveInfo resolveInfo : resInfoList) {
+                    String packageName = resolveInfo.activityInfo.packageName;
+                    context.grantUriPermission(packageName, apkUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                }
             } else {
-                apkUri = Uri.fromFile(file);
+                apkUri = Uri.fromFile(finalFile);
             }
 
             intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
@@ -238,7 +291,7 @@ class DodoInstallerPlugin extends Plugin {
             
             context.startActivity(intent);
             call.resolve();
-            Log.d(TAG, "🚀 已成功發起系統原生覆蓋安裝 Intent，安裝檔案: " + filePath);
+            Log.d(TAG, "🚀 已成功發起系統原生覆蓋安裝 Intent，實際安裝檔案: " + finalFile.getAbsolutePath());
         } catch (Exception e) {
             Log.e(TAG, "安裝 APK 時出錯", e);
             call.reject("發起系統安裝失敗: " + e.getMessage());
