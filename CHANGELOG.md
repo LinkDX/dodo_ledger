@@ -2,6 +2,17 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Android 1.2.5 / Build 17] - 2026-05-29
+
+### 📱 徹底修復 DodoInstaller 插件在 Android 實體裝置上 implemented 失敗的致命 Bug
+- **獨立 Public 類別重構 (原生變更，需要手動重新安裝新 APK 啟用)**：
+  - 深入解決在 Android 實體裝置上，不論呼叫「一鍵覆蓋安裝 APK」還是「即時熱重載」時，皆會彈出 **`"DodoInstaller" plugin is not implemented on android`** 導致功能完全失效的致命 Bug。
+  - **原因剖析**：先前自訂插件 `DodoInstallerPlugin` 是寫在 `MainActivity.java` 內部的非 public 類別。然而，Capacitor 是採用反射機制（Reflection）在運行時動態實體化插件的，對於非 `public` 的類別，反射載入器會因為 Java 訪問權限限製而反射加載失敗，進而導致該插件在 Android 平台上完全失效。
+  - **解決方案**：
+    1. 將 `DodoInstallerPlugin` 徹底移出 `MainActivity.java`，於獨立檔案中宣告為 `public class DodoInstallerPlugin`，以符合 Capacitor Plugin 的官方反射加載標準；
+    2. 清理 `MainActivity.java` 中重複的內部宣告，保持專案架構整潔明朗；
+    3. 全面經 `clean` 與 `build` 驗證，確認 100% 編譯通過，完美對接了原生層與前端的所有交互通道。
+
 ## [Android 1.2.4 / Build 16] - 2026-05-29
 
 ### 📱 徹底修復 Live Reload 與熱更新重啟白畫面失敗的 Bug
