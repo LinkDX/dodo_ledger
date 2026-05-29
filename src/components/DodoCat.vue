@@ -268,7 +268,6 @@ const catMiau = computed(() => {
       <div v-if="speech" class="speech-bubble pop-jelly">
         <p class="speech-text">{{ speech }}</p>
         <p class="cat-signature">{{ catMiau }}</p>
-        <div class="speech-arrow"></div>
       </div>
     </Transition>
   </div>
@@ -402,36 +401,30 @@ const catMiau = computed(() => {
   color: var(--color-text-muted);
 }
 
-/* 泡泡指引三角形線框 (指向左側貓咪) */
-.speech-arrow {
-  position: absolute;
-  left: -11px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 10px;
-  height: 16px;
-  background-color: #FFFFFF;
-}
-
-.speech-arrow::before,
-.speech-arrow::after {
+/* 漫畫旁白氣泡的指向箭頭 (大師級無縫融合描邊設計) */
+.speech-bubble::before,
+.speech-bubble::after {
   content: '';
   position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
   border-style: solid;
 }
 
-.speech-arrow::before {
-  border-width: 8px 8px 8px 0;
+/* 外層黑色三角形 (描邊頂點在 -10px) */
+.speech-bubble::before {
+  border-width: 8px 10px 8px 0;
   border-color: transparent var(--color-border) transparent transparent;
-  left: -2.5px;
-  top: -3px;
+  left: -10px;
+  z-index: 1;
 }
 
-.speech-arrow::after {
-  border-width: 5px 5px 5px 0;
+/* 內層白色三角形 (遮蓋左邊框並無縫融合，頂點在 -7px，剛好露出 3px 黑色描邊並蓋住左邊框) */
+.speech-bubble::after {
+  border-width: 8px 10px 8px 0;
   border-color: transparent #FFFFFF transparent transparent;
-  left: 0;
-  top: 0;
+  left: -7px;
+  z-index: 2;
 }
 
 /* 對話框過渡動畫 */
