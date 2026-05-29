@@ -128,6 +128,7 @@ export interface CatStats {
   totalFeeds: number;
   totalFish: number;
   totalCans: number;
+  totalPlays: number;
   streakDays: number;
   lastInteractDate: string; // YYYY-MM-DD
   dailyRecoveryCount: number;

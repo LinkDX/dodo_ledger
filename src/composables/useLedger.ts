@@ -53,6 +53,7 @@ const DEFAULT_CAT_PROFILE: DodoCatProfile = {
     totalFeeds: 0,
     totalFish: 0,
     totalCans: 0,
+    totalPlays: 0,
     streakDays: 0,
     lastInteractDate: '',
     dailyRecoveryCount: 0,
@@ -103,6 +104,9 @@ export function useLedger() {
       await db.saveCatProfile(userId, catProfile.value!)
     } else {
       catProfile.value = catProf
+      if (catProfile.value.stats && catProfile.value.stats.totalPlays === undefined) {
+        catProfile.value.stats.totalPlays = 0
+      }
       // 執行自然恢復精力檢查
       checkNaturalEnergyRecovery()
     }
@@ -113,6 +117,9 @@ export function useLedger() {
 
     // 🚀 啟動即時同步訂閱，確保多裝置資料 100% 一致
     catProfileUnsubscribe = db.subscribeCatProfile(userId, (newProfile) => {
+      if (newProfile && newProfile.stats && newProfile.stats.totalPlays === undefined) {
+        newProfile.stats.totalPlays = 0
+      }
       if (JSON.stringify(newProfile) !== JSON.stringify(catProfile.value)) {
         console.log('[Dodo Ledger] 🐱 偵測到雲端貓咪狀態更新，已自動同步等級與 XP！')
         catProfile.value = newProfile
@@ -395,6 +402,7 @@ export function useLedger() {
   const checkCountAchievements = () => {
     if (!catProfile.value) return
     const { totalPets, totalFeeds, streakDays } = catProfile.value.stats
+    const totalPlays = catProfile.value.stats.totalPlays || 0
     
     // 摸摸大師系列 (檢討後門檻提升，以配合無 CD 機制)
     if (totalPets >= 100) unlockAchievement('pet_100', '初級鏟屎官', '累計摸摸 100 次。')
@@ -406,6 +414,11 @@ export function useLedger() {
     if (totalFeeds >= 50) unlockAchievement('feed_50', '見習飼養員', '累計餵食 50 次。')
     if (totalFeeds >= 200) unlockAchievement('feed_200', '特級主廚', '累計餵食 200 次。')
     if (totalFeeds >= 1000) unlockAchievement('feed_1000', '皇家御膳房總管', '累計餵食 1000 次。')
+
+    // 逗貓棒系列
+    if (totalPlays >= 10) unlockAchievement('play_10', '捕風捉影', '累計使用逗貓棒玩耍 10 次。')
+    if (totalPlays >= 50) unlockAchievement('play_50', '飛簷走壁', '累計使用逗貓棒玩耍 50 次。')
+    if (totalPlays >= 200) unlockAchievement('play_200', '訓貓大師', '累計使用逗貓棒玩耍 200 次。')
 
     // 長情陪伴系列
     if (streakDays >= 3) unlockAchievement('streak_3', '三日溫存', '連續 3 天陪伴逗逗貓。')
@@ -1403,6 +1416,16 @@ export function useLedger() {
         speech = canSpeeches[Math.floor(Math.random() * canSpeeches.length)]
         mood = 'happy'
       }
+    } else if (action === 'play_teaser') {
+      catProfile.value.stats.totalPlays = (catProfile.value.stats.totalPlays || 0) + 1
+      const teaserSpeeches = [
+        '咻咻～🪄 逗貓棒在空中劃出美麗的弧線，逗逗貓高興得左右搖擺，飛撲過來抓羽毛喵！🐾 累計玩耍 ' + catProfile.value.stats.totalPlays + ' 次！',
+        '喵哈！看我的無影貓爪！(=^·^=) 逗貓棒上的小鈴鐺叮噹響，逗逗貓玩得好興奮喵！這是我玩第 ' + catProfile.value.stats.totalPlays + ' 次逗貓棒喵！',
+        '（左右搖屁股…準備飛撲！💨）抓到了！逗貓棒上的粉嫩羽毛是我的了喵！謝謝主人陪我玩，超開心喵～🐾',
+        '鈴鈴鈴～鈴鐺一響，逗逗貓就精神百倍喵！看我輕盈的跳躍，主人揮逗貓棒的技術真好喵！🐾 累計玩耍 ' + catProfile.value.stats.totalPlays + ' 次！'
+      ]
+      speech = teaserSpeeches[Math.floor(Math.random() * teaserSpeeches.length)]
+      mood = 'happy'
     }
 
     // c. 紀錄連續天數

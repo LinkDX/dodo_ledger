@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { useAuth } from '../composables/useAuth'
 import { useLedger } from '../composables/useLedger'
-import DodoCat from './DodoCat.vue'
+import DodoCat, { type CatMood } from './DodoCat.vue'
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -29,11 +29,454 @@ const {
   monthlyExpense, 
   monthlyIncome,
   budgetRatio,
-  dodoCatMood,
-  dodoCatSpeech,
+  dodoCatMood: globalCatMood,
+  dodoCatSpeech: globalCatSpeech,
   catProfile,
   interactWithCat
 } = useLedger()
+
+// ─── 🪄 逗貓棒互動系統反應式狀態 ───
+import { onUnmounted } from 'vue'
+
+const isTeasingMode = ref(false)
+const currentWand = ref<'feather' | 'laser' | 'bell'>('feather')
+const catExcitement = ref(0)
+const isPouncing = ref(false)
+const isPounceSuccess = ref(false)
+const isTickled = ref(false)
+
+// 本地動態臨時互動表情與說話（解決全域 computed 唯讀寫入報錯問題）
+const localCatMood = ref<CatMood | null>(null)
+const localCatSpeech = ref<string | null>(null)
+
+const dodoCatMood = computed<CatMood>({
+  get: () => {
+    return localCatMood.value !== null ? localCatMood.value : globalCatMood.value
+  },
+  set: (val) => {
+    localCatMood.value = val
+  }
+})
+
+const dodoCatSpeech = computed<string>({
+  get: () => {
+    return localCatSpeech.value !== null ? localCatSpeech.value : globalCatSpeech.value
+  },
+  set: (val) => {
+    localCatSpeech.value = val
+  }
+})
+
+// 本地包裝交互處理函式，確保進行常規互動時清空臨時本地表情
+const handleInteract = async (action: 'pet' | 'feed_fish' | 'feed_can' | 'play_teaser') => {
+  localCatMood.value = null
+  localCatSpeech.value = null
+  await interactWithCat(action)
+}
+
+// ─── 🪄 玩逗貓棒時的智慧型動態簡短氣泡管理 ───
+const teasingSpeech = ref('')
+let teasingSpeechTimer: any = null
+let teasingPlayInterval: any = null
+
+const playTeasingQuotes = [
+  '看我靈巧的無影貓爪！🐾',
+  '喵哈！別想逃出我的視線！👁️',
+  '好玩好玩！主人再揮快點喵！⚡',
+  '呼呼～看我左右擺動！💨',
+  '這個玩具太棒了喵！💖'
+]
+
+const showTeasingSpeech = (text: string) => {
+  if (teasingSpeechTimer) {
+    clearTimeout(teasingSpeechTimer)
+    teasingSpeechTimer = null
+  }
+  teasingSpeech.value = text
+  
+  // 3.5 秒後自動消失，完全不佔空間，釋放左右揮動區域
+  teasingSpeechTimer = setTimeout(() => {
+    teasingSpeech.value = ''
+  }, 3500)
+}
+
+const startTeasingQuotes = () => {
+  if (teasingPlayInterval) clearInterval(teasingPlayInterval)
+  teasingPlayInterval = setInterval(() => {
+    if (isTeasingMode.value && !isPouncing.value && !isTickled.value && lookAtOffset.value !== null) {
+      const idx = Math.floor(Math.random() * playTeasingQuotes.length)
+      showTeasingSpeech(playTeasingQuotes[idx])
+    }
+  }, 4800) // 每隔 4.8 秒說一句簡短的內心戲
+}
+
+const stopTeasingQuotes = () => {
+  if (teasingPlayInterval) {
+    clearInterval(teasingPlayInterval)
+    teasingPlayInterval = null
+  }
+}
+
+// 當滑鼠移出或觸碰結束時（躲貓貓彩蛋）
+const handleTeaserLeave = () => {
+  lookAtOffset.value = null
+  if (isTeasingMode.value && !isPouncing.value) {
+    showTeasingSpeech('咦？玩具去哪裡了喵？🐾')
+  }
+}
+
+// 逗貓棒在 mascot-board 卡片內的相對/絕對位置
+const teaserPos = ref({ x: 0, y: 0 })
+const lookAtOffset = ref<{ x: number; y: number } | null>(null)
+
+// 粒子特效
+interface Particle {
+  id: number
+  x: number
+  y: number
+  vx: number
+  vy: number
+  size: number
+  opacity: number
+  rotation: number
+  rotSpeed: number
+  color?: string
+  type: 'feather' | 'laser_ripple' | 'bell_note' | 'heart'
+}
+const particles = ref<Particle[]>([])
+let particleIdCounter = 0
+let particleAnimationId: number | null = null
+
+// 速度偵測與搔癢偵測
+let lastMousePos = { x: 0, y: 0, time: 0 }
+let tickleTimer: any = null
+const isPounceCooldown = ref(false)
+let decayInterval: any = null
+
+// 興奮度自然衰減定時器
+const startExcitementDecay = () => {
+  if (decayInterval) clearInterval(decayInterval)
+  decayInterval = setInterval(() => {
+    if (!isTeasingMode.value) {
+      if (decayInterval) clearInterval(decayInterval)
+      return
+    }
+    if (catExcitement.value > 0 && !isPouncing.value) {
+      // 每 300ms 自然衰減 1 點
+      catExcitement.value = Math.max(0, catExcitement.value - 1)
+    }
+  }, 300)
+}
+
+// 粒子生成與物理引擎
+const createParticle = (x: number, y: number, type: Particle['type'], color?: string) => {
+  particleIdCounter++
+  const angle = Math.random() * Math.PI * 2
+  const speed = Math.random() * 1.5 + 0.5
+  particles.value.push({
+    id: particleIdCounter,
+    x,
+    y,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed - (type === 'feather' ? 0.3 : 0),
+    size: Math.random() * 12 + 10,
+    opacity: 1,
+    rotation: Math.random() * 360,
+    rotSpeed: (Math.random() - 0.5) * 6,
+    color,
+    type
+  })
+
+  if (particles.value.length > 60) {
+    particles.value.shift()
+  }
+
+  startParticleAnimation()
+}
+
+const updateParticles = () => {
+  if (particles.value.length === 0) {
+    if (particleAnimationId) {
+      cancelAnimationFrame(particleAnimationId)
+      particleAnimationId = null
+    }
+    return
+  }
+
+  particles.value = particles.value
+    .map(p => {
+      p.x += p.vx
+      p.y += p.vy
+      p.rotation += p.rotSpeed
+      
+      if (p.type === 'laser_ripple') {
+        p.size += 2.5
+        p.opacity -= 0.06
+      } else if (p.type === 'feather') {
+        p.vx *= 0.98
+        p.vy = p.vy * 0.98 + 0.02
+        p.opacity -= 0.012
+      } else {
+        p.opacity -= 0.02
+      }
+      return p
+    })
+    .filter(p => p.opacity > 0)
+
+  particleAnimationId = requestAnimationFrame(updateParticles)
+}
+
+const startParticleAnimation = () => {
+  if (!particleAnimationId) {
+    particleAnimationId = requestAnimationFrame(updateParticles)
+  }
+}
+
+const generateWandParticles = (x: number, y: number) => {
+  if (currentWand.value === 'feather') {
+    if (Math.random() < 0.25) {
+      createParticle(x, y, 'feather')
+    }
+  } else if (currentWand.value === 'bell') {
+    if (Math.random() < 0.3) {
+      createParticle(x, y, 'bell_note')
+    }
+  } else if (currentWand.value === 'laser') {
+    if (Math.random() < 0.4) {
+      const colors = ['#FF4B4B', '#FF8F4B', '#FF367E']
+      const c = colors[Math.floor(Math.random() * colors.length)]
+      createParticle(x, y, 'laser_ripple', c)
+    }
+  }
+}
+
+// 實時追隨座標計算與速度/搔癢/飛撲判定
+const handleTeaserMove = (e: MouseEvent | TouchEvent) => {
+  if (!isTeasingMode.value) return
+
+  const board = (e.currentTarget || e.target) as HTMLElement
+  if (!board) return
+  const rect = board.getBoundingClientRect()
+
+  let clientX = 0
+  let clientY = 0
+  if (e instanceof MouseEvent) {
+    clientX = e.clientX
+    clientY = e.clientY
+  } else if (e.touches && e.touches.length > 0) {
+    clientX = e.touches[0].clientX
+    clientY = e.touches[0].clientY
+  } else {
+    return
+  }
+
+  const x = clientX - rect.left
+  const y = clientY - rect.top
+  teaserPos.value = { x, y }
+
+  // 當玩逗貓棒時，貓咪在最中間 (Flex居中)，因此頭部中心就是卡片寬度的中央
+  // 非玩耍時則位於平常的左側 82px 處
+  const catCenterX = isTeasingMode.value ? (rect.width / 2) : 82
+  const catCenterY = 146
+  
+  // 標準化眼神追隨坐標，dx/dy 除以合適的比例因子，讓眼神能在道具靠近時完美精確對準
+  const dx = x - catCenterX
+  const dy = y - catCenterY
+  
+  // 加上微小的平滑算法，限制最大偏轉範圍，讓偏轉歪頭自然絲滑
+  const lookX = Math.max(-1.1, Math.min(1.1, dx / 90))
+  const lookY = Math.max(-1.1, Math.min(1.1, dy / 70))
+  lookAtOffset.value = { x: lookX, y: lookY }
+
+  const now = Date.now()
+  
+  // 飛撲中或冷卻中，滑鼠只更新座標和視線，不重複累積興奮度或觸發二次飛撲與搔癢
+  if (isPouncing.value || isPounceCooldown.value) {
+    lastMousePos = { x, y, time: now }
+    return
+  }
+
+  if (lastMousePos.time > 0) {
+    const dt = now - lastMousePos.time
+    if (dt > 15) {
+      const dxMouse = x - lastMousePos.x
+      const dyMouse = y - lastMousePos.y
+      const dist = Math.sqrt(dxMouse * dxMouse + dyMouse * dyMouse)
+      const speed = dist / dt // px/ms
+
+      if (speed > 0.05) {
+        // 大幅調柔和累積速度 (原 speed * 12 太快，調為 speed * 1.6)
+        let excitementGain = speed * 1.6
+        if (currentWand.value === 'laser') excitementGain *= 1.5
+        if (currentWand.value === 'bell') excitementGain *= 1.1
+
+        catExcitement.value = Math.min(100, catExcitement.value + excitementGain)
+        generateWandParticles(x, y)
+        
+        if (tickleTimer) {
+          clearTimeout(tickleTimer)
+          tickleTimer = null
+        }
+        isTickled.value = false
+      }
+    }
+  }
+  lastMousePos = { x, y, time: now }
+
+  // 臉部搔癢偵測
+  const isNearFace = Math.abs(lookX) < 0.35 && lookY > -0.2 && lookY < 0.4
+  if (isNearFace && !isTickled.value && !isPouncing.value) {
+    if (!tickleTimer) {
+      tickleTimer = setTimeout(() => {
+        isTickled.value = true
+        showTeasingSpeech('呼嚕嚕～好癢好舒服喵～💖')
+        dodoCatMood.value = 'happy'
+        for (let i = 0; i < 4; i++) {
+          createParticle(x + (Math.random() - 0.5) * 15, y + (Math.random() - 0.5) * 15, 'heart')
+        }
+      }, 1000)
+    }
+  } else {
+    if (!isNearFace) {
+      if (tickleTimer) {
+        clearTimeout(tickleTimer)
+        tickleTimer = null
+      }
+    }
+  }
+
+  // 興奮度滿點觸發飛撲
+  if (catExcitement.value >= 100 && !isPouncing.value && !isPounceCooldown.value) {
+    triggerPounce()
+  }
+}
+
+// 飛撲物理學
+const triggerPounce = () => {
+  if (isPouncing.value || isPounceCooldown.value) return
+  isPouncing.value = true
+  isPounceCooldown.value = true
+  isTickled.value = false
+
+  if (tickleTimer) {
+    clearTimeout(tickleTimer)
+    tickleTimer = null
+  }
+
+  dodoCatMood.value = 'happy'
+  showTeasingSpeech('瞄哈！看我的無影飛撲！抓！💨')
+
+  setTimeout(() => {
+    // 撲出時判定是否在貓咪周圍
+    const currentDist = Math.sqrt(Math.pow(lookAtOffset.value?.x || 1.5, 2) + Math.pow(lookAtOffset.value?.y || 1.5, 2))
+    const isCatch = lookAtOffset.value !== null && currentDist < 0.78
+
+    if (isCatch) {
+      isPounceSuccess.value = true
+      interactWithCat('play_teaser')
+      showTeasingSpeech('喵哈！抓到了！主人最棒了喵！💖')
+      for (let i = 0; i < 20; i++) {
+        const px = teaserPos.value.x + (Math.random() - 0.5) * 50
+        const py = teaserPos.value.y + (Math.random() - 0.5) * 50
+        createParticle(px, py, 'heart')
+      }
+    } else {
+      isPounceSuccess.value = false
+      dodoCatMood.value = 'nervous'
+      showTeasingSpeech('喵嗚！撲空了…主人動作太快了喵！🐾')
+    }
+
+    setTimeout(() => {
+      isPouncing.value = false
+      isPounceSuccess.value = false
+      catExcitement.value = 0
+      setTimeout(() => {
+        isPounceCooldown.value = false
+      }, 500)
+    }, 1200)
+
+  }, 450)
+}
+
+// 控制面板函式
+const startTeasing = () => {
+  isTeasingMode.value = true
+  catExcitement.value = 0
+  isTickled.value = false
+  isPouncing.value = false
+  isPounceSuccess.value = false
+  dodoCatMood.value = 'happy'
+  showTeasingSpeech('哇！是逗貓棒喵！🪄 快陪我玩！🐾')
+  startExcitementDecay()
+  startTeasingQuotes() // 啟動隨機內心戲台詞
+}
+
+const stopTeasing = () => {
+  isTeasingMode.value = false
+  lookAtOffset.value = null
+  isTickled.value = false
+  isPouncing.value = false
+  isPounceSuccess.value = false
+  catExcitement.value = 0
+  particles.value = []
+  
+  if (particleAnimationId) {
+    cancelAnimationFrame(particleAnimationId)
+    particleAnimationId = null
+  }
+  
+  if (tickleTimer) {
+    clearTimeout(tickleTimer)
+    tickleTimer = null
+  }
+
+  if (teasingSpeechTimer) {
+    clearTimeout(teasingSpeechTimer)
+    teasingSpeechTimer = null
+  }
+  teasingSpeech.value = ''
+  
+  stopTeasingQuotes() // 停止隨機內心戲台詞
+
+  if (decayInterval) {
+    clearInterval(decayInterval)
+    decayInterval = null
+  }
+  
+  dodoCatSpeech.value = '呼～玩得好累，但是好開心喵！謝謝主人陪我玩！🐾'
+  dodoCatMood.value = 'happy'
+}
+
+const selectWand = (wand: 'feather' | 'laser' | 'bell') => {
+  currentWand.value = wand
+  if (wand === 'feather') {
+    showTeasingSpeech('🌸 粉嫩的羽毛飄啊飄…最經典喵！')
+  } else if (wand === 'laser') {
+    showTeasingSpeech('🔴 哇！是紅點點！看我抓爆它喵！⚡')
+  } else if (wand === 'bell') {
+    showTeasingSpeech('🔔 鈴鈴鈴～這個鈴聲好好聽喵！🐾')
+  }
+}
+
+const getParticleStyle = (p: Particle) => {
+  return {
+    position: 'absolute' as const,
+    left: `${p.x}px`,
+    top: `${p.y}px`,
+    transform: `translate(-50%, -50%) rotate(${p.rotation}deg) scale(${p.opacity})`,
+    opacity: p.opacity,
+    pointerEvents: 'none' as const,
+    fontSize: `${p.size}px`,
+    zIndex: 25,
+    transition: p.type === 'laser_ripple' ? 'none' : 'transform 0.05s linear'
+  }
+}
+
+onUnmounted(() => {
+  if (decayInterval) clearInterval(decayInterval)
+  if (tickleTimer) clearTimeout(tickleTimer)
+  if (particleAnimationId) cancelAnimationFrame(particleAnimationId)
+})
 
 // 淨資產隱藏開關
 const isNetWorthHidden = ref(localStorage.getItem('net_worth_hidden') === 'true')
@@ -163,9 +606,19 @@ const isAchievementUnlocked = (id: string) => {
     </div>
 
     <!-- 1. 🐱 逗逗貓療癒生活看板 (最上方 30-40% 畫面高) -->
-    <div class="mascot-board card-jelly">
+    <div 
+      class="mascot-board card-jelly"
+      :class="{ 
+        'board-teasing-active': isTeasingMode, 
+        'board-cat-wiggle-furious': isTeasingMode && catExcitement >= 75 && !isPouncing 
+      }"
+      @mousemove="handleTeaserMove"
+      @touchmove.prevent="handleTeaserMove"
+      @mouseleave="handleTeaserLeave"
+      @touchend="handleTeaserLeave"
+    >
       <!-- 貓咪陪伴狀態列 (拿掉精力與等級，改為溫馨相伴指標) -->
-      <div v-if="catProfile" class="cat-status-overlay pop-jelly">
+      <div v-if="catProfile && !isTeasingMode" class="cat-status-overlay pop-jelly">
         <div class="status-bars" style="min-width: 100px; gap: 4px;">
           <div class="companion-stat-item" style="display: flex; justify-content: space-between; font-size: 10px; font-weight: 800;">
             <span class="companion-label" style="color: var(--color-text-muted);">相伴天數</span>
@@ -173,27 +626,150 @@ const isAchievementUnlocked = (id: string) => {
           </div>
           <div class="companion-stat-item" style="display: flex; justify-content: space-between; font-size: 10px; font-weight: 800;">
             <span class="companion-label" style="color: var(--color-text-muted);">親密互動</span>
-            <span class="companion-value" style="color: var(--color-income); background: rgba(0,0,0,0.05); padding: 0 4px; border-radius: 4px;">{{ catProfile.stats.totalPets + catProfile.stats.totalFeeds }} 次</span>
+            <span class="companion-value" style="color: var(--color-income); background: rgba(0,0,0,0.05); padding: 0 4px; border-radius: 4px;">{{ catProfile.stats.totalPets + catProfile.stats.totalFeeds + (catProfile.stats.totalPlays || 0) }} 次</span>
           </div>
         </div>
       </div>
 
-      <DodoCat :mood="dodoCatMood" :speech="dodoCatSpeech" @pet="interactWithCat('pet')" />
+      <!-- 🐱 貓咪興奮度膠囊型進度條 (只在 teasing 模式下顯示，完美放置於左上角，絕不遮擋貓身) -->
+      <div v-if="isTeasingMode" class="cat-status-overlay pop-jelly excitement-overlay">
+        <div class="status-bars" style="width: 110px; gap: 3px;">
+          <div class="companion-stat-item" style="display: flex; justify-content: space-between; font-size: 10px; font-weight: 800; margin-bottom: 2px;">
+            <span class="companion-label" style="color: var(--color-text-dark);">⚡ 興奮度</span>
+            <span class="companion-value" style="color: var(--color-expense); background: rgba(255,107,107,0.1); padding: 0 4px; border-radius: 4px;">{{ Math.round(catExcitement) }}%</span>
+          </div>
+          <!-- 迷你進度條軌道 -->
+          <div class="excitement-track" style="width: 100%; height: 7px; background-color: rgba(0, 0, 0, 0.06); border-radius: 4px; overflow: hidden; border: 1px solid rgba(0,0,0,0.05);">
+            <div 
+              class="excitement-fill" 
+              :style="{ width: `${catExcitement}%` }"
+              :class="{ 'excitement-full-glow': catExcitement >= 100 }"
+              style="height: 100%; border-radius: 4px; transition: width 0.08s ease-out;"
+            ></div>
+          </div>
+          <!-- 迷你提示 -->
+          <div class="excitement-mini-hint" style="font-size: 8px; font-weight: 800; color: var(--color-text-muted); text-align: center; margin-top: 1px;">
+            <template v-if="catExcitement >= 100">🔥 準備飛撲！</template>
+            <template v-else-if="isTickled">💖 搔癢舒服中</template>
+            <template v-else>🪄 揮動累積</template>
+          </div>
+        </div>
+      </div>
+
+      <!-- 🪄 逗貓棒粒子特效 -->
+      <div v-if="isTeasingMode" class="teaser-particles-container">
+        <div 
+          v-for="p in particles" 
+          :key="p.id" 
+          class="teaser-particle" 
+          :style="getParticleStyle(p)"
+        >
+          <span v-if="p.type === 'feather'">🌸</span>
+          <span v-else-if="p.type === 'bell_note'">♪</span>
+          <span v-else-if="p.type === 'heart'">💖</span>
+          <div 
+            v-else-if="p.type === 'laser_ripple'" 
+            class="laser-ripple-ring"
+            :style="{ borderColor: p.color }"
+          ></div>
+        </div>
+      </div>
+
+      <DodoCat 
+        :mood="dodoCatMood" 
+        :speech="isTeasingMode ? teasingSpeech : dodoCatSpeech" 
+        :look-at="isTeasingMode ? lookAtOffset : null"
+        :is-pouncing="isPouncing"
+        :is-pounce-success="isPounceSuccess"
+        :is-tickled="isTickled"
+        :current-wand="currentWand"
+        :is-teasing="isTeasingMode"
+        @pet="handleInteract('pet')" 
+      />
+
+      <!-- 🪄 跟隨滑鼠/手指的可愛手繪逗貓棒/雷射紅點 -->
+      <div 
+        v-if="isTeasingMode && lookAtOffset !== null" 
+        class="floating-teaser-wand"
+        :style="{ left: `${teaserPos.x}px`, top: `${teaserPos.y}px` }"
+        :class="`wand-type-${currentWand}`"
+      >
+        <template v-if="currentWand === 'feather'">
+          <svg class="feather-wand-svg" viewBox="0 0 40 40" width="36" height="36">
+            <line x1="35" y1="35" x2="18" y2="18" stroke="#8E7A6B" stroke-width="3" stroke-linecap="round" />
+            <path d="M 18 18 Q 8 10 12 4 Q 18 8 18 18" fill="#FFB7B2" stroke="#3D2B1F" stroke-width="1.8" />
+            <path d="M 18 18 Q 14 12 6 12 Q 10 18 18 18" fill="#FFDAC1" stroke="#3D2B1F" stroke-width="1.8" />
+            <circle cx="18" cy="18" r="3.5" fill="#F4C842" stroke="#3D2B1F" stroke-width="1.2" />
+          </svg>
+        </template>
+        <template v-else-if="currentWand === 'laser'">
+          <div class="laser-center-dot"></div>
+        </template>
+        <template v-else-if="currentWand === 'bell'">
+          <svg class="bell-wand-svg" viewBox="0 0 40 40" width="36" height="36">
+            <line x1="35" y1="35" x2="20" y2="20" stroke="#8E7A6B" stroke-width="3" stroke-linecap="round" />
+            <circle cx="20" cy="20" r="6" fill="#F4C842" stroke="#3D2B1F" stroke-width="1.8" />
+            <line x1="17" y1="20" x2="23" y2="20" stroke="#3D2B1F" stroke-width="1.2" />
+            <path d="M 20 25 Q 15 32 22 36" fill="none" stroke="#B5EAD7" stroke-width="2.5" stroke-linecap="round" />
+            <path d="M 20 25 Q 25 32 18 36" fill="none" stroke="#FF9AA2" stroke-width="2.5" stroke-linecap="round" />
+          </svg>
+        </template>
+      </div>
       
-      <!-- 🐾 逗逗貓趣味互動餵食箱 (拿掉精力消耗，自由餵食) -->
+      <!-- 🐾 逗逗貓趣味互動餵食箱 & 逗貓棒操作面板 (動態切換) -->
       <div class="cat-interaction-bar pop-jelly">
-        <button 
-          class="btn-interact btn-jelly" 
-          @click="interactWithCat('feed_fish')"
-        >
-          🐟 餵小魚乾
-        </button>
-        <button 
-          class="btn-interact btn-jelly" 
-          @click="interactWithCat('feed_can')"
-        >
-          🥫 餵好罐罐
-        </button>
+        <template v-if="!isTeasingMode">
+          <button 
+            class="btn-interact btn-jelly" 
+            @click="handleInteract('feed_fish')"
+          >
+            🐟 餵小魚乾
+          </button>
+          <button 
+            class="btn-interact btn-jelly" 
+            @click="handleInteract('feed_can')"
+          >
+            🥫 餵好罐罐
+          </button>
+          <button 
+            class="btn-interact btn-jelly btn-teaser-start" 
+            @click="startTeasing"
+          >
+            🪄 玩逗貓棒
+          </button>
+        </template>
+        
+        <template v-else>
+          <div class="wand-selector pop-jelly">
+            <button 
+              class="btn-wand-pill" 
+              :class="{ active: currentWand === 'feather' }"
+              @click="selectWand('feather')"
+            >
+              🌸 羽毛
+            </button>
+            <button 
+              class="btn-wand-pill" 
+              :class="{ active: currentWand === 'laser' }"
+              @click="selectWand('laser')"
+            >
+              🔴 雷射
+            </button>
+            <button 
+              class="btn-wand-pill" 
+              :class="{ active: currentWand === 'bell' }"
+              @click="selectWand('bell')"
+            >
+              🔔 鈴鐺
+            </button>
+          </div>
+          <button 
+            class="btn-interact btn-jelly btn-teaser-stop" 
+            @click="stopTeasing"
+          >
+            ❌ 收起玩具
+          </button>
+        </template>
       </div>
     </div>
 
@@ -1114,5 +1690,227 @@ const isAchievementUnlocked = (id: string) => {
 @keyframes popOut {
   0% { transform: scale(1); opacity: 1; }
   100% { transform: scale(0.9); opacity: 0; }
+}
+
+/* ─── 🪄 逗貓棒互動系統特製樣式 ─── */
+.board-teasing-active {
+  cursor: none !important; /* 隱藏原生滑鼠指針，用可愛的懸浮道具代替 */
+}
+
+/* 手機觸控時仍隱藏滑鼠游標，且整張卡片禁止預設行為 */
+.board-teasing-active * {
+  touch-action: none;
+}
+
+/* 強烈扭屁股震動效果 */
+.board-cat-wiggle-furious {
+  animation: boardCatWiggleFurious 0.15s ease-in-out infinite;
+}
+
+@keyframes boardCatWiggleFurious {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  25% { transform: translate(-1.5px, 0.5px) rotate(-0.5deg); }
+  50% { transform: translate(1.5px, -0.5px) rotate(0.5deg); }
+  75% { transform: translate(-0.5px, -1px) rotate(-0.3deg); }
+}
+
+/* 懸浮跟隨道具 */
+.floating-teaser-wand {
+  position: absolute;
+  pointer-events: none;
+  z-index: 999;
+  transform: translate(-50%, -50%); /* 中心點對齊滑鼠 */
+  transition: transform 0.04s ease-out;
+}
+
+/* 羽毛棒隨滑鼠稍微搖擺的動畫 */
+.wand-type-feather {
+  animation: featherWiggle 2.5s ease-in-out infinite alternate;
+}
+
+@keyframes featherWiggle {
+  0% { transform: translate(-50%, -50%) rotate(-5deg); }
+  100% { transform: translate(-50%, -50%) rotate(10deg); }
+}
+
+/* 雷射發光中心點 */
+.laser-center-dot {
+  width: 12px;
+  height: 12px;
+  background-color: #FF3B30;
+  border-radius: 50%;
+  border: 1.5px solid #FFFFFF;
+  box-shadow: 0 0 10px #FF3B30, 0 0 20px #FF3B30;
+  animation: laserPulse 0.4s ease-in-out infinite alternate;
+}
+
+@keyframes laserPulse {
+  0% { transform: scale(0.9); box-shadow: 0 0 8px #FF3B30, 0 0 16px #FF3B30; }
+  100% { transform: scale(1.1); box-shadow: 0 0 14px #FF3B30, 0 0 25px #FF3B30; }
+}
+
+/* 雷射擴散圈粒子樣式 */
+.laser-ripple-ring {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #FF4B4B;
+  border-radius: 50%;
+  box-sizing: border-box;
+  animation: laserRippleExpand 0.45s ease-out forwards;
+}
+
+@keyframes laserRippleExpand {
+  0% { transform: scale(0.2); opacity: 1; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* 鈴鐺隨滑鼠稍微搖動 */
+.wand-type-bell {
+  animation: bellJingle 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes bellJingle {
+  0% { transform: translate(-50%, -50%) rotate(-12deg); }
+  100% { transform: translate(-50%, -50%) rotate(8deg); }
+}
+
+/* 粒子容器與粒子 */
+.teaser-particles-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 25;
+  overflow: hidden;
+}
+
+.teaser-particle {
+  pointer-events: none;
+}
+
+/* 興奮度進度條左上角膠囊樣式 */
+.excitement-overlay {
+  background-color: rgba(255, 255, 255, 0.92) !important;
+  border: 1.5px solid var(--color-border);
+  box-shadow: var(--shadow-jelly-sm);
+  z-index: 32;
+  backdrop-filter: blur(4px);
+}
+
+/* 興奮度進度條容器 */
+.excitement-bar-container {
+  position: absolute;
+  bottom: 48px; /* 避開底部互動按鈕 */
+  left: 10px;
+  right: 10px;
+  background-color: rgba(255, 255, 255, 0.85);
+  border: 1.5px solid var(--color-border);
+  border-radius: 12px;
+  padding: 6px 10px;
+  z-index: 28;
+  box-shadow: var(--shadow-jelly-sm);
+  backdrop-filter: blur(4px);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.excitement-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--color-text-dark);
+}
+
+.excitement-title {
+  color: var(--color-text-muted);
+}
+
+.excitement-value {
+  color: var(--color-expense);
+  background: rgba(255, 107, 107, 0.1);
+  padding: 0px 4px;
+  border-radius: 4px;
+}
+
+.excitement-track {
+  width: 100%;
+  height: 8px;
+  background-color: rgba(0, 0, 0, 0.06);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.excitement-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #FFB7B2 0%, #FF9AA2 100%);
+  border-radius: 4px;
+  transition: width 0.08s ease-out;
+}
+
+.excitement-full-glow {
+  background: linear-gradient(90deg, #FF8F4B 0%, #FF3B30 100%);
+  animation: barPulse 0.4s ease-in-out infinite alternate;
+}
+
+@keyframes barPulse {
+  0% { filter: brightness(1); }
+  100% { filter: brightness(1.2) drop-shadow(0 0 2px rgba(255, 59, 48, 0.5)); }
+}
+
+.excitement-hint {
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+/* 藥丸道具切換面板 */
+.wand-selector {
+  display: flex;
+  background-color: rgba(255, 255, 255, 0.9);
+  border: 1.5px solid var(--color-border);
+  border-radius: 20px;
+  padding: 2px;
+  gap: 2px;
+  box-shadow: var(--shadow-jelly-sm);
+  margin-right: 6px;
+}
+
+.btn-wand-pill {
+  border: none;
+  background: none;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--color-text-muted);
+  padding: 4px 10px;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.btn-wand-pill.active {
+  background-color: var(--color-accent-gold);
+  color: var(--color-text-dark);
+  box-shadow: var(--shadow-jelly-sm);
+}
+
+.btn-wand-pill:active {
+  transform: scale(0.9);
+}
+
+.btn-teaser-start {
+  background-color: #C3B1E1 !important; /* 薰衣草紫色，與領圈呼應 */
+  color: var(--color-text-dark) !important;
+}
+
+.btn-teaser-stop {
+  background-color: #FFB4B4 !important; /* 溫馨馬卡龍粉紅 */
+  color: var(--color-text-dark) !important;
 }
 </style>
