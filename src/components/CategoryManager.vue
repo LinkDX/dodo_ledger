@@ -154,7 +154,13 @@ const handleAddSubCategory = async (catId: string) => {
 }
 
 const handleDeleteSubCategory = async (catId: string, subName: string) => {
+  const cat = categories.value.find(c => c.id === catId)
+  const catLabel = cat ? `「${cat.name}」下的` : ''
+  if (!(await showConfirm(`確定要刪除${catLabel}子分類「${subName}」嗎喵？（已記帳交易不受影響）`, '🗑️ 刪除子分類'))) {
+    return
+  }
   await deleteSubCategory(catId, subName)
+  await showAlert(`🐱 子分類「${subName}」已被刪除。`)
 }
 
 // ===== 主分類拖曳排序 =====
