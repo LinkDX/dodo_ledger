@@ -140,8 +140,8 @@ export function useLiveUpdates() {
   /**
    * 🚀 立即套用熱更新（App 內即時重載）
    */
-  const performImmediateReload = async (newVersionCode: number) => {
-    if (!Capacitor.isNativePlatform()) return
+  const performImmediateReload = async (newVersionCode: number): Promise<boolean> => {
+    if (!Capacitor.isNativePlatform()) return false
     try {
       console.log(`[LiveUpdate] 🚀 請求原生端執行熱重載，目標版本: ${newVersionCode}`)
       
@@ -152,9 +152,11 @@ export function useLiveUpdates() {
       
       await DodoInstaller.performHotReload({ versionCode: newVersionCode.toString() })
       console.log('[LiveUpdate] ✅ 原生端熱重載已完成')
+      return true
     } catch (e) {
       console.error('[LiveUpdate] 原生端熱重載失敗：', e)
       updateError.value = '無法立即重新載入，請手動重啟 App。'
+      return false
     }
   }
 

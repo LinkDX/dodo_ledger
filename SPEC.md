@@ -329,3 +329,26 @@ ledgers/
 
 ### 5.3 終端機日誌稽核工具
 使用者可在終端機直接執行 `./view-logs`，從 Firebase 雲端資料庫拉取最新 logs，印出美輪美奐的 ANSI 彩色時間軸、操作成員暱稱與財務稽核表格。
+
+---
+
+## 6. 原生 Android 整合與 Live Updates 熱更新機制
+
+為實現「離線優先」與「即時功能更新」的極致體驗，本系統設計了自建雙緩衝熱更新 (Live Updates) 與原生 WebView 橋接機制。
+
+### 6.1 雙緩衝背景默默下載 (Double-Buffer Background Update)
+1. **版本對帳**：App 啟動時或點擊檢查更新時，會發起對雲端 `version.json` 的請求，比對遠端的 `versionCode` 與本地 `localStorage` 記錄的 `dodo_app_hot_version_code`。
+2. **無感背景下載**：若遠端有新版，Web 端會利用 `CapacitorHttp` 將更新包 (Base64 ZIP) 下載，寫入手機私有沙盒檔案 `update_pack_{versionCode}.zip`。
+3. **實體版本指標**：下載完成後，會將新版號寫入沙盒 `current_hot_version.txt`，並更新本機 LocalStorage 標記。此時，熱更新套件已在背景部署完畢。
+
+### 6.2 WebView basePath 重定向與實時熱重載 (Hot Reload)
+為解決傳統「熱更新完必須重啟 App 才能套用」的缺陷，本系統在自訂原生插件 `DodoInstaller` 中實作了免重開即時熱重載：
+1. **沙盒原生解壓**：在背景執行 ZIP 壓縮包的原生閃電解壓（若尚未解壓）。
+2. **WebViewBasePath 重定向**：原生端切換 `WebViewLocalServer` 的 `BasePath` 為解壓後的沙盒路徑，重定向 WebView 加載根目錄。
+3. **快取完全清除與重載**：
+   - 由於 WebView 的內部快取，單純 reload 容易導致 WebView 持續加載舊的靜態資源，產生「點擊重載但完全沒有任何反應」的 Bug。
+   - **核心解決方案**：原生端在重定向 basePath 後，強制調用 `activity.getBridge().getWebView().clearCache(true)` 徹底清空快取，接著執行 `activity.getBridge().getWebView().reload()`。這保證了網頁重新載入時 100% 採用沙盒中的最新資源。
+4. **狀態回饋與 UI 自癒**：
+   - 原生熱重載方法在 WebView 發起刷新後 resolve Promise。
+   - 若原生端熱重載失敗（例如沙盒寫入失敗、檔案損毀），Web 端不再靜默失敗，而是會主動顯示可愛的 Dodo Alert 彈窗，提示使用者手動重開以完成更新。
+

@@ -360,8 +360,10 @@ class DodoInstallerPlugin extends Plugin {
                     public void run() {
                         try {
                             activity.getBridge().setServerBasePath(localPath);
+                            // 💡 關鍵修復：清除 WebView 快取，避免載入舊版暫存資源，導致使用者覺得「重載完沒反應」
+                            activity.getBridge().getWebView().clearCache(true);
                             activity.getBridge().getWebView().reload();
-                            Log.d("DodoLedger_HotReload", "✨ [熱重載成功] WebView 已切換至沙盒並重載: " + localPath);
+                            Log.d("DodoLedger_HotReload", "✨ [熱重載成功] WebView 已切換至沙盒並清除快取、重載: " + localPath);
                             call.resolve();
                         } catch (Exception e) {
                             Log.e("DodoLedger_HotReload", "熱重載 WebView 操作失敗", e);
@@ -370,6 +372,15 @@ class DodoInstallerPlugin extends Plugin {
                     }
                 });
             } else {
+                Log.e("DodoLedger_HotReload", "❌ 找不到熱更新資源。目錄存在: " + updateDir.exists() + ", 檔案存在: " + indexFile.exists());
+                if (updateDir.exists()) {
+                    File[] list = updateDir.listFiles();
+                    if (list != null) {
+                        for (File f : list) {
+                            Log.e("DodoLedger_HotReload", "  - 沙盒內檔案: " + f.getName() + " (大小: " + f.length() + ")");
+                        }
+                    }
+                }
                 call.reject("找不到解壓後的熱更新資源或 index.html");
             }
         } catch (Exception e) {

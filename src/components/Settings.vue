@@ -203,7 +203,10 @@ watch(hotUpdateProgress, async (newProgress) => {
       '🚀 立即套用新版本'
     )
     if (confirm) {
-      await performImmediateReload(newestVersionCode)
+      const success = await performImmediateReload(newestVersionCode)
+      if (!success) {
+        await showAlert('⚠️ 無法立即重新載入。請手動完全關閉並重啟 App 以套用新版喵！🐾')
+      }
     }
   }
 })

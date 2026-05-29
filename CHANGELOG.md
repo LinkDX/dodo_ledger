@@ -2,6 +2,17 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Android 1.2.2 / Build 14] - 2026-05-29
+
+### 📱 徹底修復免重新啟動「立即套用熱更新」點擊無反應或快取卡死的問題
+- **WebView 實時熱重載快取清除 (原生變更，需要手動重新安裝新 APK 啟用)**：
+  - 深入修復在點擊「立即套用新版本」確認重載後，由於 WebView 預設內部快取機制，導致依然載入舊版資源、讓使用者看起來「點擊完全沒有任何反應」的 Bug。
+  - 在 Android 原生層 `MainActivity.performHotReload` 執行重定向 `setServerBasePath` 後，**強制調用 `activity.getBridge().getWebView().clearCache(true)` 清除所有 WebView 快取**。這能 100% 確保 WebView 再次 reload 時是向新設定的沙盒路徑獲取最新網頁檔案，實現真正無縫的「免重開即時熱重載」！
+  - 原生層新增熱重載診斷機制，在資源或 `index.html` 不存在等失敗情況下，主動掃描並輸出沙盒資料夾內所有檔案的大小與名稱日誌（Logcat），極大提升系統可觀測性。
+- **熱更新重載異常回饋機制 (Web 端優化)**：
+  - 在 `useLiveUpdates.ts` 中升級 `performImmediateReload`，使其支援 Promise 狀態回饋（成功返回 `true`，失敗返回 `false`）。
+  - 在 `Settings.vue` 的熱更新進度監聽器中對接此狀態。若原生端熱重載未能成功執行（例如沙盒損毀或原生權限遭系統限制），不再靜默失敗，而是**主動彈出可愛的 Dodo Alert 視窗** 提示使用者：「⚠️ 無法立即重新載入。請手動完全關閉並重啟 App 以套用新版喵！🐾」，建立良好的互動回饋閉環。
+
 ## [Web 2.6.1] - 2026-05-29
 
 ### 🎨 轉帳功能介面極致優化與防跑版自訂下拉選單
