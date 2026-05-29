@@ -10,7 +10,9 @@ import {
   LogOut, 
   PlusCircle,
   ArrowLeftRight,
-  Award
+  Award,
+  Eye,
+  EyeOff
 } from 'lucide-vue-next'
 
 const emit = defineEmits<{
@@ -32,6 +34,13 @@ const {
   catProfile,
   interactWithCat
 } = useLedger()
+
+// 淨資產隱藏開關
+const isNetWorthHidden = ref(localStorage.getItem('net_worth_hidden') === 'true')
+const toggleNetWorthHidden = () => {
+  isNetWorthHidden.value = !isNetWorthHidden.value
+  localStorage.setItem('net_worth_hidden', String(isNetWorthHidden.value))
+}
 
 // 切換身分泡泡選單控制
 const showUserMenu = ref(false)
@@ -190,20 +199,38 @@ const isAchievementUnlocked = (id: string) => {
 
     <!-- 2. 🧮 淨資產與收支看板 -->
     <div class="networth-card card-jelly">
-      <div class="networth-label">
-        <Wallet :size="16" class="icon-net" /> 淨資產淨值
+      <div class="networth-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+        <div class="networth-label" style="margin-bottom: 0;">
+          <Wallet :size="16" class="icon-net" /> 淨資產淨值
+        </div>
+        <button 
+          class="btn-jelly btn-eye-toggle" 
+          @click="toggleNetWorthHidden" 
+          style="background: none; border: none; padding: 4px; display: inline-flex; align-items: center; cursor: pointer; color: var(--color-text-muted);"
+          title="切換隱藏資產"
+        >
+          <Eye v-if="!isNetWorthHidden" :size="16" />
+          <EyeOff v-else :size="16" />
+        </button>
       </div>
       <div class="networth-amount" :class="{ 'negative-wealth': netWorth < 0 }">
-        TWD ${{ formatCurrency(netWorth) }}
+        <template v-if="isNetWorthHidden">***</template>
+        <template v-else>TWD ${{ formatCurrency(netWorth) }}</template>
       </div>
       <div class="assets-debts-grid">
         <div class="grid-sub-item">
           <span class="sub-label">總資產 (正值)</span>
-          <span class="sub-amount asset-green">${{ formatCurrency(totalAssets) }}</span>
+          <span class="sub-amount asset-green">
+            <template v-if="isNetWorthHidden">***</template>
+            <template v-else>${{ formatCurrency(totalAssets) }}</template>
+          </span>
         </div>
         <div class="grid-sub-item">
           <span class="sub-label">總負債 (卡費等)</span>
-          <span class="sub-amount liability-orange">${{ formatCurrency(totalLiabilities) }}</span>
+          <span class="sub-amount liability-orange">
+            <template v-if="isNetWorthHidden">***</template>
+            <template v-else>${{ formatCurrency(totalLiabilities) }}</template>
+          </span>
         </div>
       </div>
     </div>

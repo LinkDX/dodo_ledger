@@ -12,6 +12,8 @@ import {
   X,
   Search,
   ArrowUpDown,
+  Layers,
+  ChevronDown
 } from 'lucide-vue-next'
 import MonthYearPicker from './MonthYearPicker.vue'
 import DatePicker from './DatePicker.vue'
@@ -20,7 +22,7 @@ const emit = defineEmits<{
   (e: 'change-tab', tab: string): void
 }>()
 
-const { transactions, accounts, categories: allCategories, deleteTransaction, editTransaction } = useLedger()
+const { transactions, accounts, categories: allCategories, deleteTransaction, editTransaction, isTransactionPaid } = useLedger()
 const { showConfirm } = useConfirm()
 
 // 篩選類型
@@ -41,16 +43,25 @@ const sortOptions: { key: SortMode; label: string }[] = [
 // UI 面板開關
 const searchOpen = ref(false)
 const sortOpen = ref(false)
+const viewModeOpen = ref(false)
 
 function toggleSearch() {
   searchOpen.value = !searchOpen.value
   if (!searchOpen.value) searchQuery.value = ''
   sortOpen.value = false
+  viewModeOpen.value = false
 }
 
 function toggleSort() {
   sortOpen.value = !sortOpen.value
   searchOpen.value = false
+  viewModeOpen.value = false
+}
+
+function toggleViewModeDropdown() {
+  viewModeOpen.value = !viewModeOpen.value
+  searchOpen.value = false
+  sortOpen.value = false
 }
 
 function selectSort(key: SortMode) {
@@ -214,6 +225,18 @@ const editFromAccountId = ref('')
 const editToAccountId = ref('')
 const editType = ref<'expense' | 'income' | 'transfer'>('expense')
 
+// 自訂帳戶選單狀態
+const editFromAccountOpen = ref(false)
+const editToAccountOpen = ref(false)
+
+const selectedFromAccount = computed(() => {
+  return expenseAccounts.value.find(a => a.id === editFromAccountId.value)
+})
+
+const selectedToAccount = computed(() => {
+  return incomeAccounts.value.find(a => a.id === editToAccountId.value)
+})
+
 const openEditModal = (tx: any) => {
   editingTxId.value = tx.id
   editNote.value = tx.note
@@ -230,6 +253,8 @@ const openEditModal = (tx: any) => {
 const closeEditModal = () => {
   showEditModal.value = false
   editingTxId.value = ''
+  editFromAccountOpen.value = false
+  editToAccountOpen.value = false
 }
 
 const handleEditSave = async () => {
@@ -261,11 +286,147 @@ const subCategoryOptions = computed(() => {
 // 可選帳戶
 const expenseAccounts = computed(() => accounts.value)
 const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'credit_card'))
+
+// ===== 檢視模式與分組彙整邏輯 =====
+import { type TransactionType, type Transaction } from '../types'
+const viewMode = ref<'detailed' | 'aggregated'>((localStorage.getItem('tx_list_view_mode') as any) || 'aggregated')
+
+const setViewMode = (mode: 'detailed' | 'aggregated') => {
+  viewMode.value = mode
+  localStorage.setItem('tx_list_view_mode', mode)
+}
+
+const expandedDays = ref<Record<string, boolean>>({})
+const toggleDayExpand = (dateStr: string) => {
+  expandedDays.value[dateStr] = !expandedDays.value[dateStr]
+}
+
+// 每日彙整相同帳戶收支與轉帳項目
+interface AggregatedItem {
+  id: string
+  accountId?: string
+  toAccountId?: string
+  type: TransactionType
+  amount: number
+  count: number
+  accountName: string
+  toAccountName?: string
+  isTransfer: boolean
+}
+
+const aggregateDayTransactions = (txs: Transaction[]): AggregatedItem[] => {
+  const map = new Map<string, AggregatedItem>()
+  
+  txs.forEach(tx => {
+    let key = ''
+    if (tx.type === 'expense') {
+      key = `expense_${tx.fromAccountId || 'unknown'}`
+    } else if (tx.type === 'income') {
+      key = `income_${tx.toAccountId || 'unknown'}`
+    } else { // transfer
+      key = `transfer_${tx.fromAccountId || 'unknown'}_${tx.toAccountId || 'unknown'}`
+    }
+    
+    if (map.has(key)) {
+      const item = map.get(key)!
+      item.amount += tx.amount
+      item.count += 1
+    } else {
+      map.set(key, {
+        id: key,
+        accountId: tx.type === 'expense' || tx.type === 'transfer' ? tx.fromAccountId : undefined,
+        toAccountId: tx.type === 'income' || tx.type === 'transfer' ? tx.toAccountId : undefined,
+        type: tx.type,
+        amount: tx.amount,
+        count: 1,
+        accountName: tx.type === 'income' ? getAccountName(tx.toAccountId) : getAccountName(tx.fromAccountId),
+        toAccountName: tx.type === 'transfer' ? getAccountName(tx.toAccountId) : undefined,
+        isTransfer: tx.type === 'transfer'
+      })
+    }
+  })
+  
+  return Array.from(map.values())
+}
+
+// 分組交易資料
+const groupedTransactions = computed(() => {
+  const groups: {
+    dateStr: string
+    dateLabel: string
+    relativeLabel: string
+    items: Transaction[]
+    aggregatedItems: AggregatedItem[]
+    incomeTotal: number
+    expenseTotal: number
+    isExpanded: boolean
+  }[] = []
+  
+  const txs = filteredTransactions.value
+  
+  // 建立日期 Map
+  const map = new Map<string, Transaction[]>()
+  txs.forEach(tx => {
+    const d = new Date(tx.date)
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    if (!map.has(dateStr)) {
+      map.set(dateStr, [])
+    }
+    map.get(dateStr)!.push(tx)
+  })
+  
+  // 保持排序順序
+  const processedDays = new Set<string>()
+  txs.forEach(tx => {
+    const d = new Date(tx.date)
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    
+    if (processedDays.has(dateStr)) return
+    processedDays.add(dateStr)
+    
+    const dayTxs = map.get(dateStr) || []
+    const incomeTotal = dayTxs.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0)
+    const expenseTotal = dayTxs.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0)
+    const aggregatedItems = aggregateDayTransactions(dayTxs)
+    
+    const dateObj = new Date(tx.date)
+    const month = dateObj.getMonth() + 1
+    const date = dateObj.getDate()
+    const dayNames = ['日', '一', '二', '三', '四', '五', '六']
+    const dayOfWeek = dayNames[dateObj.getDay()]
+    const dateLabel = `${month}月${date}日 星期${dayOfWeek}`
+    
+    let relativeLabel = ''
+    const todayStr = new Date().toISOString().split('T')[0]
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    const yesterdayStr = yesterday.toISOString().split('T')[0]
+    
+    if (dateStr === todayStr) {
+      relativeLabel = '今天 🐾'
+    } else if (dateStr === yesterdayStr) {
+      relativeLabel = '昨天'
+    }
+    
+    groups.push({
+      dateStr,
+      dateLabel,
+      relativeLabel,
+      items: dayTxs,
+      aggregatedItems,
+      incomeTotal,
+      expenseTotal,
+      isExpanded: !!expandedDays.value[dateStr]
+    })
+  })
+  
+  return groups
+})
 </script>
 
 <template>
   <div class="tx-list-page pop-jelly">
-    <!-- 頁首 + 搜尋/排序按鈕 -->
+    <!-- 頁首 + 搜尋/檢視模式/排序按鈕 -->
     <div class="page-header">
       <h2 class="page-title"><Sparkles class="icon-inline" /> 收支明細</h2>
       <div class="toolbar-actions">
@@ -278,6 +439,38 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
         >
           <Search :size="16" />
         </button>
+
+        <!-- 檢視模式按鈕 + 下拉 (放在搜尋與排序中間) -->
+        <div class="sort-wrapper">
+          <button
+            class="toolbar-icon-btn btn-jelly"
+            :class="{ active: viewModeOpen }"
+            @click="toggleViewModeDropdown"
+            title="檢視模式"
+          >
+            <Layers :size="16" />
+          </button>
+          <!-- 檢視模式下拉選單 -->
+          <Transition name="dropdown">
+            <div v-if="viewModeOpen" class="sort-dropdown card-jelly" style="min-width: 120px; right: 0;">
+              <button
+                class="sort-option btn-jelly"
+                :class="{ active: viewMode === 'detailed' }"
+                @click="setViewMode('detailed'); viewModeOpen = false"
+              >
+                📑 逐項明細
+              </button>
+              <button
+                class="sort-option btn-jelly"
+                :class="{ active: viewMode === 'aggregated' }"
+                @click="setViewMode('aggregated'); viewModeOpen = false"
+              >
+                📊 每日彙整
+              </button>
+            </div>
+          </Transition>
+        </div>
+
         <!-- 排序按鈕 + 下拉 -->
         <div class="sort-wrapper">
           <button
@@ -342,8 +535,9 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
       </div>
     </Transition>
 
-    <!-- 排序下拉遮罩 -->
+    <!-- 排序與檢視模式下拉遮罩 -->
     <div v-if="sortOpen" class="sort-overlay" @click="sortOpen = false" />
+    <div v-if="viewModeOpen" class="sort-overlay" @click="viewModeOpen = false" />
 
     <!-- 本月小計卡 -->
     <div class="summary-strip card-jelly">
@@ -364,6 +558,8 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
         </span>
       </div>
     </div>
+
+
 
     <!-- 類型篩選 Tab -->
     <div class="filter-tabs">
@@ -399,64 +595,288 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
         </button>
       </div>
 
-      <!-- 交易項目 -->
-      <div
-        v-for="tx in filteredTransactions"
-        :key="tx.id"
-        class="tx-item card-jelly"
-      >
-        <!-- 左側：icon + 分類資訊 -->
-        <div class="tx-left">
-          <div class="tx-icon-circle" :style="{ backgroundColor: getTxStyle(tx).bg }">
-            <ArrowLeftRight v-if="tx.type === 'transfer'" :size="18" :stroke="'#4A7FE0'" />
-            <span v-else class="tx-emoji">{{ getTxStyle(tx).icon }}</span>
-          </div>
-          <div class="tx-info">
-            <div class="tx-category-row">
-              <span class="tx-category">
-                {{ tx.category }}{{ tx.subCategory ? ` ➜ ${tx.subCategory}` : '' }}
-              </span>
+      <!-- 情況 1：使用金額排序，降級為扁平展示 -->
+      <template v-else-if="sortMode.includes('amount')">
+        <div
+          v-for="tx in filteredTransactions"
+          :key="tx.id"
+          class="tx-item card-jelly"
+        >
+          <!-- 左側：icon + 分類資訊 -->
+          <div class="tx-left">
+            <div class="tx-icon-circle" :style="{ backgroundColor: getTxStyle(tx).bg }">
+              <ArrowLeftRight v-if="tx.type === 'transfer'" :size="18" :stroke="'#4A7FE0'" />
+              <span v-else class="tx-emoji">{{ getTxStyle(tx).icon }}</span>
             </div>
-            <span class="tx-note">{{ tx.note || '無備註' }}</span>
-            <!-- 帳戶與記帳人資訊 -->
-            <div class="tx-details-row">
-              <span class="tx-account-info">
-                <template v-if="tx.type === 'transfer'">
-                  {{ getAccountName(tx.fromAccountId) }} → {{ getAccountName(tx.toAccountId) }}
-                </template>
-                <template v-else-if="tx.fromAccountId">
-                  {{ getAccountName(tx.fromAccountId) }}
-                </template>
-                <template v-else-if="tx.toAccountId">
-                  {{ getAccountName(tx.toAccountId) }}
-                </template>
-              </span>
-              <span v-if="tx.createdBy" class="tag-jelly creator-tag">
-                ✍️ {{ tx.createdByAvatar }} {{ tx.createdBy }}
-              </span>
+            <div class="tx-info">
+              <div class="tx-category-row" style="display: flex; align-items: center; flex-wrap: wrap;">
+                <span class="tx-category">
+                  {{ tx.category }}{{ tx.subCategory ? ` ➜ ${tx.subCategory}` : '' }}
+                </span>
+                <span v-if="isTransactionPaid(tx)" class="tag-jelly paid-tag" style="background-color: #E1F8EB; color: #2C8C67; font-size: 8px; padding: 1px 4px; font-weight: 800; border: 1.2px solid #2C8C67; border-radius: 8px; margin-left: 6px; display: inline-flex; align-items: center; gap: 2px;">
+                  ✓ 已繳清
+                </span>
+              </div>
+              <span class="tx-note">{{ tx.note || '無備註' }}</span>
+              <!-- 帳戶與記帳人資訊 -->
+              <div class="tx-details-row">
+                <span class="tx-account-info">
+                  <template v-if="tx.type === 'transfer'">
+                    {{ getAccountName(tx.fromAccountId) }} → {{ getAccountName(tx.toAccountId) }}
+                  </template>
+                  <template v-else-if="tx.fromAccountId">
+                    {{ getAccountName(tx.fromAccountId) }}
+                  </template>
+                  <template v-else-if="tx.toAccountId">
+                    {{ getAccountName(tx.toAccountId) }}
+                  </template>
+                </span>
+                <span v-if="tx.createdBy" class="tag-jelly creator-tag">
+                  ✍️ {{ tx.createdByAvatar }} {{ tx.createdBy }}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- 右側：金額 + 日期 + 操作 -->
-        <div class="tx-right">
-          <span class="tx-amount" :style="{ color: getTxStyle(tx).color }">
-            {{ getTxStyle(tx).prefix }}${{ formatCurrency(tx.amount) }}
-          </span>
-          <span class="tx-date">
-            {{ new Date(tx.date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }) }}
-          </span>
-          <div class="tx-actions">
-            <button class="btn-edit btn-jelly" @click="openEditModal(tx)" title="編輯此筆">
-              <Pencil :size="11" />
-            </button>
-            <button class="btn-delete btn-jelly" @click="handleDelete(tx.id)" title="刪除此筆">
-              <Trash2 :size="11" />
-            </button>
+          <!-- 右側：金額 + 日期 + 操作 -->
+          <div class="tx-right">
+            <span class="tx-amount" :style="{ color: getTxStyle(tx).color }">
+              {{ getTxStyle(tx).prefix }}${{ formatCurrency(tx.amount) }}
+            </span>
+            <span class="tx-date">
+              {{ new Date(tx.date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }) }}
+            </span>
+            <div class="tx-actions">
+              <button class="btn-edit btn-jelly" @click="openEditModal(tx)" title="編輯此筆">
+                <Pencil :size="11" />
+              </button>
+              <button class="btn-delete btn-jelly" @click="handleDelete(tx.id)" title="刪除此筆">
+                <Trash2 :size="11" />
+              </button>
+            </div>
           </div>
         </div>
+      </template>
+
+      <!-- 情況 2：日期排序，且 viewMode 為 detailed (日區塊逐項展開模式) -->
+      <template v-else-if="viewMode === 'detailed'">
+        <div 
+          v-for="group in groupedTransactions" 
+          :key="group.dateStr"
+          class="day-group-card card-jelly"
+          style="margin-bottom: 14px; padding: 0 !important; overflow: hidden; background-color: #fff; text-align: left;"
+        >
+          <!-- 區塊 Header -->
+          <div class="day-group-header" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background-color: var(--color-bg-warm); border-bottom: 1.5px solid var(--color-border);">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="day-group-date" style="font-size: 12px; font-weight: 800; color: var(--color-text-dark);">
+                {{ group.dateLabel }}
+              </span>
+              <span v-if="group.relativeLabel" class="tag-jelly" style="font-size: 9px; padding: 1px 6px; background-color: var(--color-accent-gold);">
+                {{ group.relativeLabel }}
+              </span>
+            </div>
+            <div class="day-group-totals" style="font-size: 11px; font-weight: 800; display: flex; gap: 8px;">
+              <span v-if="group.incomeTotal > 0" class="income-val" style="color: var(--color-income-text, #2C8C67);">
+                +${{ formatCurrency(group.incomeTotal) }}
+              </span>
+              <span v-if="group.expenseTotal > 0" class="expense-val" style="color: var(--color-expense-text, #FF5A5A);">
+                -${{ formatCurrency(group.expenseTotal) }}
+              </span>
+            </div>
+          </div>
+          
+          <!-- 區塊內單筆明細 (以虛線/細線分隔) -->
+          <div class="day-group-items">
+            <div 
+              v-for="(tx, idx) in group.items" 
+              :key="tx.id"
+              class="tx-item"
+              style="background-color: transparent !important; padding: 12px 14px !important;"
+              :style="idx > 0 ? 'border-top: 1px dashed var(--color-border);' : ''"
+            >
+              <!-- 左側：icon + 分類資訊 -->
+              <div class="tx-left">
+                <div class="tx-icon-circle" :style="{ backgroundColor: getTxStyle(tx).bg }">
+                  <ArrowLeftRight v-if="tx.type === 'transfer'" :size="18" :stroke="'#4A7FE0'" />
+                  <span v-else class="tx-emoji">{{ getTxStyle(tx).icon }}</span>
+                </div>
+                <div class="tx-info">
+                  <div class="tx-category-row" style="display: flex; align-items: center; flex-wrap: wrap;">
+                    <span class="tx-category">
+                      {{ tx.category }}{{ tx.subCategory ? ` ➜ ${tx.subCategory}` : '' }}
+                    </span>
+                    <span v-if="isTransactionPaid(tx)" class="tag-jelly paid-tag" style="background-color: #E1F8EB; color: #2C8C67; font-size: 8px; padding: 1px 4px; font-weight: 800; border: 1.2px solid #2C8C67; border-radius: 8px; margin-left: 6px; display: inline-flex; align-items: center; gap: 2px;">
+                      ✓ 已繳清
+                    </span>
+                  </div>
+                  <span class="tx-note">{{ tx.note || '無備註' }}</span>
+                  <div class="tx-details-row">
+                    <span class="tx-account-info">
+                      <template v-if="tx.type === 'transfer'">
+                        {{ getAccountName(tx.fromAccountId) }} ➜ {{ getAccountName(tx.toAccountId) }}
+                      </template>
+                      <template v-else-if="tx.fromAccountId">
+                        {{ getAccountName(tx.fromAccountId) }}
+                      </template>
+                      <template v-else-if="tx.toAccountId">
+                        {{ getAccountName(tx.toAccountId) }}
+                      </template>
+                    </span>
+                    <span v-if="tx.createdBy" class="tag-jelly creator-tag">
+                      ✍️ {{ tx.createdByAvatar }} {{ tx.createdBy }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 右側：金額 + 操作 -->
+              <div class="tx-right">
+                <span class="tx-amount" :style="{ color: getTxStyle(tx).color }">
+                  {{ getTxStyle(tx).prefix }}${{ formatCurrency(tx.amount) }}
+                </span>
+                <div class="tx-actions">
+                  <button class="btn-edit btn-jelly" @click="openEditModal(tx)" title="編輯此筆">
+                    <Pencil :size="11" />
+                  </button>
+                  <button class="btn-delete btn-jelly" @click="handleDelete(tx.id)" title="刪除此筆">
+                    <Trash2 :size="11" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <!-- 情況 3：日期排序，且 viewMode 為 aggregated (每日彙整卡片模式) -->
+      <template v-else-if="viewMode === 'aggregated'">
+        <div 
+          v-for="group in groupedTransactions" 
+          :key="group.dateStr"
+          class="day-group-card card-jelly"
+          style="margin-bottom: 14px; padding: 12px !important; background-color: #fff; cursor: pointer; text-align: left;"
+          @click="toggleDayExpand(group.dateStr)"
+        >
+          <!-- 彙整 Header -->
+          <div class="day-group-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="day-group-date" style="font-size: 13px; font-weight: 800; color: var(--color-text-dark);">
+                {{ group.dateLabel }}
+              </span>
+              <span v-if="group.relativeLabel" class="tag-jelly" style="font-size: 9px; padding: 1px 6px; background-color: var(--color-accent-gold);">
+                {{ group.relativeLabel }}
+              </span>
+            </div>
+            <div class="day-group-totals" style="font-size: 12px; font-weight: 800; display: flex; gap: 8px;">
+              <span v-if="group.incomeTotal > 0" class="income-val" style="color: var(--color-income-text, #2C8C67);">
+                +${{ formatCurrency(group.incomeTotal) }}
+              </span>
+              <span v-if="group.expenseTotal > 0" class="expense-val" style="color: var(--color-expense-text, #FF5A5A);">
+                -${{ formatCurrency(group.expenseTotal) }}
+              </span>
+            </div>
+          </div>
+
+          <!-- 彙整加總列表 (同一天合併相同帳戶後的項目) -->
+          <div class="aggregated-items-list" style="display: flex; flex-direction: column; gap: 8px; background-color: var(--color-bg-warm); padding: 10px 14px; border-radius: var(--border-radius-sm); border: 1.5px solid var(--color-border); margin-bottom: 6px; box-shadow: var(--shadow-jelly-sm);">
+            <div 
+              v-for="item in group.aggregatedItems" 
+              :key="item.id"
+              style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 800;"
+            >
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span v-if="item.type === 'expense'">💸</span>
+                <span v-else-if="item.type === 'income'">💰</span>
+                <span v-else>🔄</span>
+                <span>
+                  <template v-if="item.isTransfer">
+                    {{ item.accountName }} ➜ {{ item.toAccountName }}
+                  </template>
+                  <template v-else>
+                    {{ item.accountName }}
+                  </template>
+                </span>
+                <span style="font-size: 10px; color: var(--color-text-muted); font-weight: 700;">
+                  ({{ item.count }} 筆)
+                </span>
+              </div>
+              <span :style="{ color: item.type === 'expense' ? 'var(--color-expense-text, #FF5A5A)' : item.type === 'income' ? 'var(--color-income-text, #2C8C67)' : '#4A7FE0' }">
+                {{ item.type === 'expense' ? '-' : item.type === 'income' ? '+' : '' }}${{ formatCurrency(item.amount) }}
+              </span>
+            </div>
+          </div>
+
+          <!-- 展開/折疊指示 -->
+          <div style="text-align: center; font-size: 10px; font-weight: 800; color: var(--color-text-muted); padding-top: 4px;">
+            {{ group.isExpanded ? '🐾 點擊收合原始明細 ⬆️' : '🐾 點擊展開原始明細 (' + group.items.length + ' 筆) ⬇️' }}
+          </div>
+
+          <!-- 展開顯示當天原始明細，方便進行刪除/編輯等調整 -->
+          <div v-if="group.isExpanded" @click.stop style="margin-top: 10px; border-top: 1.5px dashed var(--color-border); padding-top: 10px;">
+            <div class="day-group-items">
+              <div 
+                v-for="(tx, idx) in group.items" 
+                :key="tx.id"
+                class="tx-item"
+                style="background-color: transparent !important; padding: 12px 0 !important;"
+                :style="idx > 0 ? 'border-top: 1px dashed var(--color-border);' : ''"
+              >
+                <!-- 左側：icon + 分類資訊 -->
+                <div class="tx-left">
+                  <div class="tx-icon-circle" :style="{ backgroundColor: getTxStyle(tx).bg }">
+                    <ArrowLeftRight v-if="tx.type === 'transfer'" :size="18" :stroke="'#4A7FE0'" />
+                    <span v-else class="tx-emoji">{{ getTxStyle(tx).icon }}</span>
+                  </div>
+                  <div class="tx-info">
+                    <div class="tx-category-row" style="display: flex; align-items: center; flex-wrap: wrap;">
+                      <span class="tx-category">
+                        {{ tx.category }}{{ tx.subCategory ? ` ➜ ${tx.subCategory}` : '' }}
+                      </span>
+                      <span v-if="isTransactionPaid(tx)" class="tag-jelly paid-tag" style="background-color: #E1F8EB; color: #2C8C67; font-size: 8px; padding: 1px 4px; font-weight: 800; border: 1.2px solid #2C8C67; border-radius: 8px; margin-left: 6px; display: inline-flex; align-items: center; gap: 2px;">
+                        ✓ 已繳清
+                      </span>
+                    </div>
+                    <span class="tx-note">{{ tx.note || '無備註' }}</span>
+                    <div class="tx-details-row">
+                      <span class="tx-account-info">
+                        <template v-if="tx.type === 'transfer'">
+                          {{ getAccountName(tx.fromAccountId) }} ➜ {{ getAccountName(tx.toAccountId) }}
+                        </template>
+                        <template v-else-if="tx.fromAccountId">
+                          {{ getAccountName(tx.fromAccountId) }}
+                        </template>
+                        <template v-else-if="tx.toAccountId">
+                          {{ getAccountName(tx.toAccountId) }}
+                        </template>
+                      </span>
+                      <span v-if="tx.createdBy" class="tag-jelly creator-tag">
+                        ✍️ {{ tx.createdByAvatar }} {{ tx.createdBy }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 右側：金額 + 操作 -->
+                <div class="tx-right">
+                  <span class="tx-amount" :style="{ color: getTxStyle(tx).color }">
+                    {{ getTxStyle(tx).prefix }}${{ formatCurrency(tx.amount) }}
+                  </span>
+                  <div class="tx-actions">
+                    <button class="btn-edit btn-jelly" @click="openEditModal(tx)" title="編輯此筆">
+                      <Pencil :size="11" />
+                    </button>
+                    <button class="btn-delete btn-jelly" @click="handleDelete(tx.id)" title="刪除此筆">
+                      <Trash2 :size="11" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
       </div>
-    </div>
 
     <!-- ===== 編輯交易彈窗 (Teleport 全螢幕 Modal Dialog) ===== -->
     <Teleport to="#app">
@@ -524,19 +944,106 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
             </div>
 
             <!-- 來源/目的帳戶 -->
-            <div v-if="editType === 'expense' || editType === 'transfer'" class="form-group">
+            <div v-if="editType === 'expense' || editType === 'transfer'" class="form-group" style="position: relative;">
               <label class="label-cute">支付帳戶</label>
-              <select v-model="editFromAccountId" class="input-jelly">
-                <option value="">(不指定)</option>
-                <option v-for="a in expenseAccounts" :key="a.id" :value="a.id">{{ a.name }}</option>
-              </select>
+              <!-- 自訂果凍下拉選單選取框 -->
+              <div 
+                class="select-cute-btn btn-jelly" 
+                :class="{ active: editFromAccountOpen }"
+                @click="editFromAccountOpen = !editFromAccountOpen; editToAccountOpen = false"
+              >
+                <span v-if="selectedFromAccount" class="select-btn-val">
+                  <span class="account-avatar-emoji" style="margin-right: 4px;">{{ selectedFromAccount.avatar || '💰' }}</span>
+                  <span class="account-name-text">{{ selectedFromAccount.name }}</span>
+                </span>
+                <span v-else class="select-btn-val placeholder">(不指定)</span>
+                <ChevronDown :size="16" class="select-arrow" />
+              </div>
+
+              <!-- 全螢幕遮罩 (僅在選單展開時存在，用於點擊外部收合) -->
+              <div 
+                v-if="editFromAccountOpen" 
+                class="select-dropdown-overlay" 
+                @click="editFromAccountOpen = false"
+              ></div>
+
+              <!-- 下拉選項氣泡面板 -->
+              <Transition name="fade-drop">
+                <div v-if="editFromAccountOpen" class="select-dropdown-panel card-jelly pop-jelly">
+                  <div 
+                    class="select-option btn-jelly" 
+                    :class="{ selected: editFromAccountId === '' }"
+                    @click="editFromAccountId = ''; editFromAccountOpen = false"
+                  >
+                    <span>(不指定)</span>
+                    <Check v-if="editFromAccountId === ''" :size="14" stroke-width="3" />
+                  </div>
+                  <div 
+                    v-for="a in expenseAccounts" 
+                    :key="a.id"
+                    class="select-option btn-jelly"
+                    :class="{ selected: editFromAccountId === a.id }"
+                    @click="editFromAccountId = a.id; editFromAccountOpen = false"
+                  >
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span class="account-avatar-emoji">{{ a.avatar || '💰' }}</span>
+                      <span>{{ a.name }}</span>
+                    </div>
+                    <Check v-if="editFromAccountId === a.id" :size="14" stroke-width="3" />
+                  </div>
+                </div>
+              </Transition>
             </div>
-            <div v-if="editType === 'income' || editType === 'transfer'" class="form-group">
+
+            <div v-if="editType === 'income' || editType === 'transfer'" class="form-group" style="position: relative;">
               <label class="label-cute">存入帳戶</label>
-              <select v-model="editToAccountId" class="input-jelly">
-                <option value="">(不指定)</option>
-                <option v-for="a in incomeAccounts" :key="a.id" :value="a.id">{{ a.name }}</option>
-              </select>
+              <!-- 自訂果凍下拉選單選取框 -->
+              <div 
+                class="select-cute-btn btn-jelly" 
+                :class="{ active: editToAccountOpen }"
+                @click="editToAccountOpen = !editToAccountOpen; editFromAccountOpen = false"
+              >
+                <span v-if="selectedToAccount" class="select-btn-val">
+                  <span class="account-avatar-emoji" style="margin-right: 4px;">{{ selectedToAccount.avatar || '💰' }}</span>
+                  <span class="account-name-text">{{ selectedToAccount.name }}</span>
+                </span>
+                <span v-else class="select-btn-val placeholder">(不指定)</span>
+                <ChevronDown :size="16" class="select-arrow" />
+              </div>
+
+              <!-- 全螢幕遮罩 -->
+              <div 
+                v-if="editToAccountOpen" 
+                class="select-dropdown-overlay" 
+                @click="editToAccountOpen = false"
+              ></div>
+
+              <!-- 下拉選項氣泡面板 -->
+              <Transition name="fade-drop">
+                <div v-if="editToAccountOpen" class="select-dropdown-panel card-jelly pop-jelly">
+                  <div 
+                    class="select-option btn-jelly" 
+                    :class="{ selected: editToAccountId === '' }"
+                    @click="editToAccountId = ''; editToAccountOpen = false"
+                  >
+                    <span>(不指定)</span>
+                    <Check v-if="editToAccountId === ''" :size="14" stroke-width="3" />
+                  </div>
+                  <div 
+                    v-for="a in incomeAccounts" 
+                    :key="a.id"
+                    class="select-option btn-jelly"
+                    :class="{ selected: editToAccountId === a.id }"
+                    @click="editToAccountId = a.id; editToAccountOpen = false"
+                  >
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span class="account-avatar-emoji">{{ a.avatar || '💰' }}</span>
+                      <span>{{ a.name }}</span>
+                    </div>
+                    <Check v-if="editToAccountId === a.id" :size="14" stroke-width="3" />
+                  </div>
+                </div>
+              </Transition>
             </div>
 
             <div class="modal-actions">
@@ -1121,5 +1628,120 @@ const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'cre
   padding: 3px 10px;
   border-radius: 20px;
   border: 1.5px solid var(--color-border);
+}
+
+/* 自訂果凍下拉選單 */
+.select-cute-btn {
+  display: flex !important;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  height: 42px;
+  padding: 0 14px !important;
+  border: var(--border-width) solid var(--color-border) !important;
+  border-radius: var(--border-radius-sm) !important;
+  background-color: #fff !important;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--color-text-dark);
+  cursor: pointer;
+  box-shadow: none !important;
+}
+
+.select-cute-btn:active {
+  transform: scale(0.97) !important;
+}
+
+.select-cute-btn.active {
+  border-color: var(--color-accent-gold) !important;
+  box-shadow: var(--shadow-jelly-sm) !important;
+}
+
+.select-btn-val {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.select-btn-val.placeholder {
+  color: var(--color-text-muted);
+  font-weight: 700;
+}
+
+.select-arrow {
+  color: var(--color-text-muted);
+  transition: transform 0.2s ease;
+}
+
+.select-cute-btn.active .select-arrow {
+  transform: rotate(180deg);
+  color: var(--color-text-dark);
+}
+
+.select-dropdown-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 98; /* 低於選單面板 99，高於其他 */
+  background: transparent;
+}
+
+.select-dropdown-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background-color: #fff !important;
+  border: var(--border-width) solid var(--color-border) !important;
+  border-radius: var(--border-radius-sm) !important;
+  padding: 6px !important;
+  z-index: 99 !important;
+  max-height: 200px;
+  overflow-y: auto;
+  box-shadow: var(--shadow-jelly) !important;
+}
+
+.select-option {
+  display: flex !important;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px !important;
+  margin-bottom: 4px !important;
+  border-radius: var(--border-radius-xs) !important;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--color-text-dark);
+  cursor: pointer;
+  background: transparent !important;
+  border: 1.5px solid transparent !important;
+  box-shadow: none !important;
+}
+
+.select-option:last-child {
+  margin-bottom: 0 !important;
+}
+
+.select-option:hover {
+  background-color: var(--color-bg-warm) !important;
+  border-color: var(--color-border) !important;
+}
+
+.select-option.selected {
+  background-color: #FFF2D6 !important;
+  border-color: var(--color-accent-gold) !important;
+  color: var(--color-accent-gold) !important;
+}
+
+/* 下拉淡入動畫 */
+.fade-drop-enter-active,
+.fade-drop-leave-active {
+  transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+}
+.fade-drop-enter-from,
+.fade-drop-leave-to {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.98);
 }
 </style>

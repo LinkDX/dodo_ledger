@@ -258,7 +258,7 @@ const handleSubmit = async () => {
     fromAccountId: txType.value === 'expense' ? selectedAccountId.value : undefined,
     toAccountId: txType.value === 'income' ? selectedAccountId.value : undefined,
     date: new Date(dateStr.value).getTime(),
-    note: note.value.trim() || `${activeCategory.value?.name}-${selectedSubCat.value}`,
+    note: note.value.trim(),
     tags: []
   }
 

@@ -7,10 +7,22 @@ import {
   FolderPlus, 
   Trash2, 
   GripVertical,
+  Pencil,
+  Check,
   X 
 } from 'lucide-vue-next'
 
-const { categories, addCategory, deleteCategory, addSubCategory, deleteSubCategory, reorderCategories, reorderSubCategories } = useLedger()
+const { 
+  categories, 
+  addCategory, 
+  deleteCategory, 
+  editCategory,
+  addSubCategory, 
+  deleteSubCategory, 
+  editSubCategory,
+  reorderCategories, 
+  reorderSubCategories 
+} = useLedger()
 const { showConfirm } = useConfirm()
 const { showAlert } = useAlert()
 
@@ -67,6 +79,61 @@ const handleDeleteMainCategory = async (catId: string) => {
   const nextCat = filteredCategories.value.find(c => c.id !== catId)
   expandedCatId.value = nextCat ? nextCat.id : ''
   await showAlert(`🐱 主分類「${cat.name}」已被刪除。`)
+}
+
+// ===== 🐾 編輯分類與子分類方法 =====
+const editingCatId = ref<string>('')
+const editCatName = ref('')
+const editCatIcon = ref('')
+
+const startEditCategory = (cat: any) => {
+  editingCatId.value = cat.id
+  editCatName.value = cat.name
+  editCatIcon.value = cat.icon
+}
+
+const handleSaveCategory = async (catId: string) => {
+  if (!editCatName.value.trim()) return
+  await editCategory(catId, {
+    name: editCatName.value.trim(),
+    icon: editCatIcon.value
+  })
+  editingCatId.value = ''
+  await showAlert('🐱 主分類已成功更新！')
+}
+
+const cancelEditCategory = () => {
+  editingCatId.value = ''
+}
+
+const editingSubKey = ref<string>('') // 'catId::subName'
+const editSubName = ref('')
+
+const startEditSubCategory = (catId: string, sub: string) => {
+  editingSubKey.value = `${catId}::${sub}`
+  editSubName.value = sub
+}
+
+const handleSaveSubCategory = async (catId: string, oldSub: string) => {
+  const newSub = editSubName.value.trim()
+  if (!newSub || newSub === oldSub) {
+    editingSubKey.value = ''
+    return
+  }
+  
+  const cat = categories.value.find(c => c.id === catId)
+  if (cat?.subCategories.includes(newSub) && newSub !== oldSub) {
+    await showAlert('🐱 這個子分類已經存在囉喵！')
+    return
+  }
+  
+  await editSubCategory(catId, oldSub, newSub)
+  editingSubKey.value = ''
+  await showAlert('🐱 子分類已成功更新！')
+}
+
+const cancelEditSubCategory = () => {
+  editingSubKey.value = ''
 }
 
 // 子分類狀態與方法
@@ -190,8 +257,50 @@ const onSubDrop = async (catId: string, targetSub: string) => {
           @drop.prevent="onCatDrop(cat)"
           @dragend="onCatDragEnd"
         >
-          <!-- 卡片 Header：點擊展開子分類 -->
-          <div class="accordion-header" @click="toggleExpandCat(cat.id)">
+           <!-- 卡片 Header：點擊展開子分類 -->
+          <div v-if="editingCatId === cat.id" class="accordion-header editing-mode" @click.stop>
+            <div class="editing-cat-row" style="display: flex; flex-direction: column; width: 100%; gap: 10px; padding: 6px 0;">
+              <div style="display: flex; gap: 8px; width: 100%; align-items: center;">
+                <input 
+                  v-model="editCatName" 
+                  type="text" 
+                  class="input-jelly" 
+                  style="flex: 1; padding: 6px 10px; font-size: 13px;"
+                  placeholder="輸入新名稱"
+                  @keyup.enter="handleSaveCategory(cat.id)"
+                />
+                <button 
+                  class="btn-jelly" 
+                  @click="handleSaveCategory(cat.id)" 
+                  style="padding: 6px 0; font-size: 12px; margin-top: 0; min-width: 64px; text-align: center; background-color: var(--color-income) !important;"
+                >
+                  儲存
+                </button>
+                <button 
+                  class="btn-jelly" 
+                  @click="cancelEditCategory" 
+                  style="padding: 6px 0; font-size: 12px; margin-top: 0; min-width: 64px; text-align: center; background: #fff; border: 1.5px solid var(--color-border); color: var(--color-text-muted);"
+                >
+                  取消
+                </button>
+              </div>
+              <!-- 圖示快速選取 -->
+              <div class="icon-selector-grid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; width: 100%;">
+                <button 
+                  v-for="ico in cuteIconsList" 
+                  :key="ico"
+                  class="btn-jelly btn-icon-select"
+                  :class="{ active: editCatIcon === ico }"
+                  @click="editCatIcon = ico"
+                  style="padding: 4px !important; font-size: 14px; min-height: 28px;"
+                >
+                  {{ ico === 'Utensils' ? '🍔' : ico === 'Car' ? '🚗' : ico === 'ShoppingBag' ? '🛍️' : ico === 'Home' ? '🏠' : ico === 'DollarSign' ? '💵' : ico === 'TrendingUp' ? '📈' : ico === 'Gift' ? '🎁' : ico === 'Briefcase' ? '💼' : ico === 'Heart' ? '❤️' : ico === 'Smile' ? '😊' : ico === 'Activity' ? '🏥' : '✨' }}
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <div v-else class="accordion-header" @click="toggleExpandCat(cat.id)">
             <div class="header-left">
               <!-- 拖曳把手 -->
               <span
@@ -211,11 +320,18 @@ const onSubDrop = async (catId: string, targetSub: string) => {
             </div>
             <div class="header-right">
               <button 
+                class="btn-edit-cat" 
+                title="編輯此主分類" 
+                @click.stop="startEditCategory(cat)"
+              >
+                <Pencil :size="12" />
+              </button>
+              <button 
                 class="btn-delete-cat" 
                 title="刪除此主分類" 
                 @click.stop="handleDeleteMainCategory(cat.id)"
               >
-                <Trash2 :size="14" />
+                <Trash2 :size="12" />
               </button>
             </div>
           </div>
@@ -227,24 +343,57 @@ const onSubDrop = async (catId: string, targetSub: string) => {
                 目前尚未有任何子分類喵，請在下方輸入新增🐾
               </div>
               <div v-else class="sub-pills-list">
-                <span 
-                  v-for="sub in cat.subCategories" 
-                  :key="sub"
-                  class="tag-jelly sub-cute-pill"
-                  :class="{ 'is-dragging': subDragKey === subKey(cat.id, sub), 'drag-over': subDragOverKey === subKey(cat.id, sub) }"
-                  draggable="true"
-                  @dragstart="onSubDragStart(cat.id, sub)"
-                  @dragover.prevent="onSubDragOver(cat.id, sub)"
-                  @dragleave="onSubDragLeave"
-                  @drop.prevent="onSubDrop(cat.id, sub)"
-                  @dragend="onSubDragEnd"
-                >
-                  <GripVertical :size="10" class="sub-grip" />
-                  {{ sub }}
-                  <button class="btn-remove-sub" @click="handleDeleteSubCategory(cat.id, sub)">
-                    <X :size="10" />
-                  </button>
-                </span>
+                <template v-for="sub in cat.subCategories" :key="sub">
+                  <!-- 編輯子分類狀態 -->
+                  <span 
+                    v-if="editingSubKey === `${cat.id}::${sub}`"
+                    class="tag-jelly sub-cute-pill editing"
+                    style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px !important;"
+                  >
+                    <input 
+                      v-model="editSubName" 
+                      type="text" 
+                      class="input-sub-edit" 
+                      style="border: none; background: transparent; width: 80px; font-size: 11px; font-weight: 800; padding: 0; outline: none; border-bottom: 1.5px solid var(--color-border);"
+                      @keyup.enter="handleSaveSubCategory(cat.id, sub)"
+                      autofocus
+                    />
+                    <button class="btn-save-sub-pill" @click="handleSaveSubCategory(cat.id, sub)" style="border: none; background: transparent; cursor: pointer; color: var(--color-income); display: flex; align-items: center; padding: 0;">
+                      <Check :size="11" stroke-width="4" />
+                    </button>
+                    <button class="btn-cancel-sub-pill" @click="cancelEditSubCategory" style="border: none; background: transparent; cursor: pointer; color: var(--color-text-muted); display: flex; align-items: center; padding: 0;">
+                      <X :size="11" stroke-width="3" />
+                    </button>
+                  </span>
+                  
+                  <!-- 一般子分類狀態 -->
+                  <span 
+                    v-else
+                    class="tag-jelly sub-cute-pill"
+                    :class="{ 'is-dragging': subDragKey === subKey(cat.id, sub), 'drag-over': subDragOverKey === subKey(cat.id, sub) }"
+                    draggable="true"
+                    @dragstart="onSubDragStart(cat.id, sub)"
+                    @dragover.prevent="onSubDragOver(cat.id, sub)"
+                    @dragleave="onSubDragLeave"
+                    @drop.prevent="onSubDrop(cat.id, sub)"
+                    @dragend="onSubDragEnd"
+                  >
+                    <GripVertical :size="10" class="sub-grip" />
+                    <span @click.stop="startEditSubCategory(cat.id, sub)" style="cursor: pointer; font-weight: 800;" title="點擊編輯名稱">{{ sub }}</span>
+                    <!-- 子分類編輯小鉛筆 -->
+                    <button 
+                      class="btn-edit-sub" 
+                      @click.stop="startEditSubCategory(cat.id, sub)" 
+                      title="編輯名稱"
+                      style="background: transparent; border: none; padding: 2px; cursor: pointer; color: var(--color-text-muted); display: inline-flex; align-items: center; justify-content: center; margin-left: 2px; transition: transform 0.1s ease, color 0.15s ease;"
+                    >
+                      <Pencil :size="9" />
+                    </button>
+                    <button class="btn-remove-sub" @click="handleDeleteSubCategory(cat.id, sub)" title="刪除此子分類">
+                      <X :size="10" />
+                    </button>
+                  </span>
+                </template>
               </div>
               
               <!-- 新增子分類小輸入框 -->
@@ -452,24 +601,51 @@ const onSubDrop = async (catId: string, targetSub: string) => {
   box-shadow: var(--shadow-jelly-sm-sm, 1px 1px 0 0 #2C1E1B) !important;
 }
 
-.btn-delete-cat {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px;
+.header-right {
   display: flex;
   align-items: center;
-  justify-content: center;
-  border-radius: var(--border-radius-sm);
-  transition: background-color 0.15s ease;
+  gap: 8px;
+}
+
+.btn-edit-cat, .btn-delete-cat {
+  background-color: var(--color-bg-warm) !important;
+  border: 1.5px solid var(--color-border) !important;
+  border-radius: 50% !important;
+  width: 26px !important;
+  height: 26px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: transform 0.1s ease, background-color 0.15s ease !important;
+  padding: 0 !important;
+  box-shadow: var(--shadow-jelly-sm-sm, 1px 1px 0 0 #2C1E1B) !important;
+}
+
+.btn-edit-cat:active, .btn-delete-cat:active {
+  transform: scale(0.92) !important;
+}
+
+.btn-edit-cat:hover {
+  background-color: var(--color-accent-gold) !important;
 }
 
 .btn-delete-cat:hover {
-  background-color: #FFDADA;
+  background-color: #FFDADA !important;
+}
+
+.btn-edit-cat :deep(svg) {
+  stroke: var(--color-text-dark) !important;
 }
 
 .btn-delete-cat :deep(svg) {
-  stroke: #FF5A5A;
+  stroke: #FF5A5A !important;
+}
+
+/* 子分類編輯小按鈕特效 */
+.btn-edit-sub:hover {
+  color: var(--color-text-dark) !important;
+  transform: scale(1.2);
 }
 
 .accordion-body {

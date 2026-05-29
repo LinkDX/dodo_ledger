@@ -1167,6 +1167,115 @@ export function useLedger() {
     await addSystemLog(operatorName, operatorAvatar, 'update_categories', `從「${cat.name}」刪除子分類「${subName}」`)
   }
 
+  // 12.5 🐾 編輯分類與繳費檢測方法
+  const editCategory = async (catId: string, updatedData: { name: string; icon: string }) => {
+    const operatorName = currentProfile.value?.name || '系統自動'
+    const operatorAvatar = currentProfile.value?.avatar || '⚙️'
+    
+    const cat = categories.value.find(c => c.id === catId)
+    if (!cat) return
+    
+    const oldName = cat.name
+    const newName = updatedData.name.trim()
+    if (!newName) return
+    
+    cat.name = newName
+    cat.icon = updatedData.icon
+    
+    let affectedTxCount = 0
+    if (oldName !== newName) {
+      transactions.value = transactions.value.map(tx => {
+        if (tx.category === oldName) {
+          affectedTxCount++
+          return { ...tx, category: newName, updatedAt: Date.now() }
+        }
+        return tx
+      })
+      
+      recurringTransactions.value = recurringTransactions.value.map(rec => {
+        if (rec.category === oldName) {
+          return { ...rec, category: newName }
+        }
+        return rec
+      })
+    }
+    
+    await syncCategories()
+    if (oldName !== newName && affectedTxCount > 0) {
+      await db.saveTransactions(transactions.value)
+      await syncRecurring()
+    }
+    
+    await addSystemLog(
+      operatorName,
+      operatorAvatar,
+      'update_categories',
+      `編輯主分類「${oldName}」➜「${newName}」${oldName !== newName ? `（更新 ${affectedTxCount} 筆交易）` : ''}`
+    )
+  }
+
+  const editSubCategory = async (catId: string, oldSubName: string, newSubName: string) => {
+    const operatorName = currentProfile.value?.name || '系統自動'
+    const operatorAvatar = currentProfile.value?.avatar || '⚙️'
+    
+    const cat = categories.value.find(c => c.id === catId)
+    if (!cat) return
+    
+    const trimmedNewSub = newSubName.trim()
+    if (!trimmedNewSub || trimmedNewSub === oldSubName) return
+    
+    const idx = cat.subCategories.indexOf(oldSubName)
+    if (idx !== -1) {
+      cat.subCategories[idx] = trimmedNewSub
+    }
+    
+    let affectedTxCount = 0
+    transactions.value = transactions.value.map(tx => {
+      if (tx.category === cat.name && tx.subCategory === oldSubName) {
+        affectedTxCount++
+        return { ...tx, subCategory: trimmedNewSub, updatedAt: Date.now() }
+      }
+      return tx
+    })
+    
+    recurringTransactions.value = recurringTransactions.value.map(rec => {
+      if (rec.category === cat.name && rec.subCategory === oldSubName) {
+        return { ...rec, subCategory: trimmedNewSub }
+      }
+      return rec
+    })
+    
+    await syncCategories()
+    if (affectedTxCount > 0) {
+      await db.saveTransactions(transactions.value)
+      await syncRecurring()
+    }
+    
+    await addSystemLog(
+      operatorName,
+      operatorAvatar,
+      'update_categories',
+      `編輯「${cat.name}」子分類「${oldSubName}」➜「${trimmedNewSub}」${affectedTxCount > 0 ? `（更新 ${affectedTxCount} 筆交易）` : ''}`
+    )
+  }
+
+  const isTransactionPaid = (tx: Transaction) => {
+    if (tx.type !== 'expense') return false
+    const fromAcct = accounts.value.find(a => a.id === tx.fromAccountId)
+    if (!fromAcct || fromAcct.type !== 'credit_card') return false
+    
+    const billPeriod = getCreditCardBillPeriod(tx)
+    if (!billPeriod) return false
+    
+    // 檢查是否有對應的信用卡繳款轉帳紀錄
+    return transactions.value.some(payTx => 
+      payTx.type === 'transfer' &&
+      payTx.toAccountId === tx.fromAccountId &&
+      payTx.tags?.includes('信用卡繳款') &&
+      payTx.note?.includes(billPeriod)
+    )
+  }
+
   // 13. 🐱 逗逗貓療癒生活看板趣味互動 (全面轉向陪伴角色，無精力、無等級限制，自由互動)
   const interactWithCat = async (action: string) => {
     if (!catProfile.value) return
@@ -1378,8 +1487,12 @@ export function useLedger() {
 
     addCategory,
     deleteCategory,
+    editCategory,
     addSubCategory,
     deleteSubCategory,
+    editSubCategory,
+
+    isTransactionPaid,
 
     interactWithCat
   }
