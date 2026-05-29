@@ -391,6 +391,23 @@ const onAcctDrop = async (targetAcct: Account) => {
   newOrder.splice(dstIdx, 0, item)
   await reorderAccounts(newOrder)
 }
+
+// 手機端快速排序：上移或下移帳戶
+const moveAccount = async (acct: Account, direction: 'up' | 'down') => {
+  const newOrder = [...accounts.value]
+  const idx = newOrder.findIndex(a => a.id === acct.id)
+  if (idx === -1) return
+  
+  if (direction === 'up' && idx > 0) {
+    const [item] = newOrder.splice(idx, 1)
+    newOrder.splice(idx - 1, 0, item)
+    await reorderAccounts(newOrder)
+  } else if (direction === 'down' && idx < newOrder.length - 1) {
+    const [item] = newOrder.splice(idx, 1)
+    newOrder.splice(idx + 1, 0, item)
+    await reorderAccounts(newOrder)
+  }
+}
 </script>
 
 <template>
@@ -519,6 +536,28 @@ const onAcctDrop = async (targetAcct: Account) => {
           </div>
           <!-- 右：操作按鈕 -->
           <div class="card-top-actions">
+            <!-- 手機快速排序上移下移按鈕 -->
+            <button 
+              class="btn-edit-card" 
+              style="font-size: 9px; font-weight: 800; padding: 2px !important; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px;"
+              @click.stop="moveAccount(acct, 'up')"
+              @touchstart.stop
+              @mousedown.stop
+              title="上移"
+            >
+              ▲
+            </button>
+            <button 
+              class="btn-edit-card" 
+              style="font-size: 9px; font-weight: 800; padding: 2px !important; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; margin-right: 6px;"
+              @click.stop="moveAccount(acct, 'down')"
+              @touchstart.stop
+              @mousedown.stop
+              title="下移"
+            >
+              ▼
+            </button>
+
             <button class="btn-edit-card" @click="openEditModal(acct)" title="編輯帳戶">
               <Pencil :size="13" />
             </button>
@@ -1385,21 +1424,30 @@ const onAcctDrop = async (targetAcct: Account) => {
 .drag-handle {
   display: flex;
   align-items: center;
+  justify-content: center;
   cursor: grab;
-  opacity: 0.35;
-  padding: 2px 2px;
-  border-radius: 4px;
+  color: var(--color-text-dark);
+  width: 26px;
+  height: 26px;
+  background-color: var(--color-bg-warm);
+  border: 1.5px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-jelly-sm);
+  margin-right: 6px;
   flex-shrink: 0;
   touch-action: none;
+  transition: all 0.1s ease;
 }
 
 .drag-handle:hover {
-  opacity: 0.7;
-  background-color: rgba(0, 0, 0, 0.06);
+  background-color: #fff2d6;
+  border-color: var(--color-accent-gold);
 }
 
 .drag-handle:active {
   cursor: grabbing;
+  transform: scale(0.9);
+  background-color: var(--color-accent-gold);
 }
 
 .btn-delete-card {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useLedger } from '../composables/useLedger'
 import { useConfirm } from '../composables/useConfirm'
 import {
@@ -18,11 +18,23 @@ import {
 import MonthYearPicker from './MonthYearPicker.vue'
 import DatePicker from './DatePicker.vue'
 
+const props = defineProps<{
+  activeTab?: string
+}>()
+
 const emit = defineEmits<{
   (e: 'change-tab', tab: string): void
 }>()
 
-const { transactions, accounts, categories: allCategories, deleteTransaction, editTransaction, isTransactionPaid } = useLedger()
+const { 
+  transactions, 
+  accounts, 
+  categories: allCategories, 
+  deleteTransaction, 
+  editTransaction, 
+  isTransactionPaid,
+  addTxPrefilledDate 
+} = useLedger()
 const { showConfirm } = useConfirm()
 
 // 篩選類型
@@ -422,10 +434,92 @@ const groupedTransactions = computed(() => {
   
   return groups
 })
+
+// ===== 快速記帳直接帶入日期 =====
+const quickAddForDate = (dateStr: string) => {
+  addTxPrefilledDate.value = dateStr
+  emit('change-tab', 'add')
+}
+
+// ===== 快速定位跳轉日期 =====
+const locateOpen = ref(false)
+const flashingDay = ref('')
+
+const toggleLocate = () => {
+  locateOpen.value = !locateOpen.value
+  searchOpen.value = false
+  sortOpen.value = false
+  viewModeOpen.value = false
+}
+
+// 用於快速跳轉的日期列表 (按日期升序排列，即 1 日在最前)
+const sortedGroupsForJump = computed(() => {
+  return [...groupedTransactions.value].sort((a, b) => {
+    return new Date(a.dateStr).getTime() - new Date(b.dateStr).getTime()
+  })
+})
+
+const scrollToDay = async (dateStr: string) => {
+  locateOpen.value = false
+  
+  // 取得目標元素
+  await nextTick()
+  const el = document.getElementById(`day-card-${dateStr}`)
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    
+    // 觸發閃爍特效
+    flashingDay.value = dateStr
+    setTimeout(() => {
+      flashingDay.value = ''
+    }, 1500)
+  }
+}
+
+// ===== 回到頂部功能 =====
+const showScrollTopBtn = ref(false)
+const listPageRef = ref<HTMLElement | null>(null)
+
+const handleScroll = () => {
+  if (listPageRef.value) {
+    const rect = listPageRef.value.getBoundingClientRect()
+    // 透過測量明細頁面頂部相對於視窗的物理位移量，來判定是否已滾動超過 300px。
+    // 這能 100% 避開全域 window 滾動與其他 Tab 頁面間的相互干擾！
+    showScrollTopBtn.value = rect.top < -250
+  }
+}
+
+const scrollToTop = () => {
+  // 一鍵平滑滾動所有可能的滾動載體，保證 100% 成功回到頂部
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+  document.documentElement.scrollTo({ top: 0, behavior: 'smooth' })
+  document.body.scrollTo({ top: 0, behavior: 'smooth' })
+  
+  const mainEl = document.querySelector('.app-main-content')
+  if (mainEl) {
+    mainEl.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+}
+
+// 監聽其他頁面進入時，自動收合所有每日彙整項目
+watch(() => props.activeTab, (newTab) => {
+  if (newTab === 'transactions') {
+    expandedDays.value = {}
+  }
+})
+
+onMounted(() => {
+  // 使用捕獲（capture: true）以確保不論在哪個容器滾動，都能精準監聽到滾動事件
+  window.addEventListener('scroll', handleScroll, true)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', handleScroll, true)
+})
 </script>
 
 <template>
-  <div class="tx-list-page pop-jelly">
+  <div class="tx-list-page pop-jelly" ref="listPageRef">
     <!-- 頁首 + 搜尋/檢視模式/排序按鈕 -->
     <div class="page-header">
       <h2 class="page-title"><Sparkles class="icon-inline" /> 收支明細</h2>
@@ -455,17 +549,17 @@ const groupedTransactions = computed(() => {
             <div v-if="viewModeOpen" class="sort-dropdown card-jelly" style="min-width: 120px; right: 0;">
               <button
                 class="sort-option btn-jelly"
-                :class="{ active: viewMode === 'detailed' }"
-                @click="setViewMode('detailed'); viewModeOpen = false"
-              >
-                📑 逐項明細
-              </button>
-              <button
-                class="sort-option btn-jelly"
                 :class="{ active: viewMode === 'aggregated' }"
                 @click="setViewMode('aggregated'); viewModeOpen = false"
               >
                 📊 每日彙整
+              </button>
+              <button
+                class="sort-option btn-jelly"
+                :class="{ active: viewMode === 'detailed' }"
+                @click="setViewMode('detailed'); viewModeOpen = false"
+              >
+                📑 逐項明細
               </button>
             </div>
           </Transition>
@@ -493,6 +587,40 @@ const groupedTransactions = computed(() => {
               >
                 {{ s.label }}
               </button>
+            </div>
+          </Transition>
+        </div>
+
+        <!-- 快速定位按鈕 + 下拉 -->
+        <div class="sort-wrapper">
+          <button
+            class="toolbar-icon-btn btn-jelly"
+            :class="{ active: locateOpen }"
+            @click="toggleLocate"
+            title="快速跳轉日期"
+          >
+            <span style="font-size: 16px; display: inline-block; transform: translateY(-1px);">📍</span>
+          </button>
+          <!-- 快速定位日期網格下拉選單 -->
+          <Transition name="dropdown">
+            <div v-if="locateOpen" class="sort-dropdown card-jelly" style="min-width: 220px; right: 0; padding: 12px !important;">
+              <div style="font-size: 11px; font-weight: 800; margin-bottom: 6px; color: var(--color-text-dark); text-align: left;">
+                📅 當月有記帳日期快速定位：
+              </div>
+              <div v-if="sortedGroupsForJump.length === 0" style="font-size: 10px; color: var(--color-text-muted); text-align: center; padding: 10px 0;">
+                (本月尚無記帳紀錄)
+              </div>
+              <div v-else class="locate-days-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; max-height: 160px; overflow-y: auto; padding: 2px;">
+                <button
+                  v-for="group in sortedGroupsForJump"
+                  :key="group.dateStr"
+                  class="btn-jelly"
+                  style="font-size: 10px; padding: 5px 0 !important; background-color: var(--color-bg-warm) !important; border: 1.2px solid var(--color-border); border-radius: 8px; font-weight: 800; text-align: center; white-space: nowrap;"
+                  @click="scrollToDay(group.dateStr)"
+                >
+                  {{ new Date(group.dateStr).getDate() }}日
+                </button>
+              </div>
             </div>
           </Transition>
         </div>
@@ -535,9 +663,10 @@ const groupedTransactions = computed(() => {
       </div>
     </Transition>
 
-    <!-- 排序與檢視模式下拉遮罩 -->
+    <!-- 排序、定位與檢視模式下拉遮罩 -->
     <div v-if="sortOpen" class="sort-overlay" @click="sortOpen = false" />
     <div v-if="viewModeOpen" class="sort-overlay" @click="viewModeOpen = false" />
+    <div v-if="locateOpen" class="sort-overlay" @click="locateOpen = false" />
 
     <!-- 本月小計卡 -->
     <div class="summary-strip card-jelly">
@@ -663,7 +792,9 @@ const groupedTransactions = computed(() => {
         <div 
           v-for="group in groupedTransactions" 
           :key="group.dateStr"
+          :id="'day-card-' + group.dateStr"
           class="day-group-card card-jelly"
+          :class="{ 'flash-highlight': flashingDay === group.dateStr }"
           style="margin-bottom: 14px; padding: 0 !important; overflow: hidden; background-color: #fff; text-align: left;"
         >
           <!-- 區塊 Header -->
@@ -675,6 +806,14 @@ const groupedTransactions = computed(() => {
               <span v-if="group.relativeLabel" class="tag-jelly" style="font-size: 9px; padding: 1px 6px; background-color: var(--color-accent-gold);">
                 {{ group.relativeLabel }}
               </span>
+              <button 
+                class="btn-jelly" 
+                style="font-size: 9px; padding: 2px 6px !important; background-color: var(--color-income) !important; border: 1.2px solid var(--color-border); border-radius: 8px; font-weight: 800; display: inline-flex; align-items: center; gap: 2px; color: var(--color-text-dark);"
+                @click.stop="quickAddForDate(group.dateStr)"
+                title="在此日新增記帳"
+              >
+                ➕ 記一筆
+              </button>
             </div>
             <div class="day-group-totals" style="font-size: 11px; font-weight: 800; display: flex; gap: 8px;">
               <span v-if="group.incomeTotal > 0" class="income-val" style="color: var(--color-income-text, #2C8C67);">
@@ -754,7 +893,9 @@ const groupedTransactions = computed(() => {
         <div 
           v-for="group in groupedTransactions" 
           :key="group.dateStr"
+          :id="'day-card-' + group.dateStr"
           class="day-group-card card-jelly"
+          :class="{ 'flash-highlight': flashingDay === group.dateStr }"
           style="margin-bottom: 14px; padding: 12px !important; background-color: #fff; cursor: pointer; text-align: left;"
           @click="toggleDayExpand(group.dateStr)"
         >
@@ -767,6 +908,14 @@ const groupedTransactions = computed(() => {
               <span v-if="group.relativeLabel" class="tag-jelly" style="font-size: 9px; padding: 1px 6px; background-color: var(--color-accent-gold);">
                 {{ group.relativeLabel }}
               </span>
+              <button 
+                class="btn-jelly" 
+                style="font-size: 9px; padding: 2px 6px !important; background-color: var(--color-income) !important; border: 1.2px solid var(--color-border); border-radius: 8px; font-weight: 800; display: inline-flex; align-items: center; gap: 2px; color: var(--color-text-dark);"
+                @click.stop="quickAddForDate(group.dateStr)"
+                title="在此日新增記帳"
+              >
+                ➕ 記一筆
+              </button>
             </div>
             <div class="day-group-totals" style="font-size: 12px; font-weight: 800; display: flex; gap: 8px;">
               <span v-if="group.incomeTotal > 0" class="income-val" style="color: var(--color-income-text, #2C8C67);">
@@ -1061,6 +1210,19 @@ const groupedTransactions = computed(() => {
         </div>
       </Transition>
     </Teleport>
+    <!-- ===== 回到頂部懸浮貓爪按鈕 🐾 ===== -->
+    <Teleport to="#app">
+      <Transition name="fade">
+        <button 
+          v-if="showScrollTopBtn" 
+          class="btn-jelly btn-scroll-top animate-bounce-slow"
+          @click="scrollToTop"
+          title="回到頂部"
+        >
+          🐾 頂部
+        </button>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -1189,17 +1351,19 @@ const groupedTransactions = computed(() => {
 .summary-strip {
   display: flex;
   align-items: center;
-  justify-content: space-around;
   padding: 12px !important;
   background-color: #fff;
   margin-bottom: 12px;
 }
 
 .summary-item {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
+  text-align: center;
 }
 
 .summary-label {
@@ -1209,9 +1373,14 @@ const groupedTransactions = computed(() => {
 }
 
 .summary-value {
-  font-size: 17px;
+  font-size: clamp(13px, 3.8vw, 17px);
   font-weight: 800;
   letter-spacing: -0.5px;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
 }
 
 .income-val  { color: #2C8C67; }
@@ -1221,6 +1390,7 @@ const groupedTransactions = computed(() => {
   width: 1px;
   height: 32px;
   background-color: var(--color-border);
+  flex-shrink: 0;
 }
 
 /* 類型篩選 Tab */
@@ -1743,5 +1913,83 @@ const groupedTransactions = computed(() => {
 .fade-drop-leave-to {
   opacity: 0;
   transform: translateY(-8px) scale(0.98);
+}
+
+/* 快速定位日期的閃爍特效 */
+@keyframes flashHighlight {
+  0% { 
+    background-color: var(--color-accent-gold) !important; 
+    transform: scale(1.02); 
+    box-shadow: 0 0 15px var(--color-accent-gold) !important;
+  }
+  50% {
+    background-color: #FFFDF9 !important;
+    transform: scale(0.99);
+  }
+  100% { 
+    background-color: #fff !important; 
+    transform: scale(1); 
+    box-shadow: var(--shadow-jelly) !important;
+  }
+}
+.flash-highlight {
+  animation: flashHighlight 1.5s cubic-bezier(0.25, 1, 0.5, 1);
+  border: 2.5px solid var(--color-accent-gold) !important;
+  z-index: 10;
+}
+
+/* 回到頂部懸浮貓爪按鈕 */
+.btn-scroll-top {
+  position: fixed;
+  bottom: 95px; /* 在底欄 Tab 上方 */
+  right: 20px;
+  z-index: 90;
+  width: 48px;
+  height: 48px;
+  border-radius: 50% !important;
+  background-color: var(--color-accent-gold) !important;
+  border: var(--border-width) solid var(--color-border) !important;
+  box-shadow: var(--shadow-jelly) !important;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--color-text-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0 !important;
+}
+
+@media (min-width: 480px) {
+  .btn-scroll-top {
+    /* 當螢幕寬度大於 480px 時，始終保持在 APP 框線範圍內的右下角 */
+    right: calc(50% - 240px + 20px) !important;
+  }
+}
+
+.btn-scroll-top:active {
+  transform: scale(0.9) !important;
+  box-shadow: var(--shadow-jelly-active) !important;
+}
+
+/* 軟萌慢速彈跳動畫 */
+@keyframes bounceSlow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+.animate-bounce-slow {
+  animation: bounceSlow 2s ease-in-out infinite;
+}
+
+/* 定位日期的網格滾動條美化 */
+.locate-days-grid::-webkit-scrollbar {
+  width: 4px;
+}
+.locate-days-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+.locate-days-grid::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
 }
 </style>

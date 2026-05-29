@@ -207,6 +207,42 @@ const onSubDrop = async (catId: string, targetSub: string) => {
   subs.splice(dstIdx, 0, srcSub)
   await reorderSubCategories(catId, subs)
 }
+
+// 手機端快速排序：主分類上移與下移
+const moveCategory = async (cat: any, direction: 'up' | 'down') => {
+  const list = [...filteredCategories.value]
+  const idx = list.findIndex(c => c.id === cat.id)
+  if (idx === -1) return
+  
+  if (direction === 'up' && idx > 0) {
+    const [item] = list.splice(idx, 1)
+    list.splice(idx - 1, 0, item)
+    await reorderCategories(list, activeCatType.value)
+  } else if (direction === 'down' && idx < list.length - 1) {
+    const [item] = list.splice(idx, 1)
+    list.splice(idx + 1, 0, item)
+    await reorderCategories(list, activeCatType.value)
+  }
+}
+
+// 手機端快速排序：子分類左移與右移
+const moveSubCategory = async (catId: string, sub: string, direction: 'up' | 'down') => {
+  const cat = categories.value.find(c => c.id === catId)
+  if (!cat) return
+  const subs = [...cat.subCategories]
+  const idx = subs.indexOf(sub)
+  if (idx === -1) return
+  
+  if (direction === 'up' && idx > 0) {
+    const [item] = subs.splice(idx, 1)
+    subs.splice(idx - 1, 0, item)
+    await reorderSubCategories(catId, subs)
+  } else if (direction === 'down' && idx < subs.length - 1) {
+    const [item] = subs.splice(idx, 1)
+    subs.splice(idx + 1, 0, item)
+    await reorderSubCategories(catId, subs)
+  }
+}
 </script>
 
 <template>
@@ -319,6 +355,28 @@ const onSubDrop = async (catId: string, targetSub: string) => {
               <span class="sub-count-tag tag-jelly">{{ cat.subCategories.length }} 個子類</span>
             </div>
             <div class="header-right">
+              <!-- 手機快速排序上移下移按鈕 -->
+              <button 
+                class="btn-edit-cat" 
+                style="font-size: 9px; font-weight: 800; padding: 2px !important; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px;"
+                title="上移" 
+                @click.stop="moveCategory(cat, 'up')"
+                @touchstart.stop
+                @mousedown.stop
+              >
+                ▲
+              </button>
+              <button 
+                class="btn-edit-cat" 
+                style="font-size: 9px; font-weight: 800; padding: 2px !important; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; margin-right: 6px;"
+                title="下移" 
+                @click.stop="moveCategory(cat, 'down')"
+                @touchstart.stop
+                @mousedown.stop
+              >
+                ▼
+              </button>
+
               <button 
                 class="btn-edit-cat" 
                 title="編輯此主分類" 
@@ -380,6 +438,23 @@ const onSubDrop = async (catId: string, targetSub: string) => {
                   >
                     <GripVertical :size="10" class="sub-grip" />
                     <span @click.stop="startEditSubCategory(cat.id, sub)" style="cursor: pointer; font-weight: 800;" title="點擊編輯名稱">{{ sub }}</span>
+                    <!-- 子分類微型左右排序點擊按鈕 -->
+                    <button 
+                      class="btn-edit-sub"
+                      title="往左移"
+                      style="background: transparent; border: none; padding: 2px; cursor: pointer; color: var(--color-text-muted); display: inline-flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 800;"
+                      @click.stop="moveSubCategory(cat.id, sub, 'up')"
+                    >
+                      ◀
+                    </button>
+                    <button 
+                      class="btn-edit-sub"
+                      title="往右移"
+                      style="background: transparent; border: none; padding: 2px; cursor: pointer; color: var(--color-text-muted); display: inline-flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 800; margin-right: 2px;"
+                      @click.stop="moveSubCategory(cat.id, sub, 'down')"
+                    >
+                      ▶
+                    </button>
                     <!-- 子分類編輯小鉛筆 -->
                     <button 
                       class="btn-edit-sub" 
@@ -556,20 +631,30 @@ const onSubDrop = async (catId: string, targetSub: string) => {
 .drag-handle {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   cursor: grab;
-  opacity: 0.3;
-  padding: 2px 3px;
-  border-radius: 4px;
+  color: var(--color-text-dark);
+  width: 26px;
+  height: 26px;
+  background-color: var(--color-bg-warm);
+  border: 1.5px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-jelly-sm);
+  margin-right: 6px;
   flex-shrink: 0;
+  touch-action: none;
+  transition: all 0.1s ease;
 }
 
 .drag-handle:hover {
-  opacity: 0.65;
-  background-color: rgba(0, 0, 0, 0.06);
+  background-color: #fff2d6;
+  border-color: var(--color-accent-gold);
 }
 
 .drag-handle:active {
   cursor: grabbing;
+  transform: scale(0.9);
+  background-color: var(--color-accent-gold);
 }
 
 .accordion-header {
@@ -683,8 +768,23 @@ const onSubDrop = async (catId: string, targetSub: string) => {
 }
 
 .sub-grip {
-  opacity: 0.3;
+  opacity: 0.5;
+  color: var(--color-text-dark);
+  cursor: grab;
+  padding: 4px;
+  margin-left: -6px;
+  margin-right: 2px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+  transition: all 0.1s ease;
+}
+
+.sub-grip:hover {
+  background-color: var(--color-bg-warm);
+  opacity: 0.9;
 }
 
 .btn-remove-sub {

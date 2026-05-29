@@ -78,7 +78,7 @@ onMounted(() => {
 
       <!-- 收支明細 -->
       <div v-show="activeTab === 'transactions'">
-        <TransactionList @change-tab="setTab" />
+        <TransactionList :active-tab="activeTab" @change-tab="setTab" />
       </div>
 
       <!-- 記帳表單 -->

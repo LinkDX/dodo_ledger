@@ -595,15 +595,14 @@ const formatCurrency = (val: number) =>
 .summary-strip {
   display: flex;
   align-items: center;
-  justify-content: space-around;
   padding: 12px !important;
   background-color: #fff;
   margin-bottom: 12px;
 }
-.summary-item   { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.summary-item   { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
 .summary-label  { font-size: 10px; font-weight: 700; color: var(--color-text-muted); }
-.summary-value  { font-size: 13px; font-weight: 900; }
-.summary-divider{ width: 1px; height: 30px; background: var(--color-border); }
+.summary-value  { font-size: clamp(10px, 3vw, 13px); font-weight: 900; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+.summary-divider{ width: 1px; height: 30px; background: var(--color-border); flex-shrink: 0; }
 .income-val     { color: #2C8C67; }
 .expense-val    { color: #FF5A5A; }
 

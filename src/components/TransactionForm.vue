@@ -12,7 +12,7 @@ import {
 import DatePicker from './DatePicker.vue'
 import AccountPicker from './AccountPicker.vue'
 
-const { accounts, addTransaction, categories: allCategories } = useLedger()
+const { accounts, addTransaction, categories: allCategories, addTxPrefilledDate } = useLedger()
 
 // 1. 交易類型：支出 / 收入
 const txType = ref<TransactionType>('expense')
@@ -203,6 +203,14 @@ watch(selectedAccountId, (newId) => {
 // 6. 其他表單欄位
 const note = ref('')
 const dateStr = ref(new Date().toISOString().split('T')[0]) // 預設今天
+
+// 監聽來自明細頁面的預填日期請求
+watch(addTxPrefilledDate, (newVal) => {
+  if (newVal) {
+    dateStr.value = newVal
+    addTxPrefilledDate.value = null // 消費後立即清空
+  }
+}, { immediate: true })
 
 // 自訂內部 Alert 狀態
 interface AlertState {

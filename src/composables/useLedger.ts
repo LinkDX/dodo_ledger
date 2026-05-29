@@ -13,6 +13,7 @@ const recurringTransactions = ref<RecurringTransaction[]>([])
 const categories = ref<Category[]>([])
 const triggeredReports = ref<string[]>([]) // 逗逗貓待報告的週期記帳清單
 const isDataLoaded = ref(false)
+const addTxPrefilledDate = ref<string | null>(null)
 
 // 抑制重新排序期間的 snapshot 回呼，防止中間態觸發畫面抖動
 let isReordering = false
@@ -1449,6 +1450,7 @@ export function useLedger() {
     categories: computed(() => categories.value),
     triggeredReports: computed(() => triggeredReports.value),
     isDataLoaded: computed(() => isDataLoaded.value),
+    addTxPrefilledDate,
     
     totalAssets,
     totalLiabilities,
