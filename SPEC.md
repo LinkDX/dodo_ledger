@@ -315,7 +315,7 @@ ledgers/
 
 > **🔒 Append-Only 日誌寫入機制與非阻塞背景執行**：
 > - 為防止多裝置並發寫入時日誌互相覆寫，且避免離線狀態下因讀取全量日誌導致核心記帳流程卡死，系統日誌寫入一律採用 **Append-Only（單文件 `setDoc` 追加）** 模式，直接呼叫 `appendLog` 寫入，禁止「讀取全量日誌 ➔ 記憶體裁切 ➔ 覆寫全量」的雙步驟模式。
-> - 在記帳（`addTransaction`）、刪除（`deleteTransaction`）、信用卡還款（`payCreditCardBill`）與週期交易（`checkAndTriggerRecurring`）等主業務流程中，對 `addSystemLog` 的呼叫一律採**非阻塞的背景非同步執行 (不加 `await`)**，徹底防範日誌網路層異常影響財務流程，實現極速記帳與極致的離線優先（Cache-First）自癒能力。
+> - **⚡ 全量日常操作寫入非阻塞背景化**：為了徹底解決在離線狀態下，由於 Firestore 的 `writeBatch.commit()`、`setDoc`、或批次讀取等在等待網路時處於 `pending` 狀態，進而導致所有日常管理表單卡死、無法清空或無法彈出成功對話框的缺陷。在**所有日常管理流程（包含記帳、編輯與刪除交易、信用卡還款、新增/編輯/刪除/排序帳戶、新增/編輯/刪除/排序主子分類、週期記帳設定、以及首次載入初始化寫入等）**中，所有對資料庫寫入的操作（包括 `addDocument`、`updateDocument`、`deleteDocument`、`syncCategories`、`syncRecurring`、`saveTransactions` 等）**一律不加 `await`，改為非阻塞背景非同步執行**，並補全 `.catch` 異常處理。這保障了任何無網環境下，使用者的任何記帳、編輯、排序、刪除等操作皆可在**數毫秒內極速樂觀響應完成並彈出對話框**，網路恢復時自動由 Firestore SDK 在背景佇列中同步。
 
 | 欄位名稱 | 型態 | 說明 |
 | :--- | :--- | :--- |

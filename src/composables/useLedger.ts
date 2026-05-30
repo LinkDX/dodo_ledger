@@ -93,7 +93,7 @@ export function useLedger() {
     // 首次載入時自動以預設分類填充
     if (cats.length === 0) {
       categories.value = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES))
-      await db.saveCategories(categories.value)
+      db.saveCategories(categories.value).catch(e => console.error('[Dodo Ledger] 寫入預設分類失敗：', e))
     } else {
       categories.value = sortByOrder(cats)
     }
@@ -101,7 +101,7 @@ export function useLedger() {
     // 貓咪狀態處理
     if (!catProf) {
       catProfile.value = JSON.parse(JSON.stringify(DEFAULT_CAT_PROFILE))
-      await db.saveCatProfile(userId, catProfile.value!)
+      db.saveCatProfile(userId, catProfile.value!).catch(e => console.error('[Dodo Ledger] 寫入預設貓咪設定失敗：', e))
     } else {
       catProfile.value = catProf
       if (catProfile.value.stats && catProfile.value.stats.totalPlays === undefined) {
@@ -551,10 +551,10 @@ export function useLedger() {
       const feeDeltas: BalanceDelta[] = txData.fromAccountId
         ? [{ accountId: txData.fromAccountId, delta: -txData.fee }]
         : []
-      await atomicWriteTransactionWithBalance(
+      atomicWriteTransactionWithBalance(
         [{ type: 'addTransaction', transaction: feeTx }],
         feeDeltas
-      )
+      ).catch(e => console.error('[Dodo Ledger] 原子寫入手續費失敗：', e))
     }
 
     const creditCardBillPeriod =
@@ -608,10 +608,10 @@ export function useLedger() {
         }
         
         // 🔒 原子寫入：所有分期交易 + 信用卡餘額一次扣完
-        await atomicWriteTransactionWithBalance(
+        atomicWriteTransactionWithBalance(
           installmentTxs.map(tx => ({ type: 'addTransaction' as const, transaction: tx })),
           [{ accountId: cardAcct.id, delta: -totalAmount }]
-        )
+        ).catch(e => console.error('[Dodo Ledger] 原子寫入信用卡分期失敗：', e))
         
         addSystemLog(
           creatorName,
@@ -673,10 +673,10 @@ export function useLedger() {
     }
 
     // 🔒 原子寫入：交易文件 + 帳戶餘額增減在同一批次完成
-    await atomicWriteTransactionWithBalance(
+    atomicWriteTransactionWithBalance(
       [{ type: 'addTransaction', transaction: newTx }],
       deltas
-    )
+    ).catch(e => console.error('[Dodo Ledger] 原子寫入交易與餘額失敗：', e))
 
 
 
@@ -735,7 +735,7 @@ export function useLedger() {
       const deltas: BalanceDelta[] = tx.fromAccountId
         ? [{ accountId: tx.fromAccountId, delta: totalAmount }]
         : []
-      await atomicWriteTransactionWithBalance(deleteOps, deltas)
+      atomicWriteTransactionWithBalance(deleteOps, deltas).catch(e => console.error('[Dodo Ledger] 原子刪除分期失敗：', e))
 
       addSystemLog(
         operatorName,
@@ -791,7 +791,7 @@ export function useLedger() {
       transactions.value.splice(idx, 1)
 
       // 🔒 原子寫入：刪除交易 + 回退帳戶餘額
-      await atomicWriteTransactionWithBalance(deleteOps, deltas)
+      atomicWriteTransactionWithBalance(deleteOps, deltas).catch(e => console.error('[Dodo Ledger] 原子刪除交易失敗：', e))
 
       addSystemLog(
         operatorName,
@@ -838,13 +838,13 @@ export function useLedger() {
     transactions.value.push(payTx)
 
     // 🔒 原子寫入：繳款交易 + 銀行帳戶扣款 + 信用卡餘額加回
-    await atomicWriteTransactionWithBalance(
+    atomicWriteTransactionWithBalance(
       [{ type: 'addTransaction', transaction: payTx }],
       [
         { accountId: linkedBankId, delta: -billAmount },
         { accountId: cardId, delta: billAmount }
       ]
-    )
+    ).catch(e => console.error('[Dodo Ledger] 原子信用卡還款寫入失敗：', e))
 
     if (billAmount >= 10000) {
       unlockAchievement('debt_buster', '負債剋星', '單筆還清信用卡款項超過 TWD $10,000。')
@@ -981,7 +981,7 @@ export function useLedger() {
       updatedAt: Date.now()
     }
     accounts.value.push(newAcct)
-    await db.addDocument('accounts', newAcct)
+    db.addDocument('accounts', newAcct).catch(e => console.error('[Dodo Ledger] 新增帳戶失敗：', e))
   }
 
   const deleteAccount = async (acctId: string) => {
@@ -991,10 +991,10 @@ export function useLedger() {
       .map(tx => tx.id)
     transactions.value = transactions.value.filter(tx => tx.fromAccountId !== acctId && tx.toAccountId !== acctId)
     
-    // 逐一刪除文件，不覆蓋其他裝置新增的文件
-    await db.deleteDocument('accounts', acctId)
+    // 逐一刪除文件，不覆蓋其他裝置新增的文件，改為背景非同步執行
+    db.deleteDocument('accounts', acctId).catch(e => console.error('[Dodo Ledger] 刪除帳戶失敗：', e))
     for (const txId of relatedTxIds) {
-      await db.deleteDocument('transactions', txId)
+      db.deleteDocument('transactions', txId).catch(e => console.error('[Dodo Ledger] 刪除帳戶關聯交易失敗：', e))
     }
   }
 
@@ -1002,8 +1002,8 @@ export function useLedger() {
     const idx = accounts.value.findIndex(a => a.id === acctId)
     if (idx !== -1) {
       accounts.value[idx] = { ...accounts.value[idx], ...updated, updatedAt: Date.now() }
-      // 🔒 只更新單一文件的變更欄位（merge 模式），不影響其他裝置的 balance 增減
-      await db.updateDocument('accounts', acctId, { ...updated, updatedAt: Date.now() })
+      // 🔒 只更新單一文件的變更欄位（merge 模式），不影響其他裝置的 balance 增減，改為背景非同步
+      db.updateDocument('accounts', acctId, { ...updated, updatedAt: Date.now() }).catch(e => console.error('[Dodo Ledger] 編輯帳戶失敗：', e))
     }
   }
 
@@ -1011,11 +1011,12 @@ export function useLedger() {
   const reorderAccounts = async (newOrder: Account[]) => {
     isReordering = true
     accounts.value = newOrder
-    await Promise.all(
+    // 去除 await，排序在背景執行以防止離線卡死
+    Promise.all(
       newOrder.map((acct, idx) =>
         db.updateDocument<Account>('accounts', acct.id, { sortOrder: idx })
       )
-    )
+    ).catch(e => console.error('[Dodo Ledger] 帳戶排序失敗：', e))
     isReordering = false
   }
 
@@ -1025,7 +1026,7 @@ export function useLedger() {
     const withSortOrder = newOrder.map((cat, idx) => ({ ...cat, sortOrder: idx }))
     const others = categories.value.filter(c => c.type !== type)
     categories.value = [...others, ...withSortOrder]
-    await syncCategories()
+    syncCategories().catch(e => console.error('[Dodo Ledger] 分類排序同步失敗：', e))
     isReordering = false
   }
 
@@ -1034,7 +1035,7 @@ export function useLedger() {
     const cat = categories.value.find(c => c.id === catId)
     if (!cat) return
     cat.subCategories = newSubs
-    await syncCategories()
+    syncCategories().catch(e => console.error('[Dodo Ledger] 子分類排序同步失敗：', e))
   }
 
   // editTransaction（🔒 原子操作防衝突版本）：支援修改 note/date/category/subCategory/amount 等欄位
@@ -1096,18 +1097,18 @@ export function useLedger() {
       }
     }
 
-    // 🔒 原子寫入：更新交易文件 + 套用餘額差值
-    await atomicWriteTransactionWithBalance(
+    // 🔒 原子寫入：更新交易文件 + 套用餘額差值，改為背景非同步執行防止離線卡死
+    atomicWriteTransactionWithBalance(
       [{ type: 'updateTransaction', transactionId: txId, data: merged }],
       deltas
-    )
+    ).catch(e => console.error('[Dodo Ledger] 原子編輯交易與餘額失敗：', e))
 
-    await addSystemLog(
+    addSystemLog(
       operatorName,
       operatorAvatar,
       'edit_transaction',
       `編輯${merged.type === 'expense' ? '支出' : merged.type === 'income' ? '收入' : '轉帳'}：${merged.category}/${merged.subCategory || '未分類'} ${merged.amount} 元`
-    )
+    ).catch(e => console.error('[Dodo Ledger] 寫入背景日誌失敗：', e))
   }
 
   // 11. 週期性記帳設定管理
@@ -1118,8 +1119,8 @@ export function useLedger() {
       isActive: true
     }
     recurringTransactions.value.push(newRec)
-    await syncRecurring()
-    await checkAndTriggerRecurring()
+    syncRecurring().catch(e => console.error('[Dodo Ledger] 同步週期記帳失敗：', e))
+    checkAndTriggerRecurring().catch(e => console.error('[Dodo Ledger] 檢查週期記帳失敗：', e))
 
     // 解鎖週期自動記帳成就 (貓咪保險箱)
     unlockAchievement('cat_vault', '貓咪保險箱', '成功建立並啟用至少一個「週期性自動記帳」設定項目。')
@@ -1129,13 +1130,13 @@ export function useLedger() {
     const found = recurringTransactions.value.find(r => r.id === recId)
     if (found) {
       found.isActive = !found.isActive
-      await syncRecurring()
+      syncRecurring().catch(e => console.error('[Dodo Ledger] 同步週期記帳開關失敗：', e))
     }
   }
 
   const deleteRecurring = async (recId: string) => {
     recurringTransactions.value = recurringTransactions.value.filter(r => r.id !== recId)
-    await syncRecurring()
+    syncRecurring().catch(e => console.error('[Dodo Ledger] 刪除週期記帳失敗：', e))
   }
 
   // 12. 🐾 分類管理方法 (新增 / 刪除主分類 / 子分類)
@@ -1147,8 +1148,8 @@ export function useLedger() {
       id: 'cat_custom_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4)
     }
     categories.value.push(newCat)
-    await syncCategories()
-    await addSystemLog(operatorName, operatorAvatar, 'update_categories', `新增主分類「${newCat.name}」`)
+    syncCategories().catch(e => console.error('[Dodo Ledger] 新增主分類失敗：', e))
+    addSystemLog(operatorName, operatorAvatar, 'update_categories', `新增主分類「${newCat.name}」`).catch(e => console.error(e))
   }
 
   const deleteCategory = async (catId: string) => {
@@ -1157,8 +1158,8 @@ export function useLedger() {
     const cat = categories.value.find(c => c.id === catId)
     if (!cat) return
     categories.value = categories.value.filter(c => c.id !== catId)
-    await syncCategories()
-    await addSystemLog(operatorName, operatorAvatar, 'update_categories', `刪除主分類「${cat.name}」及其所有子分類`)
+    syncCategories().catch(e => console.error('[Dodo Ledger] 刪除主分類失敗：', e))
+    addSystemLog(operatorName, operatorAvatar, 'update_categories', `刪除主分類「${cat.name}」及其所有子分類`).catch(e => console.error(e))
   }
 
   const addSubCategory = async (catId: string, subName: string) => {
@@ -1167,8 +1168,8 @@ export function useLedger() {
     const cat = categories.value.find(c => c.id === catId)
     if (!cat || cat.subCategories.includes(subName)) return
     cat.subCategories.push(subName)
-    await syncCategories()
-    await addSystemLog(operatorName, operatorAvatar, 'update_categories', `在「${cat.name}」下新增子分類「${subName}」`)
+    syncCategories().catch(e => console.error('[Dodo Ledger] 新增子分類失敗：', e))
+    addSystemLog(operatorName, operatorAvatar, 'update_categories', `在「${cat.name}」下新增子分類「${subName}」`).catch(e => console.error(e))
   }
 
   const deleteSubCategory = async (catId: string, subName: string) => {
@@ -1177,8 +1178,8 @@ export function useLedger() {
     const cat = categories.value.find(c => c.id === catId)
     if (!cat) return
     cat.subCategories = cat.subCategories.filter(s => s !== subName)
-    await syncCategories()
-    await addSystemLog(operatorName, operatorAvatar, 'update_categories', `從「${cat.name}」刪除子分類「${subName}」`)
+    syncCategories().catch(e => console.error('[Dodo Ledger] 刪除子分類失敗：', e))
+    addSystemLog(operatorName, operatorAvatar, 'update_categories', `從「${cat.name}」刪除子分類「${subName}」`).catch(e => console.error(e))
   }
 
   // 12.5 🐾 編輯分類與繳費檢測方法
@@ -1214,18 +1215,18 @@ export function useLedger() {
       })
     }
     
-    await syncCategories()
+    syncCategories().catch(e => console.error('[Dodo Ledger] 編輯主分類同步失敗：', e))
     if (oldName !== newName && affectedTxCount > 0) {
-      await db.saveTransactions(transactions.value)
-      await syncRecurring()
+      db.saveTransactions(transactions.value).catch(e => console.error('[Dodo Ledger] 編輯主分類歷史交易同步失敗：', e))
+      syncRecurring().catch(e => console.error('[Dodo Ledger] 編輯主分類週期記帳同步失敗：', e))
     }
     
-    await addSystemLog(
+    addSystemLog(
       operatorName,
       operatorAvatar,
       'update_categories',
       `編輯主分類「${oldName}」➜「${newName}」${oldName !== newName ? `（更新 ${affectedTxCount} 筆交易）` : ''}`
-    )
+    ).catch(e => console.error(e))
   }
 
   const editSubCategory = async (catId: string, oldSubName: string, newSubName: string) => {
@@ -1259,18 +1260,18 @@ export function useLedger() {
       return rec
     })
     
-    await syncCategories()
+    syncCategories().catch(e => console.error('[Dodo Ledger] 編輯子分類同步失敗：', e))
     if (affectedTxCount > 0) {
-      await db.saveTransactions(transactions.value)
-      await syncRecurring()
+      db.saveTransactions(transactions.value).catch(e => console.error('[Dodo Ledger] 編輯子分類歷史交易同步失敗：', e))
+      syncRecurring().catch(e => console.error('[Dodo Ledger] 編輯子分類週期記帳同步失敗：', e))
     }
     
-    await addSystemLog(
+    addSystemLog(
       operatorName,
       operatorAvatar,
       'update_categories',
       `編輯「${cat.name}」子分類「${oldSubName}」➜「${trimmedNewSub}」${affectedTxCount > 0 ? `（更新 ${affectedTxCount} 筆交易）` : ''}`
-    )
+    ).catch(e => console.error(e))
   }
 
   const isTransactionPaid = (tx: Transaction) => {

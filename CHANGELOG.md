@@ -2,6 +2,23 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Web 2.6.7] - 2026-05-30
+
+### 🚀 徹底解決離線狀態下交易寫入與日常管理 Awaits 阻塞、Dialog 對話框無法彈出之問題 (100% 毫秒級樂觀 UI 與零死角離線優先)
+- **資料庫原子寫入背景非同步化**：
+  - 徹底解決了在完全離線或網路不佳狀態下，雖然本地狀態樂觀更新成功，但由於 Firestore SDK 的 `writeBatch.commit()` 在等待網路連線時處於 `pending` 狀態，導致 `addTransaction` 主要流程被 `await` 同步阻塞，無法執行後續清空表單與彈出成功 Dialog 的致命 Bug。
+  - 將記帳（`addTransaction` 中包含一般、手續費、信用卡分期寫入）、刪除交易（`deleteTransaction`）以及信用卡一鍵還款（`payCreditCardBill`）中，呼叫 `atomicWriteTransactionWithBalance`（原子寫入交易與餘額增減）前的 `await` 關鍵字全部去除。
+- **全量日常操作 Awaits 大掃除**：
+  - 盤點並徹底清除了 `useLedger.ts` 中所有日常理財管理操作對資料庫寫入的 `await` 同步等待，包括：
+    - **帳戶管理**：新增帳戶（`addAccount`）、編輯帳戶（`editAccount`）、刪除帳戶（`deleteAccount`）以及拖曳排序帳戶（`reorderAccounts`）。
+    - **分類管理**：新增主/子分類（`addCategory`/`addSubCategory`）、編輯主/子分類（`editCategory`/`editSubCategory`）、刪除主/子分類（`deleteCategory`/`deleteSubCategory`）以及排序主/子分類。
+    - **週期記帳**：建立週期記帳（`addRecurring`）、刪除週期記帳（`deleteRecurring`）以及開啟/關閉週期記帳。
+    - **交易編輯**：編輯歷史交易明細（`editTransaction`）中的原子寫入與日誌寫入。
+    - **首次載入初始化**：在 `loadLedgerData` 階段，寫入預設分類和貓咪設定的資料庫寫入操作。
+  - 將上述所有資料庫寫入（包含 `addDocument`、`updateDocument`、`deleteDocument`、`syncCategories`、`syncRecurring`、`saveTransactions` 等）全部改為**非阻塞背景非同步執行**，並補全 `.catch` 異常處理。
+  - 這確保了無論在任何完全斷網、延遲或 VPN 不穩定的環境下，使用者的任何管理操作、排序、編輯、記帳都絕不再被 database 層卡住，全部達到**數毫秒內樂觀響應完成、表單自動關閉、Dialog 自動彈出**的極致體驗。網路恢復時由 Firestore 自動在背景完成完整同步。
+
+
 ## [Web 2.6.6] - 2026-05-30
 
 ### 🐛 徹底修復離線狀態下記帳無反應與畫面卡死之關鍵 Bug，並優化離線優先（Cache-First）載入同步機制
