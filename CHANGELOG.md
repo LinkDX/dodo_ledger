@@ -2,6 +2,18 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Web 2.6.6] - 2026-05-30
+
+### 🐛 徹底修復離線狀態下記帳無反應與畫面卡死之關鍵 Bug，並優化離線優先（Cache-First）載入同步機制
+- **重構「系統日誌 (SystemLog)」寫入機制為 Append-Only**：
+  - 徹底修復了原本在記帳流程中，同步 `await` 日誌寫入（`addSystemLog`），但日誌寫入卻錯誤採用「讀取全量日誌 ➔ 記憶體裁切 ➔ 覆寫全量日誌」的阻塞寫法，導致離線狀態下呼叫 Firestore `getDocs` 嘗試連線伺服器而引發的 UI 表單長時間無反應、卡死等嚴重 Bug。
+  - 修改 `addSystemLog` 移除任何全量讀取與批量覆寫，改為直接呼叫 `appendLog`（單文件 `setDoc`），完全符合 GEMINI 財務日誌稽核規範，避免多裝置並發寫入衝突。
+- **日誌寫入改為背景非同步執行**：
+  - 將 `addTransaction`、`deleteTransaction`、`payCreditCardBill` 以及 `checkAndTriggerRecurring` 中所有的 `addSystemLog` 呼叫改為背景非同步執行（去除 `await` 阻塞與 `catch` 錯誤），確保財務核心記帳流程完全與日誌讀寫隔離，達到毫秒級本地樂觀更新手感，保障離線下秒級記帳。
+- **重塑「離線優先（Cache-First）」秒開資料載入**：
+  - 在 `FirestoreDatabaseService.readCollection` 與 `getCatProfile` 中實作 Cache-First 本地快取優先讀取：載入時優先嘗試從 IndexedDB 本機快取（`getDocsFromCache` / `getDocFromCache`）瞬間讀取資料返回，若本地無快取再降級為向伺服器請求。這徹底消除了離線或網路不佳時，App 冷啟動卡在載入畫面的痛點。
+  - 連線恢復時，Firestore SDK 會全自動在背景同步處理離線時積壓的 pending 批次操作，並透過即時監聽（`onSnapshot`）獲得雲端最新更新，保障多裝置最終一致性。
+
 ## [Web 2.6.5] - 2026-05-29
 
 ### 📱 解決手機原生端與觸控設備逗貓興奮度累積緩慢體驗 (跨平台手感完美優化)

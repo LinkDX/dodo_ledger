@@ -1,6 +1,6 @@
 import type { Account, Transaction, RecurringTransaction, UserProfile, SystemLog, Category, DodoCatProfile } from '../types'
 import { initializeApp } from 'firebase/app'
-import { doc, collection, getDocs, getDoc, setDoc, deleteDoc, writeBatch, runTransaction, increment, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, onSnapshot } from 'firebase/firestore'
+import { doc, collection, getDocs, getDoc, setDoc, deleteDoc, writeBatch, runTransaction, increment, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, onSnapshot, getDocsFromCache, getDocFromCache } from 'firebase/firestore'
 import { FIREBASE_CONFIG } from '../config/firebase'
 
 // ─── 原子操作類型定義 ───
@@ -256,7 +256,21 @@ export class FirestoreDatabaseService implements DatabaseService {
   /** 通用：讀取子集合全量文件 */
   private async readCollection<T>(colName: string): Promise<T[]> {
     try {
-      const snap = await getDocs(this.col(colName))
+      const colRef = this.col(colName)
+      try {
+        // 1. 優先嘗試從本機快取獲取，保證秒開與離線完全不卡死
+        const cacheSnap = await getDocsFromCache(colRef)
+        if (!cacheSnap.empty) {
+          console.log(`[Dodo Ledger] ⚡ 從本機快取 (IndexedDB) 載入 ${colName} 共 ${cacheSnap.size} 筆`);
+          return cacheSnap.docs.map(d => d.data() as T)
+        }
+      } catch (cacheErr) {
+        // 快取無資料或未就緒，靜態忽略，繼續向伺服器請求
+        console.warn(`[Dodo Ledger] 本機快取 ${colName} 讀取失敗，改從網路獲取：`, cacheErr)
+      }
+
+      // 2. 本機無快取或為空，則向伺服器請求
+      const snap = await getDocs(colRef)
       return snap.docs.map(d => d.data() as T)
     } catch (e) {
       console.error(`[Dodo Ledger] 讀取子集合 ${colName} 失敗：`, e)
@@ -322,6 +336,17 @@ export class FirestoreDatabaseService implements DatabaseService {
   async getCatProfile(userId: string): Promise<DodoCatProfile | null> {
     try {
       const docRef = doc(this.col('catProfiles'), userId)
+      try {
+        // 優先從本機快取獲取，確保離線時快速初始化貓咪
+        const cacheSnap = await getDocFromCache(docRef)
+        if (cacheSnap.exists()) {
+          console.log(`[Dodo Ledger] ⚡ 從本機快取載入貓咪設定檔 (userId: ${userId})`);
+          return cacheSnap.data() as DodoCatProfile
+        }
+      } catch (cacheErr) {
+        // 忽略快取失敗，改用標準 getDoc
+      }
+
       const snap = await getDoc(docRef)
       return snap.exists() ? snap.data() as DodoCatProfile : null
     } catch (e) {
@@ -490,7 +515,6 @@ export async function addSystemLog(
 ): Promise<void> {
   try {
     const dbService = getDatabaseService();
-    const logs = await dbService.getLogs();
     
     // 生成唯一 ID
     const logId = (typeof crypto !== 'undefined' && crypto.randomUUID)
@@ -506,9 +530,8 @@ export async function addSystemLog(
       date: Date.now()
     };
     
-    // 僅保留最新 200 筆以避免過載
-    const updatedLogs = [newLog, ...logs].slice(0, 200);
-    await dbService.saveLogs(updatedLogs);
+    // 改為真正的 append-only 寫入，完全不讀取全量日誌，防止離線卡死與多裝置覆蓋
+    await dbService.appendLog(newLog);
   } catch (e) {
     console.error('[Dodo Ledger] 寫入系統日誌失敗：', e);
   }

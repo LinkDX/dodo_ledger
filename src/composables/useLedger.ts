@@ -613,12 +613,12 @@ export function useLedger() {
           [{ accountId: cardAcct.id, delta: -totalAmount }]
         )
         
-        await addSystemLog(
+        addSystemLog(
           creatorName,
           creatorAvatar,
           'add_expense_installment',
           `新增分期支出：${txData.category}/${txData.subCategory || '未分類'} 總金額 ${txData.amount} 元 (分 ${T} 期，扣款卡片: ${cardAcct.name})`
-        )
+        ).catch(e => console.error('[Dodo Ledger] 寫入背景日誌失敗：', e))
         return
       }
     }
@@ -684,26 +684,26 @@ export function useLedger() {
     const toAcctName = accounts.value.find(a => a.id === txData.toAccountId)?.name || '未知帳戶'
 
     if (txData.type === 'expense') {
-      await addSystemLog(
+      addSystemLog(
         creatorName,
         creatorAvatar,
         'add_expense',
         `新增支出：${txData.category}/${txData.subCategory || '未分類'} ${txData.amount} 元 (扣款帳戶: ${fromAcctName})`
-      )
+      ).catch(e => console.error('[Dodo Ledger] 寫入背景日誌失敗：', e))
     } else if (txData.type === 'income') {
-      await addSystemLog(
+      addSystemLog(
         creatorName,
         creatorAvatar,
         'add_income',
         `新增收入：${txData.category}/${txData.subCategory || '未分類'} ${txData.amount} 元 (存入帳戶: ${toAcctName})`
-      )
+      ).catch(e => console.error('[Dodo Ledger] 寫入背景日誌失敗：', e))
     } else if (txData.type === 'transfer') {
-      await addSystemLog(
+      addSystemLog(
         creatorName,
         creatorAvatar,
         'add_transfer',
         `帳戶轉帳：從 ${fromAcctName} 轉至 ${toAcctName} ${txData.amount} 元${txData.fee ? ` (手續費 ${txData.fee} 元)` : ''}`
-      )
+      ).catch(e => console.error('[Dodo Ledger] 寫入背景日誌失敗：', e))
     }
   }
 
@@ -737,12 +737,12 @@ export function useLedger() {
         : []
       await atomicWriteTransactionWithBalance(deleteOps, deltas)
 
-      await addSystemLog(
+      addSystemLog(
         operatorName,
         operatorAvatar,
         'delete_expense_installment',
         `刪除分期支出：${tx.category}/${tx.subCategory || '未分類'} 總金額 ${totalAmount} 元`
-      )
+      ).catch(e => console.error('[Dodo Ledger] 寫入背景日誌失敗：', e))
     } else {
       // 計算餘額回退量
       const deltas: BalanceDelta[] = []
@@ -793,12 +793,12 @@ export function useLedger() {
       // 🔒 原子寫入：刪除交易 + 回退帳戶餘額
       await atomicWriteTransactionWithBalance(deleteOps, deltas)
 
-      await addSystemLog(
+      addSystemLog(
         operatorName,
         operatorAvatar,
         'delete_transaction',
         `刪除${tx.type === 'expense' ? '支出' : tx.type === 'income' ? '收入' : '轉帳'}：${tx.category}/${tx.subCategory || '未分類'} ${tx.amount} 元`
-      )
+      ).catch(e => console.error('[Dodo Ledger] 寫入背景日誌失敗：', e))
     }
   }
 
@@ -850,12 +850,12 @@ export function useLedger() {
       unlockAchievement('debt_buster', '負債剋星', '單筆還清信用卡款項超過 TWD $10,000。')
     }
 
-    await addSystemLog(
+    addSystemLog(
       currentProfile.value?.name || '系統自動',
       currentProfile.value?.avatar || '⚙️',
       'pay_credit_card',
       `繳納信用卡帳單：帳本「${cardAcct.name}」已使用「${bankAcct.name}」繳納 ${billPeriod} 帳單共 ${billAmount} 元`
-    )
+    ).catch(e => console.error('[Dodo Ledger] 寫入背景日誌失敗：', e))
   }
 
   // 9. 週期自動記帳 Lazy-check 機制（🔒 防重複執行：使用 claimDocument 原子搶佔）
@@ -930,12 +930,12 @@ export function useLedger() {
         await db.updateDocument<RecurringTransaction>('recurring', rec.id, { nextExecutionDate: nextRun })
 
         const fromAcctName = accounts.value.find(a => a.id === rec.fromAccountId)?.name || '未知帳戶'
-        await addSystemLog(
+        addSystemLog(
           '逗逗貓',
           '🐱',
           'auto_recurring',
           `自動週期扣款：執行「${rec.title}」自動扣款 ${rec.amount * triggerCount} 元 (扣款帳戶: ${fromAcctName}${triggerCount > 1 ? `，共扣款 ${triggerCount} 次` : ''})`
-        )
+        ).catch(e => console.error('[Dodo Ledger] 寫入背景日誌失敗：', e))
       }
     }
 

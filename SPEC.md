@@ -311,7 +311,11 @@ ledgers/
 為確保多人共同記帳時帳目清晰，專案引入了「財務核心稽核日誌」防護機制：
 
 ### 5.1 日誌 Schema 定義 (`SystemLog`)
-所有全域核心操作記錄於雲端 Firestore 與本地 LocalStorage 下的 `logs` 欄位（排除任何趣味摸貓/餵食娛樂日誌）。
+所有全域核心操作記錄於雲端 Firestore 的 `logs` 集合與本地 LocalStorage 下（排除任何趣味摸貓/餵食娛樂日誌）。
+
+> **🔒 Append-Only 日誌寫入機制與非阻塞背景執行**：
+> - 為防止多裝置並發寫入時日誌互相覆寫，且避免離線狀態下因讀取全量日誌導致核心記帳流程卡死，系統日誌寫入一律採用 **Append-Only（單文件 `setDoc` 追加）** 模式，直接呼叫 `appendLog` 寫入，禁止「讀取全量日誌 ➔ 記憶體裁切 ➔ 覆寫全量」的雙步驟模式。
+> - 在記帳（`addTransaction`）、刪除（`deleteTransaction`）、信用卡還款（`payCreditCardBill`）與週期交易（`checkAndTriggerRecurring`）等主業務流程中，對 `addSystemLog` 的呼叫一律採**非阻塞的背景非同步執行 (不加 `await`)**，徹底防範日誌網路層異常影響財務流程，實現極速記帳與極致的離線優先（Cache-First）自癒能力。
 
 | 欄位名稱 | 型態 | 說明 |
 | :--- | :--- | :--- |
