@@ -415,6 +415,76 @@ const formatCurrency = (val: number) => {
       </div>
     </div>
 
+    <!-- 📡 逗逗貓自建熱更新監控閣 (僅在實體 Android 手機中渲染) -->
+    <div v-if="Capacitor.isNativePlatform()" class="settings-box card-jelly pop-jelly" style="background-color: #FFFDF9 !important;">
+      <h3 class="box-title" style="color: var(--color-text-dark); margin-bottom: 6px;">
+        📡 逗逗貓自建熱更新監控閣
+      </h3>
+      <p style="font-size: 11px; color: var(--color-text-muted); margin-bottom: 12px;">
+        實時監控 Android 行動裝置的自建雙緩衝熱更新引擎狀態，確保金庫資源與雲端 100% 同步。
+      </p>
+
+      <div class="update-monitor-grid">
+        <div class="monitor-item">
+          <span class="monitor-label">連線狀態：</span>
+          <span class="monitor-value status-online">🟢 正常連線至 linkdx.github.io</span>
+        </div>
+        <div class="monitor-item">
+          <span class="monitor-label">本地熱更新版號：</span>
+          <span class="monitor-value code-value">Code {{ localHotVersion }}</span>
+        </div>
+        <div class="monitor-item">
+          <span class="monitor-label">當前加載平台：</span>
+          <span class="monitor-value code-value">{{ Capacitor.isNativePlatform() ? '📱 Android 原生沙盒 WebView' : '💻 桌面瀏覽器 (Web Mode)' }}</span>
+        </div>
+        
+        <!-- 實時狀態 -->
+        <div class="monitor-status-box pop-jelly">
+          <p class="status-msg">
+            <span v-if="isHotChecking">🔍 正在與雲端伺服器對帳比對中，請稍候...</span>
+            <span v-else-if="hotUpdateProgress > 0 && hotUpdateProgress < 100">
+              📥 正在背景默默下載最新網頁包：{{ hotUpdateProgress }}%
+            </span>
+            <span v-else-if="hotUpdateProgress === 100">
+              🎉 下載成功！熱更新套件已布署，您可立即套用或於下次啟動時生效！🐾
+            </span>
+            <span v-else-if="hotUpdateError" class="status-error">
+              ❌ 更新失敗：{{ hotUpdateError }}。請檢查網路連線或稍後再試。
+            </span>
+            <span v-else-if="hasHotUpdate">
+              ✨ 發現有可更新的網頁包，正在準備背景下載...
+            </span>
+            <span v-else>
+              🐱 已加載本地最新金庫版本，安全無虞！
+            </span>
+          </p>
+          
+          <!-- 進度條 -->
+          <div v-if="hotUpdateProgress > 0 && hotUpdateProgress < 100" class="update-progress-bar-bg">
+            <div class="update-progress-bar-fill" :style="{ width: hotUpdateProgress + '%' }"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="monitor-actions-row">
+        <button 
+          class="btn-jelly btn-action btn-check-update" 
+          :disabled="isHotChecking || (hotUpdateProgress > 0 && hotUpdateProgress < 100)"
+          @click="handleManualHotUpdate"
+          type="button"
+        >
+          {{ isHotChecking ? '正在對帳...' : '🐾 手動檢查更新' }}
+        </button>
+        <button 
+          class="btn-jelly btn-action btn-reset-update" 
+          @click="handleResetHotUpdate"
+          type="button"
+        >
+          🧹 清除熱更新快取
+        </button>
+      </div>
+    </div>
+
     <!-- 📱 App 內一鍵檢查與原生覆蓋安裝 (僅在實體 Android 手機中渲染) -->
     <div v-if="Capacitor.isNativePlatform()" class="settings-box card-jelly pop-jelly">
       <h3 class="box-title">
@@ -505,76 +575,6 @@ const formatCurrency = (val: number) => {
         <div class="admin-panel-header">
           <h2 class="admin-title">🐾 逗逗貓超高級管理介面 🐾</h2>
           <p class="admin-subtitle">此處為系統最高權限稽核管理中心，僅限超級管理貓咪使用！🐾</p>
-        </div>
-
-        <!-- 📡 逗逗貓自建熱更新監控閣 -->
-        <div class="settings-box card-jelly" style="background-color: #FFFDF9 !important;">
-          <h3 class="box-title" style="color: var(--color-text-dark); margin-bottom: 6px;">
-            📡 逗逗貓自建熱更新監控閣
-          </h3>
-          <p style="font-size: 11px; color: var(--color-text-muted); margin-bottom: 12px;">
-            實時監控 Android 行動裝置的自建雙緩衝熱更新引擎狀態，確保金庫資源與雲端 100% 同步。
-          </p>
-
-          <div class="update-monitor-grid">
-            <div class="monitor-item">
-              <span class="monitor-label">連線狀態：</span>
-              <span class="monitor-value status-online">🟢 正常連線至 linkdx.github.io</span>
-            </div>
-            <div class="monitor-item">
-              <span class="monitor-label">本地熱更新版號：</span>
-              <span class="monitor-value code-value">Code {{ localHotVersion }}</span>
-            </div>
-            <div class="monitor-item">
-              <span class="monitor-label">當前加載平台：</span>
-              <span class="monitor-value code-value">{{ Capacitor.isNativePlatform() ? '📱 Android 原生沙盒 WebView' : '💻 桌面瀏覽器 (Web Mode)' }}</span>
-            </div>
-            
-            <!-- 實時狀態 -->
-            <div class="monitor-status-box pop-jelly">
-              <p class="status-msg">
-                <span v-if="isHotChecking">🔍 正在與雲端伺服器對帳比對中，請稍候...</span>
-                <span v-else-if="hotUpdateProgress > 0 && hotUpdateProgress < 100">
-                  📥 正在背景默默下載最新網頁包：{{ hotUpdateProgress }}%
-                </span>
-                <span v-else-if="hotUpdateProgress === 100">
-                  🎉 下載成功！熱更新套件已布署，您可立即套用或於下次啟動時生效！🐾
-                </span>
-                <span v-else-if="hotUpdateError" class="status-error">
-                  ❌ 更新失敗：{{ hotUpdateError }}。請檢查網路連線或稍後再試。
-                </span>
-                <span v-else-if="hasHotUpdate">
-                  ✨ 發現有可更新的網頁包，正在準備背景下載...
-                </span>
-                <span v-else>
-                  🐱 已加載本地最新金庫版本，安全無虞！
-                </span>
-              </p>
-              
-              <!-- 進度條 -->
-              <div v-if="hotUpdateProgress > 0 && hotUpdateProgress < 100" class="update-progress-bar-bg">
-                <div class="update-progress-bar-fill" :style="{ width: hotUpdateProgress + '%' }"></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="monitor-actions-row">
-            <button 
-              class="btn-jelly btn-action btn-check-update" 
-              :disabled="isHotChecking || (hotUpdateProgress > 0 && hotUpdateProgress < 100)"
-              @click="handleManualHotUpdate"
-              type="button"
-            >
-              {{ isHotChecking ? '正在對帳...' : '🐾 手動檢查更新' }}
-            </button>
-            <button 
-              class="btn-jelly btn-action btn-reset-update" 
-              @click="handleResetHotUpdate"
-              type="button"
-            >
-              🧹 清除熱更新快取
-            </button>
-          </div>
         </div>
 
         <!-- 移過來的卡片 1: Firebase 雲端備份防護 -->
