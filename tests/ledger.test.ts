@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 
 // 1. 手動為 Node.js 測試環境 Mock 全域 localStorage
 const store: Record<string, string> = {}
@@ -28,6 +28,11 @@ describe('🐱 Dodo Ledger 多人共同記帳與演算法測試', () => {
     auth.reloadProfiles()
 
     // 清除全域 ledger 狀態
+    const ledger = useLedger()
+    ledger.clearLedgerData()
+  })
+
+  afterEach(() => {
     const ledger = useLedger()
     ledger.clearLedgerData()
   })

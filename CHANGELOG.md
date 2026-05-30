@@ -4,6 +4,14 @@
 
 ## [Web 2.6.7] - 2026-05-30
 
+### 🐛 修復 Vitest 測試結束後未釋放計時器與監聽器導致測試卡住的 Bug
+- **主動清理 Composable 內部計時器**：
+  - 在 `useLedger.ts` 的 `clearLedgerData` 函數中，補全對所有模組全域計時器的清理，包括貓咪狀態同步防抖計時器（`syncCatTimeout`）、互動暫時狀態重置計時器（`interactionTimeoutId`）以及新增的週期記帳報告提示計時器（`triggeredReportsTimeout`）。
+  - 這確保了每次測試前、後呼叫 `clearLedgerData` 時，所有註冊到 Node.js Event Loop 的非同步 `setTimeout` 計時器都會被完全 `clearTimeout`，從根本上解決了測試跑完後因為背景計時器依然活躍而無法退出的 Bug。
+- **補全測試環境 `afterEach` 生命週期清理**：
+  - 在 `ledger.test.ts` 與 `conflict-resolution.test.ts` 的測試套件中，引進 `afterEach` 生命週期 hook，並在其中調用 `clearLedgerData()`。
+  - 這解決了原本只有 `beforeEach` 在測試前清理，導致「最後一個測試」執行完後遺留的 Firebase `onSnapshot` 訂閱監聽器與 `setTimeout` 計時器無人關閉，進而使 Node 執行緒永久掛起的嚴重缺陷。
+
 ### 🚀 徹底解決離線狀態下交易寫入與日常管理 Awaits 阻塞、Dialog 對話框無法彈出之問題 (100% 毫秒級樂觀 UI 與零死角離線優先)
 - **資料庫原子寫入背景非同步化**：
   - 徹底解決了在完全離線或網路不佳狀態下，雖然本地狀態樂觀更新成功，但由於 Firestore SDK 的 `writeBatch.commit()` 在等待網路連線時處於 `pending` 狀態，導致 `addTransaction` 主要流程被 `await` 同步阻塞，無法執行後續清空表單與彈出成功 Dialog 的致命 Bug。

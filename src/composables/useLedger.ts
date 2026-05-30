@@ -31,6 +31,8 @@ let petClickTimestamps: number[] = [] // 摸摸點擊時間戳記，用於偵測
 let syncCatTimeout: any = null // 貓咪狀態同步防抖 Timer
 let catProfileUnsubscribe: (() => void) | null = null // 貓咪狀態訂閱退訂函數
 let disturbedClickCount = 0 // 凌晨點擊計數
+let triggeredReportsTimeout: any = null // 週期記帳報告提示 Timer
+
 
 // 🔒 即時同步訂閱控制器（多裝置即時同步）
 let accountsUnsubscribe: (() => void) | null = null
@@ -196,6 +198,9 @@ export function useLedger() {
     if (transactionsUnsubscribe) { transactionsUnsubscribe(); transactionsUnsubscribe = null }
     if (recurringUnsubscribe) { recurringUnsubscribe(); recurringUnsubscribe = null }
     if (categoriesUnsubscribe) { categoriesUnsubscribe(); categoriesUnsubscribe = null }
+    if (syncCatTimeout) { clearTimeout(syncCatTimeout); syncCatTimeout = null }
+    if (interactionTimeoutId) { clearTimeout(interactionTimeoutId); interactionTimeoutId = null }
+    if (triggeredReportsTimeout) { clearTimeout(triggeredReportsTimeout); triggeredReportsTimeout = null }
     accounts.value = []
     transactions.value = []
     recurringTransactions.value = []
@@ -966,8 +971,10 @@ export function useLedger() {
         })
       }
       
-      setTimeout(() => {
+      if (triggeredReportsTimeout) clearTimeout(triggeredReportsTimeout)
+      triggeredReportsTimeout = setTimeout(() => {
         triggeredReports.value = []
+        triggeredReportsTimeout = null
       }, 8000)
     }
   }

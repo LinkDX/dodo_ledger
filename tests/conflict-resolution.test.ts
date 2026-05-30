@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 
 // 1. 手動為 Node.js 測試環境 Mock 全域 localStorage
 const store: Record<string, string> = {}
@@ -22,6 +22,11 @@ describe('🔒 多人並發衝突解決機制測試', () => {
     for (const key in store) { delete store[key] }
     const auth = useAuth()
     auth.reloadProfiles()
+    const { clearLedgerData } = useLedger()
+    clearLedgerData()
+  })
+
+  afterEach(() => {
     const { clearLedgerData } = useLedger()
     clearLedgerData()
   })
