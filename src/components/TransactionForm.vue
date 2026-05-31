@@ -12,7 +12,16 @@ import {
 import DatePicker from './DatePicker.vue'
 import AccountPicker from './AccountPicker.vue'
 
-const { accounts, addTransaction, categories: allCategories, addTxPrefilledDate } = useLedger()
+const { 
+  accounts, 
+  addTransaction, 
+  categories: allCategories, 
+  addTxPrefilledDate,
+  addCategory,
+  addSubCategory,
+  cuteIconsList,
+  getIconEmoji
+} = useLedger()
 
 // 1. 交易類型：支出 / 收入
 const txType = ref<TransactionType>('expense')
@@ -250,6 +259,88 @@ watch(addTxPrefilledDate, (newVal) => {
   }
 }, { immediate: true })
 
+// 快速新增主分類狀態與方法
+const showQuickAddCat = ref(false)
+const quickAddCatName = ref('')
+const quickAddCatIcon = ref('Sparkles')
+
+const openQuickAddCat = () => {
+  quickAddCatName.value = ''
+  quickAddCatIcon.value = 'Sparkles'
+  showQuickAddCat.value = true
+}
+
+const handleQuickAddCat = async () => {
+  const name = quickAddCatName.value.trim()
+  if (!name) {
+    triggerAlert('🐱 喵？分類名稱不能是空的喔！', 'warning')
+    return
+  }
+  
+  // 檢查是否重複
+  const exists = allCategories.value.some(c => c.name === name && c.type === txType.value)
+  if (exists) {
+    triggerAlert('🐱 喵？這個分類名稱已經存在囉！', 'warning')
+    return
+  }
+  
+  await addCategory({
+    name,
+    type: txType.value as 'income' | 'expense',
+    icon: quickAddCatIcon.value,
+    subCategories: []
+  })
+  
+  showQuickAddCat.value = false
+  triggerAlert(`🐱 喵！成功新增主分類「${name}」！`, 'success')
+  
+  // 自動選取剛新增的分類
+  setTimeout(() => {
+    const newlyAdded = allCategories.value.find(c => c.name === name && c.type === txType.value)
+    if (newlyAdded) {
+      selectedCatId.value = newlyAdded.id
+      selectedSubCat.value = ''
+    }
+  }, 100)
+}
+
+// 快速新增子分類狀態與方法
+const showQuickAddSub = ref(false)
+const quickAddSubName = ref('')
+
+const openQuickAddSub = () => {
+  if (!selectedCatId.value) {
+    triggerAlert('🐱 喵？請先選擇一個主分類喔！', 'warning')
+    return
+  }
+  quickAddSubName.value = ''
+  showQuickAddSub.value = true
+}
+
+const handleQuickAddSub = async () => {
+  const name = quickAddSubName.value.trim()
+  if (!name) {
+    triggerAlert('🐱 喵？子分類名稱不能是空的喔！', 'warning')
+    return
+  }
+  
+  const cat = allCategories.value.find(c => c.id === selectedCatId.value)
+  if (!cat) return
+  
+  // 檢查是否重複
+  if (cat.subCategories.includes(name)) {
+    triggerAlert('🐱 喵？這個子分類在此分類下已存在囉！', 'warning')
+    return
+  }
+  
+  await addSubCategory(cat.id, name)
+  showQuickAddSub.value = false
+  triggerAlert(`🐱 喵！成功在「${cat.name}」下新增子分類「${name}」！`, 'success')
+  
+  // 自動選取剛新增的子分類
+  selectedSubCat.value = name
+}
+
 // 自訂內部 Alert 狀態
 interface AlertState {
   show: boolean
@@ -420,8 +511,18 @@ const handleSubmit = async () => {
           :class="{ active: selectedCatId === cat.id }"
           @click="handleSelectCat(cat.id)"
         >
-          <span class="cat-icon-emoji">{{ cat.type === 'expense' ? '🔴' : '🟢' }}</span>
+          <span class="cat-icon-emoji">{{ getIconEmoji(cat.icon) }}</span>
           <span class="cat-name">{{ cat.name }}</span>
+        </button>
+
+        <!-- 快速新增主分類按鈕 -->
+        <button 
+          class="btn-jelly btn-cat-main btn-add-custom-cat" 
+          @click="openQuickAddCat"
+          style="background-color: #fff !important; border: 1.5px dashed var(--color-border) !important; box-shadow: none !important;"
+        >
+          <span class="cat-icon-emoji">➕</span>
+          <span class="cat-name" style="color: var(--color-text-muted);">新增分類</span>
         </button>
       </div>
 
@@ -438,6 +539,16 @@ const handleSubmit = async () => {
           >
             {{ sub }}
             <Check v-if="selectedSubCat === sub" :size="10" stroke-width="4" class="sub-check" />
+          </button>
+
+          <!-- 快速新增子分類按鈕 -->
+          <button 
+            v-if="activeCategory"
+            class="btn-jelly btn-sub-tag btn-add-custom-sub" 
+            @click="openQuickAddSub"
+            style="background-color: #fff !important; border: 1.5px dashed var(--color-border) !important; border-radius: 12px !important; box-shadow: none !important;"
+          >
+            ➕ 新增子分類
           </button>
         </div>
       </div>
@@ -526,6 +637,90 @@ const handleSubmit = async () => {
         </div>
       </div>
     </Transition>
+
+    <!-- 快速新增主分類 Dialog -->
+    <Teleport to="#app">
+      <Transition name="fade-alert">
+        <div v-if="showQuickAddCat" class="modal-overlay" @click.self="showQuickAddCat = false">
+          <div class="modal-card card-jelly pop-jelly" style="padding: 24px;">
+            <h3 class="modal-title">新增自訂主分類 🐱✨</h3>
+            
+            <div class="form-group">
+              <label class="label-cute">分類名稱</label>
+              <input 
+                v-model="quickAddCatName" 
+                type="text" 
+                placeholder="例如：教育學習、投資儲蓄..." 
+                class="input-jelly"
+                maxlength="15" 
+                style="width: 100%; box-sizing: border-box;"
+                @keyup.enter="handleQuickAddCat"
+              />
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="label-cute">選擇分類圖示</label>
+              <div class="icon-selector-grid">
+                <button 
+                  v-for="ico in cuteIconsList" 
+                  :key="ico"
+                  class="btn-jelly btn-icon-select"
+                  :class="{ active: quickAddCatIcon === ico }"
+                  @click="quickAddCatIcon = ico"
+                >
+                  {{ getIconEmoji(ico) }}
+                </button>
+              </div>
+            </div>
+
+            <div class="modal-actions">
+              <button class="btn-jelly btn-cancel" @click="showQuickAddCat = false">
+                取消 🐾
+              </button>
+              <button class="btn-jelly btn-confirm" @click="handleQuickAddCat">
+                確認新增 🐾
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- 快速新增子分類 Dialog -->
+    <Teleport to="#app">
+      <Transition name="fade-alert">
+        <div v-if="showQuickAddSub" class="modal-overlay" @click.self="showQuickAddSub = false">
+          <div class="modal-card card-jelly pop-jelly" style="padding: 24px;">
+            <h3 class="modal-title">新增子分類 🐱🏷️</h3>
+            <p style="font-size: 11px; color: var(--color-text-muted); font-weight: 700; margin-bottom: 12px; text-align: center;">
+              在主分類「{{ activeCategory?.name }}」下新增
+            </p>
+            
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="label-cute">子分類名稱</label>
+              <input 
+                v-model="quickAddSubName" 
+                type="text" 
+                placeholder="例如：線上課程、補習費..." 
+                class="input-jelly"
+                maxlength="15" 
+                style="width: 100%; box-sizing: border-box;"
+                @keyup.enter="handleQuickAddSub"
+              />
+            </div>
+
+            <div class="modal-actions">
+              <button class="btn-jelly btn-cancel" @click="showQuickAddSub = false">
+                取消 🐾
+              </button>
+              <button class="btn-jelly btn-confirm" @click="handleQuickAddSub">
+                確認新增 🐾
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -890,6 +1085,77 @@ const handleSubmit = async () => {
   box-shadow: var(--shadow-jelly);
 }
 
+/* 彈窗樣式 (與 AccountManager 一致，並由 Teleport 提升至最頂層) */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(44, 30, 27, 0.4);
+  z-index: 999; /* 設為最高以防被 bottom bar 遮擋 */
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(4px);
+  overflow-y: auto;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 360px;
+  background-color: #FFFFFF;
+  margin: auto 0;
+}
+
+.modal-title {
+  font-size: 18px;
+  font-weight: 800;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  width: 100%;
+}
+
+.btn-cancel {
+  flex: 1;
+  background-color: #FFF !important;
+  color: var(--color-text-muted) !important;
+  border: 1.5px solid var(--color-border) !important;
+}
+
+.btn-confirm {
+  flex: 1;
+  background-color: var(--color-income) !important;
+  color: var(--color-text-dark) !important;
+}
+
+.modal-card .form-group {
+  margin-bottom: 14px;
+  width: 100%;
+}
+
+/* 圖示選擇器網格 */
+.icon-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  width: 100%;
+  max-height: 120px;
+  overflow-y: auto;
+  padding: 4px;
+  box-sizing: border-box;
+  background-color: var(--color-bg-warm);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+}
+
 .custom-alert-card.success {
   border-color: var(--color-income);
   background-color: #F4FBF7; /* 極淡薄荷綠 */
@@ -959,5 +1225,18 @@ const handleSubmit = async () => {
 @keyframes bounce {
   from { transform: translateY(0); }
   to { transform: translateY(-4px); }
+}
+
+.btn-icon-select {
+  padding: 6px !important;
+  font-size: 14px !important;
+  background-color: #FFFFFF !important;
+  min-width: unset !important;
+}
+
+.btn-icon-select.active {
+  background-color: var(--color-accent-gold) !important;
+  box-shadow: var(--shadow-jelly-sm) !important;
+  transform: translateY(-1px);
 }
 </style>

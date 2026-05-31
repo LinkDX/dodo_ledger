@@ -21,7 +21,9 @@ const {
   deleteSubCategory, 
   editSubCategory,
   reorderCategories, 
-  reorderSubCategories 
+  reorderSubCategories,
+  cuteIconsList,
+  getIconEmoji
 } = useLedger()
 const { showConfirm } = useConfirm()
 const { showAlert } = useAlert()
@@ -49,7 +51,6 @@ const toggleExpandCat = (catId: string) => {
 const showAddCatForm = ref(false)
 const newCatName = ref('')
 const newCatIcon = ref('Sparkles')
-const cuteIconsList = ['Sparkles', 'Utensils', 'Car', 'ShoppingBag', 'Home', 'DollarSign', 'TrendingUp', 'Gift', 'Briefcase', 'Heart', 'Smile', 'Activity']
 
 const handleAddMainCategory = async () => {
   if (!newCatName.value.trim()) return
@@ -302,7 +303,7 @@ const onSubDrop = async (catId: string, targetSub: string) => {
                   @click="editCatIcon = ico"
                   style="padding: 4px !important; font-size: 14px; min-height: 28px;"
                 >
-                  {{ ico === 'Utensils' ? '🍔' : ico === 'Car' ? '🚗' : ico === 'ShoppingBag' ? '🛍️' : ico === 'Home' ? '🏠' : ico === 'DollarSign' ? '💵' : ico === 'TrendingUp' ? '📈' : ico === 'Gift' ? '🎁' : ico === 'Briefcase' ? '💼' : ico === 'Heart' ? '❤️' : ico === 'Smile' ? '😊' : ico === 'Activity' ? '🏥' : '✨' }}
+                  {{ getIconEmoji(ico) }}
                 </button>
               </div>
             </div>
@@ -321,7 +322,7 @@ const onSubDrop = async (catId: string, targetSub: string) => {
                 <GripVertical :size="13" />
               </span>
               <span class="cat-icon-emoji">
-                {{ cat.icon === 'Utensils' ? '🍔' : cat.icon === 'Car' ? '🚗' : cat.icon === 'ShoppingBag' ? '🛍️' : cat.icon === 'Home' ? '🏠' : cat.icon === 'DollarSign' ? '💵' : cat.icon === 'TrendingUp' ? '📈' : cat.icon === 'Gift' ? '🎁' : cat.icon === 'Briefcase' ? '💼' : cat.icon === 'Heart' ? '❤️' : cat.icon === 'Smile' ? '😊' : cat.icon === 'Activity' ? '🏥' : '✨' }}
+                {{ getIconEmoji(cat.icon) }}
               </span>
               <span class="cat-name-bold">{{ cat.name }}</span>
               <span class="sub-count-tag tag-jelly">{{ cat.subCategories.length }} 個子類</span>
@@ -466,7 +467,7 @@ const onSubDrop = async (catId: string, targetSub: string) => {
               :class="{ active: newCatIcon === ico }"
               @click="newCatIcon = ico"
             >
-              {{ ico === 'Utensils' ? '🍔' : ico === 'Car' ? '🚗' : ico === 'ShoppingBag' ? '🛍️' : ico === 'Home' ? '🏠' : ico === 'DollarSign' ? '💵' : ico === 'TrendingUp' ? '📈' : ico === 'Gift' ? '🎁' : ico === 'Briefcase' ? '💼' : ico === 'Heart' ? '❤️' : ico === 'Smile' ? '😊' : ico === 'Activity' ? '🏥' : '✨' }}
+              {{ getIconEmoji(ico) }}
             </button>
           </div>
         </div>

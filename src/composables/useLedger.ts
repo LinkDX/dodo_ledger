@@ -1474,6 +1474,36 @@ export function useLedger() {
     return d.toISOString().split('T')[0]
   }
 
+  const cuteIconsList = [
+    'Sparkles', 'Utensils', 'Car', 'ShoppingBag', 'Home', 'DollarSign', 'TrendingUp', 'Gift', 'Briefcase', 'Heart', 'Smile', 'Activity',
+    'GraduationCap', 'PiggyBank', 'Coins', 'Cat', 'Dumbbell', 'Plane', 'Gamepad', 'Coffee'
+  ]
+
+  const getIconEmoji = (iconName: string) => {
+    switch (iconName) {
+      case 'Utensils': return '🍔'
+      case 'Car': return '🚗'
+      case 'ShoppingBag': return '🛍️'
+      case 'Home': return '🏠'
+      case 'DollarSign': return '💵'
+      case 'TrendingUp': return '📈'
+      case 'Gift': return '🎁'
+      case 'Briefcase': return '💼'
+      case 'Heart': return '❤️'
+      case 'Smile': return '😊'
+      case 'Activity': return '🏥'
+      case 'GraduationCap': return '🎓'
+      case 'PiggyBank': return '🐷'
+      case 'Coins': return '🪙'
+      case 'Cat': return '🐱'
+      case 'Dumbbell': return '🏋️'
+      case 'Plane': return '✈️'
+      case 'Gamepad': return '🎮'
+      case 'Coffee': return '☕'
+      default: return '✨'
+    }
+  }
+
   return {
     accounts: computed(() => accounts.value),
     transactions: computed(() => transactions.value),
@@ -1527,6 +1557,9 @@ export function useLedger() {
 
     isTransactionPaid,
 
-    interactWithCat
+    interactWithCat,
+    
+    cuteIconsList,
+    getIconEmoji
   }
 }

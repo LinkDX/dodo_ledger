@@ -40,6 +40,13 @@ export const DEFAULT_CATEGORIES: Category[] = [
     subCategories: ['電影戲劇', '電玩遊戲', '書籍雜誌', '旅行運動', '訂閱服務']
   },
   {
+    id: 'cat_education',
+    name: '教育學習',
+    type: 'expense',
+    icon: 'GraduationCap',
+    subCategories: ['學雜費', '補習/課程', '書籍教科書', '文具用品', '線上訂閱']
+  },
+  {
     id: 'cat_salary',
     name: '薪資收入',
     type: 'income',
