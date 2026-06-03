@@ -9,14 +9,14 @@ import {
 } from 'lucide-vue-next'
 
 const { 
-  accounts, 
+  visibleAccounts, 
   transactions, 
   payCreditCardBill 
 } = useLedger()
 
 // 篩選出所有信用卡帳戶
 const creditCards = computed(() => {
-  return accounts.value.filter(a => a.type === 'credit_card')
+  return visibleAccounts.value.filter(a => a.type === 'credit_card')
 })
 
 // 選定的信用卡 ID 與選定的帳單月份 (預設為第一張卡與本月)
@@ -76,7 +76,7 @@ const linkedBankId = ref('')
 
 // 篩選可用於扣款的銀行/現金帳戶
 const bankAccounts = computed(() => {
-  return accounts.value.filter(a => a.type === 'bank' || a.type === 'cash')
+  return visibleAccounts.value.filter(a => a.type === 'bank' || a.type === 'cash')
 })
 
 const openPayModal = () => {

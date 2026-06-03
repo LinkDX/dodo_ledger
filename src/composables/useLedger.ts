@@ -68,6 +68,11 @@ export function useLedger() {
   const { currentProfile } = useAuth()
   const db = getDatabaseService()
 
+  const visibleAccounts = computed(() => {
+    const hiddenTypes = currentProfile.value?.settings?.hiddenAccountTypes || []
+    return accounts.value.filter(a => !hiddenTypes.includes(a.type))
+  })
+
   // 1. 📂 顯式資料載入方法
   const loadLedgerData = async () => {
     isDataLoaded.value = false
@@ -1506,6 +1511,7 @@ export function useLedger() {
 
   return {
     accounts: computed(() => accounts.value),
+    visibleAccounts,
     transactions: computed(() => transactions.value),
     recurringTransactions: computed(() => recurringTransactions.value),
     categories: computed(() => categories.value),

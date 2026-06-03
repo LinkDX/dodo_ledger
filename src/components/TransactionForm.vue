@@ -14,6 +14,7 @@ import AccountPicker from './AccountPicker.vue'
 
 const { 
   accounts, 
+  visibleAccounts,
   addTransaction, 
   categories: allCategories, 
   addTxPrefilledDate,
@@ -29,9 +30,9 @@ const txType = ref<TransactionType>('expense')
 // 2. 帳戶選取 (過濾掉信用卡如果是收入，支出則可選信用卡或一般)
 const availableAccounts = computed(() => {
   if (txType.value === 'income') {
-    return accounts.value.filter(a => a.type !== 'credit_card')
+    return visibleAccounts.value.filter(a => a.type !== 'credit_card')
   }
-  return accounts.value
+  return visibleAccounts.value
 })
 
 const selectedAccountId = ref('')

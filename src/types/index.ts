@@ -7,6 +7,7 @@ export interface UserSettings {
   currency: string;
   theme: string;
   monthlyBudget: number;
+  hiddenAccountTypes?: AccountType[];
 }
 
 // 本地使用者身分 Profile

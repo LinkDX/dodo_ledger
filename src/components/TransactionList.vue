@@ -29,6 +29,7 @@ const emit = defineEmits<{
 const { 
   transactions, 
   accounts, 
+  visibleAccounts,
   categories: allCategories, 
   deleteTransaction, 
   editTransaction, 
@@ -296,8 +297,8 @@ const subCategoryOptions = computed(() => {
 })
 
 // 可選帳戶
-const expenseAccounts = computed(() => accounts.value)
-const incomeAccounts = computed(() => accounts.value.filter(a => a.type !== 'credit_card'))
+const expenseAccounts = computed(() => visibleAccounts.value)
+const incomeAccounts = computed(() => visibleAccounts.value.filter(a => a.type !== 'credit_card'))
 
 // ===== 檢視模式與分組彙整邏輯 =====
 import { type TransactionType, type Transaction } from '../types'

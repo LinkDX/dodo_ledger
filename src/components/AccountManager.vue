@@ -16,8 +16,10 @@ import {
   CheckCircle,
   Pencil,
   GripVertical,
-  X
+  X,
+  Eye
 } from 'lucide-vue-next'
+import { useAuth } from '../composables/useAuth'
 import MonthYearPicker from './MonthYearPicker.vue'
 import AccountPicker from './AccountPicker.vue'
 import AccountDropdown from './AccountDropdown.vue'
@@ -25,6 +27,7 @@ import AccountDropdown from './AccountDropdown.vue'
 
 const { 
   accounts,
+  visibleAccounts,
   transactions,
   addAccount,
   deleteAccount,
@@ -35,6 +38,8 @@ const {
   getBillPeriodForCard,
   getCreditCardBillPeriod
 } = useLedger()
+
+const { currentProfile, updateProfileSettings } = useAuth()
 
 const { showConfirm } = useConfirm()
 
@@ -335,9 +340,45 @@ watch(selectedCardId, (newCardId, oldCardId) => {
 const searchQuery = ref('')
 const activeFilter = ref<'all' | AccountType>('all')
 
+// 隱藏設定彈窗相關狀態
+const showSettingsModal = ref(false)
+const tempSelectedTypes = ref<AccountType[]>([])
+
+const openSettingsModal = () => {
+  const hiddenTypes = currentProfile.value?.settings?.hiddenAccountTypes || []
+  const allTypes: AccountType[] = ['cash', 'bank', 'credit_card', 'electronic_ticket']
+  tempSelectedTypes.value = allTypes.filter(t => !hiddenTypes.includes(t))
+  showSettingsModal.value = true
+}
+
+const saveSettings = async () => {
+  const allTypes: AccountType[] = ['cash', 'bank', 'credit_card', 'electronic_ticket']
+  const hiddenTypes = allTypes.filter(t => !tempSelectedTypes.value.includes(t))
+  await updateProfileSettings({
+    hiddenAccountTypes: hiddenTypes
+  })
+  showSettingsModal.value = false
+  if (activeFilter.value !== 'all' && hiddenTypes.includes(activeFilter.value)) {
+    activeFilter.value = 'all'
+  }
+}
+
+// 根據隱藏設定動態決定顯示哪些篩選 Tab
+const filterTabs = computed(() => {
+  const hiddenTypes = currentProfile.value?.settings?.hiddenAccountTypes || []
+  const allTabs = [
+    { key: 'all',                label: '全部' },
+    { key: 'cash',               label: '現金' },
+    { key: 'bank',               label: '銀行' },
+    { key: 'credit_card',        label: '信用卡' },
+    { key: 'electronic_ticket',  label: '電子票證' }
+  ] as const
+  return allTabs.filter(tab => tab.key === 'all' || !hiddenTypes.includes(tab.key))
+})
+
 const filteredAccounts = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
-  return accounts.value.filter(acct => {
+  return visibleAccounts.value.filter(acct => {
     // 1. 類型篩選
     if (activeFilter.value !== 'all' && acct.type !== activeFilter.value) {
       return false
@@ -401,38 +442,48 @@ const onAcctDrop = async (targetAcct: Account) => {
   <div class="accounts-page-container pop-jelly">
     <div class="page-header">
       <h2 class="page-title"><Sparkles class="icon-inline" /> 我的錢包</h2>
-
-      <!-- 內部 Tab 切換 -->
-      <div class="inner-tabs">
+      <div class="toolbar-actions">
         <button
-          class="inner-tab btn-jelly"
-          :class="{ active: activeSection === 'accounts' }"
-          @click="activeSection = 'accounts'"
+          class="toolbar-icon-btn btn-jelly"
+          :class="{ active: showSettingsModal }"
+          @click="openSettingsModal"
+          title="設定顯示類別"
         >
-          <Wallet :size="14" /> 帳戶管理
-        </button>
-        <button
-          class="inner-tab btn-jelly"
-          :class="{ active: activeSection === 'credit' }"
-          @click="switchToCredit()"
-        >
-          <CreditCard :size="14" /> 信用卡帳單
+          <Eye :size="16" />
         </button>
       </div>
+    </div>
 
-      <!-- 帳戶區：新增 / 互轉按鈕 -->
-      <div v-show="activeSection === 'accounts'" class="action-buttons-row">
-        <button class="btn-jelly btn-action btn-add" @click="toggleAddModal">
-          <Plus :size="16" /> 新增帳戶
-        </button>
-        <button 
-          class="btn-jelly btn-action btn-transfer" 
-          :disabled="accounts.length < 2"
-          @click="toggleTransferModal"
-        >
-          <ArrowLeftRight :size="16" /> 帳戶互轉
-        </button>
-      </div>
+    <!-- 內部 Tab 切換 -->
+    <div class="inner-tabs">
+      <button
+        class="inner-tab btn-jelly"
+        :class="{ active: activeSection === 'accounts' }"
+        @click="activeSection = 'accounts'"
+      >
+        <Wallet :size="14" /> 帳戶管理
+      </button>
+      <button
+        class="inner-tab btn-jelly"
+        :class="{ active: activeSection === 'credit' }"
+        @click="switchToCredit()"
+      >
+        <CreditCard :size="14" /> 信用卡帳單
+      </button>
+    </div>
+
+    <!-- 帳戶區：新增 / 互轉按鈕 -->
+    <div v-show="activeSection === 'accounts'" class="action-buttons-row">
+      <button class="btn-jelly btn-action btn-add" @click="toggleAddModal">
+        <Plus :size="16" /> 新增帳戶
+      </button>
+      <button 
+        class="btn-jelly btn-action btn-transfer" 
+        :disabled="accounts.length < 2"
+        @click="toggleTransferModal"
+      >
+        <ArrowLeftRight :size="16" /> 帳戶互轉
+      </button>
     </div>
 
     <!-- 搜尋欄 -->
@@ -459,13 +510,7 @@ const onAcctDrop = async (targetAcct: Account) => {
     <!-- 類型篩選 Tab -->
     <div v-show="activeSection === 'accounts' && accounts.length > 0" class="filter-tabs">
       <button
-        v-for="f in ([
-          { key: 'all',                label: '全部' },
-          { key: 'cash',               label: '現金' },
-          { key: 'bank',               label: '銀行' },
-          { key: 'credit_card',        label: '信用卡' },
-          { key: 'electronic_ticket',  label: '電子票證' }
-        ] as const)"
+        v-for="f in filterTabs"
         :key="f.key"
         class="filter-tab btn-jelly"
         :class="{ active: activeFilter === f.key }"
@@ -807,12 +852,12 @@ const onAcctDrop = async (targetAcct: Account) => {
 
           <div class="form-group">
             <label class="label-cute">來源帳戶 (扣款)</label>
-            <AccountDropdown v-model="fromAccountId" :accounts="accounts" placeholder="請選擇來源帳戶..." />
+            <AccountDropdown v-model="fromAccountId" :accounts="visibleAccounts" placeholder="請選擇來源帳戶..." />
           </div>
 
           <div class="form-group">
             <label class="label-cute">目的帳戶 (存款)</label>
-            <AccountDropdown v-model="toAccountId" :accounts="accounts" placeholder="請選擇目的帳戶..." />
+            <AccountDropdown v-model="toAccountId" :accounts="visibleAccounts" placeholder="請選擇目的帳戶..." />
           </div>
 
           <div class="form-group">
@@ -912,6 +957,60 @@ const onAcctDrop = async (targetAcct: Account) => {
         </div>
       </div>
     </Teleport>
+
+    <!-- 4. 設定顯示類別彈窗 -->
+    <Teleport to="#app">
+      <div v-if="showSettingsModal" class="modal-overlay">
+        <div class="modal-card card-jelly pop-jelly">
+          <div class="modal-header-row">
+            <h3 class="modal-title">⚙️ 顯示類別設定</h3>
+            <button class="btn-jelly btn-close-edit" @click="showSettingsModal = false">
+              <X :size="14" />
+            </button>
+          </div>
+
+          <div class="mascot-pay-header" style="margin-bottom: 16px;">
+            <span class="cat-pop-emoji">🐱</span>
+            <p class="cat-speech-bubble" style="font-size: 13px;">「主人，勾選你想在我的錢包顯示的帳戶類型喔！未勾選的類別將會被隱藏喵🐾」</p>
+          </div>
+
+          <div class="settings-checkbox-list">
+            <label class="checkbox-item-cute card-jelly">
+              <input type="checkbox" value="cash" v-model="tempSelectedTypes" class="checkbox-cute-input" />
+              <span class="checkbox-label-text">
+                💵 現金帳戶
+              </span>
+            </label>
+
+            <label class="checkbox-item-cute card-jelly">
+              <input type="checkbox" value="bank" v-model="tempSelectedTypes" class="checkbox-cute-input" />
+              <span class="checkbox-label-text">
+                🏦 銀行存款
+              </span>
+            </label>
+
+            <label class="checkbox-item-cute card-jelly">
+              <input type="checkbox" value="credit_card" v-model="tempSelectedTypes" class="checkbox-cute-input" />
+              <span class="checkbox-label-text">
+                💳 信用卡
+              </span>
+            </label>
+
+            <label class="checkbox-item-cute card-jelly">
+              <input type="checkbox" value="electronic_ticket" v-model="tempSelectedTypes" class="checkbox-cute-input" />
+              <span class="checkbox-label-text">
+                🪙 電子票證
+              </span>
+            </label>
+          </div>
+
+          <div class="modal-actions">
+            <button class="btn-jelly btn-cancel" @click="showSettingsModal = false">取消</button>
+            <button class="btn-jelly btn-confirm" @click="saveSettings">儲存設定</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -926,13 +1025,76 @@ const onAcctDrop = async (targetAcct: Account) => {
 }
 
 .page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 16px;
 }
 
 .page-title {
   font-size: 20px;
   font-weight: 800;
-  margin-bottom: 12px;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.toolbar-icon-btn {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #fff;
+  padding: 0 !important;
+  border-radius: 12px !important;
+  color: var(--color-text-dark);
+}
+
+.toolbar-icon-btn.active {
+  background-color: var(--color-accent-gold) !important;
+  border-width: 2.5px;
+}
+
+.settings-checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.checkbox-item-cute {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px !important;
+  background-color: var(--color-bg-warm);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+
+.checkbox-item-cute:hover {
+  background-color: #FFFDF9;
+  transform: translateY(-2px);
+}
+
+.checkbox-cute-input {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 2px solid var(--color-border);
+  accent-color: var(--color-accent-gold);
+  cursor: pointer;
+}
+
+.checkbox-label-text {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--color-text-dark);
 }
 
 /* 內部 Tab 切換 */
@@ -961,6 +1123,7 @@ const onAcctDrop = async (targetAcct: Account) => {
 .action-buttons-row {
   display: flex;
   gap: 12px;
+  margin-bottom: 16px;
 }
 
 .btn-action {

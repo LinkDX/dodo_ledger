@@ -54,7 +54,8 @@ ledgers/
 {
   "currency": "TWD",
   "theme": "warm-light",
-  "monthlyBudget": 20000
+  "monthlyBudget": 20000,
+  "hiddenAccountTypes": ["electronic_ticket"] // 已被使用者隱藏的帳戶類型
 }
 ```
 

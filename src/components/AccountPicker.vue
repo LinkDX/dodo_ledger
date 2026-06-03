@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import { Wallet, Landmark, CreditCard, Compass, Check } from 'lucide-vue-next'
 import type { Account } from '../types'
+import { useAuth } from '../composables/useAuth'
 
 const props = defineProps<{
   modelValue: string    // account id
@@ -16,13 +17,19 @@ const emit = defineEmits<{
 const searchQuery = ref('')
 const selectedType = ref<string>('all')
 
-const filterTabs = [
-  { value: 'all', label: '全部', emoji: '✨' },
-  { value: 'cash', label: '現金', emoji: '💵' },
-  { value: 'bank', label: '銀行', emoji: '🏦' },
-  { value: 'credit_card', label: '信用卡', emoji: '💳' },
-  { value: 'electronic_ticket', label: '票證', emoji: '🎫' }
-]
+const { currentProfile } = useAuth()
+
+const filterTabs = computed(() => {
+  const hiddenTypes = currentProfile.value?.settings?.hiddenAccountTypes || []
+  const allTabs = [
+    { value: 'all', label: '全部', emoji: '✨' },
+    { value: 'cash', label: '現金', emoji: '💵' },
+    { value: 'bank', label: '銀行', emoji: '🏦' },
+    { value: 'credit_card', label: '信用卡', emoji: '💳' },
+    { value: 'electronic_ticket', label: '票證', emoji: '🎫' }
+  ] as const
+  return allTabs.filter(tab => tab.value === 'all' || !hiddenTypes.includes(tab.value))
+})
 
 const filteredAccounts = computed(() => {
   return props.accounts.filter(acct => {
