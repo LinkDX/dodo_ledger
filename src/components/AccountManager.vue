@@ -108,6 +108,9 @@ const editAvatar = ref('')
 const editColorIdx = ref(0)
 const editBalance = ref<number | ''>('')
 const editType = ref('cash')
+const editCreditLimit = ref<number>(50000)
+const editBillingCycleDate = ref<number>(10)
+const editPaymentDueDate = ref<number>(25)
 
 const toggleAddModal = () => {
   showAddModal.value = !showAddModal.value
@@ -142,6 +145,17 @@ const openEditModal = (acct: Account) => {
   if (editColorIdx.value < 0) editColorIdx.value = 0
   editBalance.value = acct.type === 'credit_card' ? -acct.balance : acct.balance
   editType.value = acct.type
+
+  if (acct.type === 'credit_card' && acct.cardDetails) {
+    editCreditLimit.value = acct.cardDetails.creditLimit
+    editBillingCycleDate.value = acct.cardDetails.billingCycleDate
+    editPaymentDueDate.value = acct.cardDetails.paymentDueDate
+  } else {
+    editCreditLimit.value = 50000
+    editBillingCycleDate.value = 10
+    editPaymentDueDate.value = 25
+  }
+  
   showEditModal.value = true
 }
 
@@ -153,12 +167,23 @@ const closeEditModal = () => {
 const handleSaveEdit = async () => {
   if (!editingAcctId.value || !editName.value.trim()) return
   const balanceVal = Number(editBalance.value) || 0
-  await editAccount(editingAcctId.value, {
+  
+  const updateData: any = {
     name: editName.value.trim(),
     avatar: editAvatar.value || undefined,
     color: cardColors[editColorIdx.value].class,
     balance: editType.value === 'credit_card' ? -balanceVal : balanceVal
-  })
+  }
+  
+  if (editType.value === 'credit_card') {
+    updateData.cardDetails = {
+      creditLimit: Number(editCreditLimit.value) || 50000,
+      billingCycleDate: Number(editBillingCycleDate.value) || 10,
+      paymentDueDate: Number(editPaymentDueDate.value) || 25
+    }
+  }
+  
+  await editAccount(editingAcctId.value, updateData)
   closeEditModal()
 }
 
@@ -911,6 +936,27 @@ const onAcctDrop = async (targetAcct: Account) => {
             </label>
             <input v-model.number="editBalance" type="number" class="input-jelly" placeholder="0" />
           </div>
+
+          <!-- 信用卡專屬欄位 (編輯時動態展開) -->
+          <Transition name="expand-details">
+            <div v-if="editType === 'credit_card'" class="credit-exclusive-fields card-jelly" style="margin-bottom: 12px; padding: 12px; border: var(--border-width) solid var(--color-border); border-radius: var(--border-radius-md); background-color: var(--color-bg-warm);">
+              <h4 class="sub-fields-title" style="font-size: 13px; font-weight: 800; margin-bottom: 8px;">💳 信用卡參數設定</h4>
+              <div class="form-group">
+                <label class="label-cute">信用額度</label>
+                <input v-model="editCreditLimit" type="number" placeholder="50000" class="input-jelly" />
+              </div>
+              <div class="fields-row" style="display: flex; gap: 8px;">
+                <div class="form-group half-width" style="flex: 1;">
+                  <label class="label-cute">每月結帳日</label>
+                  <input v-model="editBillingCycleDate" type="number" min="1" max="31" placeholder="10" class="input-jelly" />
+                </div>
+                <div class="form-group half-width" style="flex: 1;">
+                  <label class="label-cute">每月繳款截止日</label>
+                  <input v-model="editPaymentDueDate" type="number" min="1" max="31" placeholder="25" class="input-jelly" />
+                </div>
+              </div>
+            </div>
+          </Transition>
 
           <div class="form-group">
             <label class="label-cute">Emoji 頭像</label>
