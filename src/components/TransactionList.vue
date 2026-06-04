@@ -532,7 +532,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="tx-list-page pop-jelly">
+  <div class="tx-list-page pop-jelly-mild">
     <!-- 頁首 + 搜尋/檢視模式/排序按鈕 -->
     <div class="page-header">
       <h2 class="page-title"><Sparkles class="icon-inline" /> 收支明細</h2>

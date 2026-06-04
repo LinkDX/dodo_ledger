@@ -2,6 +2,15 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Web 2.6.12] - 2026-06-04
+
+### 🎨 重構「溫和果凍動畫 (pop-jelly-mild)」為固定像素彈跳位移 (Web 端優化，可透過 Live Update 熱更新)
+- **改為固定幅度彈跳位移 (translateY)**：
+  - 在 `src/style.css` 中，將 `.pop-jelly-mild` 動畫從 `transform: scale`（會隨元素實際高度/長度等比例放大縮放振幅，導致長列表產生巨大視覺位移）重構為固定的 `transform: translateY` 像素位移。
+  - 新增固定軌跡 `translateY(16px -> -4px -> 1px -> 0)`，並微調動畫時間至 `0.3s` 與 `cubic-bezier(0.175, 0.885, 0.32, 1.15)`。這徹底解決了長度不同的分頁（特別是擁有很多個帳戶的錢包長列表，或很多筆交易明細的頁面）彈跳跳動幅度不一致的視覺拉扯問題，確保各分頁切換時皆維持完全固定、滑順且 Q 彈的極致微動畫。
+- **全分頁平滑切換體驗升級 (全域長列表優化)**：
+  - 將所有主要分頁容器（我的錢包 `AccountManager.vue`、收支明細 `TransactionList.vue`、統計分析 `Analytics.vue`、分類管理 `CategoryManager.vue`、記帳表單 `TransactionForm.vue` 與設定中心 `Settings.vue`）的進入動畫套用為全新的固定幅度彈跳位移動畫，保證載入時穩定性與效能。
+
 ## [Web 2.6.10] - 2026-06-03
 
 ### ⚙️ 新增「隱藏帳戶類別」設定功能與「信用卡設定編輯」支援 (Web 端更新)

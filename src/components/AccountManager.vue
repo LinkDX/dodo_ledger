@@ -464,7 +464,7 @@ const onAcctDrop = async (targetAcct: Account) => {
 </script>
 
 <template>
-  <div class="accounts-page-container pop-jelly">
+  <div class="accounts-page-container pop-jelly-mild">
     <div class="page-header">
       <h2 class="page-title"><Sparkles class="icon-inline" /> 我的錢包</h2>
       <div class="toolbar-actions">

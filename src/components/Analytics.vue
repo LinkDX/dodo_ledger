@@ -252,7 +252,7 @@ const formatCurrency = (val: number) =>
 </script>
 
 <template>
-  <div class="analytics-page-container pop-jelly">
+  <div class="analytics-page-container pop-jelly-mild">
     <!-- 頁首 -->
     <div class="page-header">
       <h2 class="page-title"><Sparkles class="icon-inline" /> 逗逗貓手繪統計</h2>

@@ -354,7 +354,7 @@ const formatCurrency = (val: number) => {
 </script>
 
 <template>
-  <div class="settings-page pop-jelly">
+  <div class="settings-page pop-jelly-mild">
     <div class="page-header">
       <h2 class="page-title"><SettingsIcon class="icon-inline" /> 設定與雲端備份</h2>
       <p class="page-subtitle">管理您的記帳預算，並一鍵備份同步至 Firebase 雲端</p>

@@ -219,7 +219,7 @@ const onSubDrop = async (catId: string, targetSub: string) => {
 </script>
 
 <template>
-  <div class="category-manager-page pop-jelly">
+  <div class="category-manager-page pop-jelly-mild">
     <div class="page-header">
       <h2 class="page-title"><FolderPlus class="icon-inline" /> 記帳分類管理大師</h2>
       <p class="page-subtitle">自由客製您的雙層收支分類，讓每一筆交易精準歸宿</p>

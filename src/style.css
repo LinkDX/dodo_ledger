@@ -185,6 +185,28 @@ body {
   animation: popJelly 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
+/* 專供長列表或大區塊容器使用的溫和果凍動畫 (使用固定像素位移，防範依長度縮放產生的拉扯與抖動) */
+@keyframes popJellyMild {
+  0% {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+  80% {
+    transform: translateY(1px);
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.pop-jelly-mild {
+  animation: popJellyMild 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.15) forwards;
+}
+
 /* 預算進度條容器 */
 .progress-bar-container {
   width: 100%;

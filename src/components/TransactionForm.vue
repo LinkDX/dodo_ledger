@@ -423,7 +423,7 @@ const handleSubmit = async () => {
 </script>
 
 <template>
-  <div class="transaction-form-page pop-jelly">
+  <div class="transaction-form-page pop-jelly-mild">
     <div class="page-header">
       <h2 class="page-title"><Sparkles class="icon-inline" /> 讓逗逗貓幫您記帳</h2>
       <p class="page-subtitle">請選擇您的消費分類，並在下方鍵盤輸入金額喔！</p>
