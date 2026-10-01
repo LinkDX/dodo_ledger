@@ -42,14 +42,6 @@ let categoriesUnsubscribe: (() => void) | null = null
 
 // 預設貓咪狀態
 const DEFAULT_CAT_PROFILE: DodoCatProfile = {
-  level: 1,
-  currentXP: 0,
-  maxXP: 100,
-  energy: {
-    current: 10,
-    max: 10,
-    lastRefillAt: Date.now()
-  },
   stats: {
     totalPets: 0,
     totalFeeds: 0,
@@ -114,8 +106,6 @@ export function useLedger() {
       if (catProfile.value.stats && catProfile.value.stats.totalPlays === undefined) {
         catProfile.value.stats.totalPlays = 0
       }
-      // 執行自然恢復精力檢查
-      checkNaturalEnergyRecovery()
     }
 
     // 執行一次性冷戰期與理財成就檢查
@@ -128,7 +118,7 @@ export function useLedger() {
         newProfile.stats.totalPlays = 0
       }
       if (JSON.stringify(newProfile) !== JSON.stringify(catProfile.value)) {
-        console.log('[Dodo Ledger] 🐱 偵測到雲端貓咪狀態更新，已自動同步等級與 XP！')
+        console.log('[Dodo Ledger] 🐱 偵測到雲端貓咪狀態更新，已自動同步互動統計與成就！')
         catProfile.value = newProfile
       }
     })
@@ -173,27 +163,6 @@ export function useLedger() {
     
     // 觸發週期性自動記帳的 Lazy-check
     await checkAndTriggerRecurring()
-  }
-
-  // 1.1 精力自然恢復邏輯 (每 30 分鐘 1 點)
-  const checkNaturalEnergyRecovery = () => {
-    if (!catProfile.value) return
-    const now = Date.now()
-    const lastRefill = catProfile.value.energy.lastRefillAt
-    const diffMs = now - lastRefill
-    const intervalMs = 30 * 60 * 1000 // 30 分鐘
-    
-    if (diffMs >= intervalMs) {
-      const recoveryPoints = Math.floor(diffMs / intervalMs)
-      if (recoveryPoints > 0) {
-        catProfile.value.energy.current = Math.min(
-          catProfile.value.energy.max,
-          catProfile.value.energy.current + recoveryPoints
-        )
-        catProfile.value.energy.lastRefillAt = lastRefill + (recoveryPoints * intervalMs)
-        syncCatProfile()
-      }
-    }
   }
 
   // 2. 清空全域資料方法 (一般共同記帳下不需要清空帳本，僅重置加載狀態)

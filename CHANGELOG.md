@@ -2,6 +2,14 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Web 2.6.13] - 2026-10-01
+
+### 🧹 移除逗逗貓已廢棄的等級、經驗值與精力欄位 (Web 端更新，可透過 Live Update 熱更新)
+- **資料結構瘦身**：自 Web 2.4.0 轉型為暖心陪伴角色後，等級、XP 與精力已不再顯示或使用。本版從 `DodoCatProfile`（`src/types/index.ts`）與 `DEFAULT_CAT_PROFILE` 中正式移除 `level`、`currentXP`、`maxXP`、`energy` 欄位，並同步清除 Firestore `catProfiles` 中既有文件的對應欄位。
+- **移除無效邏輯**：刪除 `useLedger.ts` 中只會回補、從未被消耗的精力自然恢復邏輯（`checkNaturalEnergyRecovery`），避免每次載入時多寫一次雲端貓咪設定。
+- **清理殘留樣式**：移除 `Dashboard.vue` 中已無模板使用的 `.level-badge`、`.bar-label`、`.bar-track`、`.bar-fill`、`.energy-fill`、`.xp-fill`、`.cost-tag`、`.btn-disabled` 樣式。
+- **文件同步**：更新 `SPEC_CAT_SYSTEM.md`，移除 XP 加成、精力封頂與「隨等級解鎖」等過時描述。
+
 ## [Web 2.6.12] - 2026-06-04
 
 ### 🎨 重構「溫和果凍動畫 (pop-jelly-mild)」為固定像素彈跳位移 (Web 端優化，可透過 Live Update 熱更新)

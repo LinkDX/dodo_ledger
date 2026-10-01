@@ -137,16 +137,6 @@ export interface CatStats {
 }
 
 export interface DodoCatProfile {
-  level: number;
-  currentXP: number;
-  maxXP: number;
-  
-  energy: {
-    current: number;
-    max: number;
-    lastRefillAt: number;
-  };
-  
   stats: CatStats;
   unlockedAchievementIds: string[];
   

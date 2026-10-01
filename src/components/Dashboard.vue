@@ -1117,61 +1117,11 @@ const isAchievementUnlocked = (id: string) => {
   backdrop-filter: blur(4px);
 }
 
-.level-badge {
-  background-color: var(--color-accent-gold);
-  color: var(--color-text-dark);
-  font-weight: 800;
-  font-size: 12px;
-  padding: 2px 6px;
-  border-radius: 8px;
-  border: 1.5px solid var(--color-border);
-}
-
 .status-bars {
   display: flex;
   flex-direction: column;
   gap: 3px;
   min-width: 80px;
-}
-
-.bar-label {
-  font-size: 9px;
-  font-weight: 800;
-  color: var(--color-text-muted);
-  line-height: 1;
-  display: flex;
-  justify-content: space-between;
-}
-
-.bar-track {
-  height: 6px;
-  background-color: #E0E0E0;
-  border-radius: 3px;
-  overflow: hidden;
-  border: 1px solid var(--color-border);
-}
-
-.bar-fill {
-  height: 100%;
-  border-radius: 3px;
-  transition: width 0.3s ease-out;
-}
-
-.energy-fill { background-color: var(--color-income); }
-.xp-fill { background-color: #C3B1E1; } /* 薰衣草紫 */
-
-.cost-tag {
-  font-size: 10px;
-  background-color: rgba(0,0,0,0.1);
-  padding: 0px 4px;
-  border-radius: 4px;
-  margin-left: 2px;
-}
-
-.btn-disabled {
-  opacity: 0.5;
-  filter: grayscale(0.8);
-  cursor: not-allowed;
 }
 
 .btn-interact {
