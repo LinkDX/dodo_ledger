@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, onTestFinished, vi } from 'vitest'
 
 // 1. 手動為 Node.js 測試環境 Mock 全域 localStorage
 const store: Record<string, string> = {}
@@ -299,6 +299,11 @@ describe('🐱 Dodo Ledger 多人共同記帳與演算法測試', () => {
   })
 
   it('5. 支援「可用年月篩選清單動態生成」演算法', async () => {
+    // 固定「今天」為 2026-06-15，讓 2026-08 維持為未來月份，結果不隨執行日期變動
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-06-15T12:00:00'))
+    onTestFinished(() => { vi.useRealTimers() })
+
     const ledger = useLedger()
     
     // 初始化帳本
