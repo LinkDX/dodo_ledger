@@ -129,8 +129,8 @@ const handleDelete = async () => {
         <div class="modal-card card-jelly pop-jelly" @click.stop>
           <div class="modal-header">
             <h3 class="modal-title">✏️ 編輯記帳明細</h3>
-            <button class="btn-jelly btn-close-modal" @click="close" type="button">
-              <X :size="16" />
+            <button class="btn-jelly btn-close-modal" @click="close" type="button" title="關閉">
+              <X :size="16" :stroke-width="2.5" />
             </button>
           </div>
 
@@ -361,16 +361,36 @@ const handleDelete = async () => {
 }
 
 .btn-close-modal {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--color-bg-warm);
-  border: var(--border-width) solid var(--color-border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  background-color: var(--color-bg-warm) !important;
+  border: var(--border-width) solid var(--color-border) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   cursor: pointer;
-  color: var(--color-text-dark);
+  color: var(--color-text-dark) !important;
+  box-shadow: var(--shadow-jelly-sm) !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
+}
+
+.btn-close-modal:hover {
+  background-color: var(--color-primary, #FFDF80) !important;
+}
+
+.btn-close-modal :deep(svg),
+.btn-close-modal svg {
+  display: block !important;
+  flex-shrink: 0 !important;
+  width: 16px !important;
+  height: 16px !important;
+  color: var(--color-text-dark) !important;
+  pointer-events: none;
 }
 
 .form-group {

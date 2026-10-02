@@ -8,15 +8,13 @@ import {
   ArrowLeftRight,
   Sparkles,
   Pencil,
-  Check,
   X,
   Search,
   ArrowUpDown,
-  Layers,
-  ChevronDown
+  Layers
 } from 'lucide-vue-next'
 import MonthYearPicker from './MonthYearPicker.vue'
-import DatePicker from './DatePicker.vue'
+import TransactionEditModal from './TransactionEditModal.vue'
 
 const props = defineProps<{
   activeTab?: string
@@ -29,10 +27,7 @@ const emit = defineEmits<{
 const { 
   transactions, 
   accounts, 
-  visibleAccounts,
-  categories: allCategories, 
   deleteTransaction, 
-  editTransaction, 
   isTransactionPaid,
   addTxPrefilledDate 
 } = useLedger()
@@ -226,79 +221,14 @@ const handleDelete = async (txId: string) => {
   }
 }
 
-// ===== 編輯交易功能 =====
+// ===== 編輯交易功能 (共用 TransactionEditModal) =====
 const showEditModal = ref(false)
-const editingTxId = ref('')
-const editNote = ref('')
-const editDateStr = ref('')
-const editCategory = ref('')
-const editSubCategory = ref('')
-const editAmount = ref(0)
-const editFromAccountId = ref('')
-const editToAccountId = ref('')
-const editType = ref<'expense' | 'income' | 'transfer'>('expense')
-
-// 自訂帳戶選單狀態
-const editFromAccountOpen = ref(false)
-const editToAccountOpen = ref(false)
-
-const selectedFromAccount = computed(() => {
-  return expenseAccounts.value.find(a => a.id === editFromAccountId.value)
-})
-
-const selectedToAccount = computed(() => {
-  return incomeAccounts.value.find(a => a.id === editToAccountId.value)
-})
+const editingTx = ref<Transaction | null>(null)
 
 const openEditModal = (tx: any) => {
-  editingTxId.value = tx.id
-  editNote.value = tx.note
-  editDateStr.value = new Date(tx.date).toISOString().split('T')[0]
-  editCategory.value = tx.category
-  editSubCategory.value = tx.subCategory || ''
-  editAmount.value = tx.amount
-  editFromAccountId.value = tx.fromAccountId || ''
-  editToAccountId.value = tx.toAccountId || ''
-  editType.value = tx.type
+  editingTx.value = tx
   showEditModal.value = true
 }
-
-const closeEditModal = () => {
-  showEditModal.value = false
-  editingTxId.value = ''
-  editFromAccountOpen.value = false
-  editToAccountOpen.value = false
-}
-
-const handleEditSave = async () => {
-  if (!editingTxId.value) return
-  if (editAmount.value <= 0) return
-
-  await editTransaction(editingTxId.value, {
-    note: editNote.value,
-    date: new Date(editDateStr.value).getTime(),
-    category: editCategory.value,
-    subCategory: editSubCategory.value || undefined,
-    amount: editAmount.value,
-    fromAccountId: editFromAccountId.value || undefined,
-    toAccountId: editToAccountId.value || undefined
-  })
-  closeEditModal()
-}
-
-// 分類選項 (根據交易類型)
-const categoryOptions = computed(() =>
-  allCategories.value.filter(c => c.type === editType.value)
-)
-
-const subCategoryOptions = computed(() => {
-  const cat = allCategories.value.find(c => c.name === editCategory.value)
-  return cat?.subCategories || []
-})
-
-// 可選帳戶
-const expenseAccounts = computed(() => visibleAccounts.value)
-const incomeAccounts = computed(() => visibleAccounts.value.filter(a => a.type !== 'credit_card'))
 
 // ===== 檢視模式與分組彙整邏輯 =====
 import { type TransactionType, type Transaction } from '../types'
@@ -1078,189 +1008,11 @@ onUnmounted(() => {
       </template>
       </div>
 
-    <!-- ===== 編輯交易彈窗 (Teleport 全螢幕 Modal Dialog) ===== -->
-    <Teleport to="#app">
-      <Transition name="fade">
-        <div v-if="showEditModal" class="modal-overlay" @click="closeEditModal">
-          <div class="modal-card card-jelly pop-jelly" @click.stop>
-            <div class="modal-header">
-              <h3 class="modal-title">✏️ 編輯記帳明細</h3>
-              <button class="btn-jelly btn-close-modal" @click="closeEditModal" type="button">
-                <X :size="14" />
-              </button>
-            </div>
-
-            <!-- 金額 -->
-            <div class="form-group">
-              <label class="label-cute">金額</label>
-              <input v-model.number="editAmount" type="number" min="0" class="input-jelly" />
-            </div>
-
-            <!-- 備註 -->
-            <div class="form-group">
-              <label class="label-cute">備註</label>
-              <input v-model="editNote" type="text" class="input-jelly" maxlength="30" />
-            </div>
-
-            <!-- 日期 -->
-            <div class="form-group">
-              <label class="label-cute">日期</label>
-              <DatePicker v-model="editDateStr" />
-            </div>
-
-            <!-- 主分類 -->
-            <div class="form-group">
-              <label class="label-cute">主分類</label>
-              <div class="cat-chips">
-                <button
-                  v-for="cat in categoryOptions"
-                  :key="cat.id"
-                  class="btn-jelly chip-btn"
-                  :class="{ active: editCategory === cat.name }"
-                  @click="editCategory = cat.name; editSubCategory = cat.subCategories[0] || ''"
-                  type="button"
-                >
-                  {{ cat.name }}
-                </button>
-              </div>
-            </div>
-
-            <!-- 子分類 -->
-            <div v-if="subCategoryOptions.length" class="form-group">
-              <label class="label-cute">子分類</label>
-              <div class="cat-chips">
-                <button
-                  v-for="sub in subCategoryOptions"
-                  :key="sub"
-                  class="btn-jelly chip-btn"
-                  :class="{ active: editSubCategory === sub }"
-                  @click="editSubCategory = sub"
-                  type="button"
-                >
-                  {{ sub }}
-                  <Check v-if="editSubCategory === sub" :size="10" stroke-width="4" class="inline-check" />
-                </button>
-              </div>
-            </div>
-
-            <!-- 來源/目的帳戶 -->
-            <div v-if="editType === 'expense' || editType === 'transfer'" class="form-group" style="position: relative;">
-              <label class="label-cute">支付帳戶</label>
-              <!-- 自訂果凍下拉選單選取框 -->
-              <div 
-                class="select-cute-btn btn-jelly" 
-                :class="{ active: editFromAccountOpen }"
-                @click="editFromAccountOpen = !editFromAccountOpen; editToAccountOpen = false"
-              >
-                <span v-if="selectedFromAccount" class="select-btn-val">
-                  <span class="account-avatar-emoji" style="margin-right: 4px;">{{ selectedFromAccount.avatar || '💰' }}</span>
-                  <span class="account-name-text">{{ selectedFromAccount.name }}</span>
-                </span>
-                <span v-else class="select-btn-val placeholder">(不指定)</span>
-                <ChevronDown :size="16" class="select-arrow" />
-              </div>
-
-              <!-- 全螢幕遮罩 (僅在選單展開時存在，用於點擊外部收合) -->
-              <div 
-                v-if="editFromAccountOpen" 
-                class="select-dropdown-overlay" 
-                @click="editFromAccountOpen = false"
-              ></div>
-
-              <!-- 下拉選項氣泡面板 -->
-              <Transition name="fade-drop">
-                <div v-if="editFromAccountOpen" class="select-dropdown-panel card-jelly pop-jelly">
-                  <div 
-                    class="select-option btn-jelly" 
-                    :class="{ selected: editFromAccountId === '' }"
-                    @click="editFromAccountId = ''; editFromAccountOpen = false"
-                  >
-                    <span>(不指定)</span>
-                    <Check v-if="editFromAccountId === ''" :size="14" stroke-width="3" />
-                  </div>
-                  <div 
-                    v-for="a in expenseAccounts" 
-                    :key="a.id"
-                    class="select-option btn-jelly"
-                    :class="{ selected: editFromAccountId === a.id }"
-                    @click="editFromAccountId = a.id; editFromAccountOpen = false"
-                  >
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                      <span class="account-avatar-emoji">{{ a.avatar || '💰' }}</span>
-                      <span>{{ a.name }}</span>
-                    </div>
-                    <Check v-if="editFromAccountId === a.id" :size="14" stroke-width="3" />
-                  </div>
-                </div>
-              </Transition>
-            </div>
-
-            <div v-if="editType === 'income' || editType === 'transfer'" class="form-group" style="position: relative;">
-              <label class="label-cute">存入帳戶</label>
-              <!-- 自訂果凍下拉選單選取框 -->
-              <div 
-                class="select-cute-btn btn-jelly" 
-                :class="{ active: editToAccountOpen }"
-                @click="editToAccountOpen = !editToAccountOpen; editFromAccountOpen = false"
-              >
-                <span v-if="selectedToAccount" class="select-btn-val">
-                  <span class="account-avatar-emoji" style="margin-right: 4px;">{{ selectedToAccount.avatar || '💰' }}</span>
-                  <span class="account-name-text">{{ selectedToAccount.name }}</span>
-                </span>
-                <span v-else class="select-btn-val placeholder">(不指定)</span>
-                <ChevronDown :size="16" class="select-arrow" />
-              </div>
-
-              <!-- 全螢幕遮罩 -->
-              <div 
-                v-if="editToAccountOpen" 
-                class="select-dropdown-overlay" 
-                @click="editToAccountOpen = false"
-              ></div>
-
-              <!-- 下拉選項氣泡面板 -->
-              <Transition name="fade-drop">
-                <div v-if="editToAccountOpen" class="select-dropdown-panel card-jelly pop-jelly">
-                  <div 
-                    class="select-option btn-jelly" 
-                    :class="{ selected: editToAccountId === '' }"
-                    @click="editToAccountId = ''; editToAccountOpen = false"
-                  >
-                    <span>(不指定)</span>
-                    <Check v-if="editToAccountId === ''" :size="14" stroke-width="3" />
-                  </div>
-                  <div 
-                    v-for="a in incomeAccounts" 
-                    :key="a.id"
-                    class="select-option btn-jelly"
-                    :class="{ selected: editToAccountId === a.id }"
-                    @click="editToAccountId = a.id; editToAccountOpen = false"
-                  >
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                      <span class="account-avatar-emoji">{{ a.avatar || '💰' }}</span>
-                      <span>{{ a.name }}</span>
-                    </div>
-                    <Check v-if="editToAccountId === a.id" :size="14" stroke-width="3" />
-                  </div>
-                </div>
-              </Transition>
-            </div>
-
-            <div class="modal-actions">
-              <button class="btn-jelly btn-cancel" @click="closeEditModal" type="button">取消 🐾</button>
-              <button
-                class="btn-jelly btn-confirm"
-                :disabled="editAmount <= 0"
-                @click="handleEditSave"
-                type="button"
-              >
-                儲存變更 🐾
-              </button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <!-- ===== 編輯交易彈窗 (共用元件) ===== -->
+    <TransactionEditModal
+      v-model="showEditModal"
+      :transaction="editingTx"
+    />
     <!-- ===== 回到頂部懸浮貓爪按鈕 🐾 ===== -->
     <Teleport to="#app">
       <Transition name="fade">

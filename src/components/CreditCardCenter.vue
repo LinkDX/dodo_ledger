@@ -1,25 +1,21 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useLedger } from '../composables/useLedger'
-import { useConfirm } from '../composables/useConfirm'
 import type { Transaction } from '../types'
 import { 
   CreditCard, 
   Calendar, 
   CheckCircle,
-  Sparkles
+  Sparkles,
+  Pencil
 } from 'lucide-vue-next'
-import TransactionItem from './TransactionItem.vue'
 import TransactionEditModal from './TransactionEditModal.vue'
 
 const { 
   visibleAccounts, 
   transactions, 
-  deleteTransaction,
   payCreditCardBill 
 } = useLedger()
-
-const { showConfirm } = useConfirm()
 
 // 篩選出所有信用卡帳戶
 const creditCards = computed(() => {
@@ -118,18 +114,6 @@ const editingTx = ref<Transaction | null>(null)
 const openEditTxModal = (tx: Transaction) => {
   editingTx.value = tx
   showEditTxModal.value = true
-}
-
-const handleDeleteTx = async (txId: string) => {
-  const tx = transactions.value.find(t => t.id === txId)
-  if (!tx) return
-  const confirmed = await showConfirm(
-    `確定要刪除這筆「${tx.category}${tx.note ? ' - ' + tx.note : ''}」$${formatCurrency(tx.amount)} 的明細嗎？刪除後信用卡額度與帳單金額將自動釋放與更新喔！喵？`,
-    '🐱 確定刪除此筆明細？'
-  )
-  if (!confirmed) return
-
-  await deleteTransaction(tx.id)
 }
 
 // 初始化
@@ -234,14 +218,40 @@ initDefaults()
         </div>
 
         <div v-else class="bill-list">
-          <TransactionItem
+          <div 
             v-for="tx in billedTransactions" 
             :key="tx.id"
-            :transaction="tx"
-            :show-date="true"
-            @edit="openEditTxModal"
-            @delete="handleDeleteTx"
-          />
+            class="bill-tx-item card-jelly"
+            @click="openEditTxModal(tx)"
+            title="點擊編輯明細"
+          >
+            <div class="bill-tx-left">
+              <span class="bill-tx-cat">
+                {{ tx.category }}{{ tx.subCategory ? ` ➜ ${tx.subCategory}` : '' }}
+              </span>
+              <span class="bill-tx-note">{{ tx.note }}</span>
+              <span v-if="tx.creditCardDetails?.isInstallment" class="tag-jelly installment-tag">
+                分期 {{ tx.creditCardDetails.currentInstallment }}/{{ tx.creditCardDetails.installmentTerm }} 期
+              </span>
+            </div>
+            
+            <div class="bill-tx-right">
+              <div class="bill-tx-amount-group">
+                <span class="bill-tx-amount">${{ formatCurrency(tx.amount) }}</span>
+                <span class="bill-tx-date">
+                  消費日: {{ new Date(tx.date).toLocaleDateString(undefined, {month: 'numeric', day: 'numeric'}) }}
+                </span>
+              </div>
+              <button
+                class="btn-edit-tx btn-jelly"
+                @click.stop="openEditTxModal(tx)"
+                title="編輯明細"
+                type="button"
+              >
+                <Pencil :size="13" :stroke-width="2.5" />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -477,6 +487,110 @@ initDefaults()
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.bill-tx-item {
+  display: flex !important;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px !important;
+  margin-bottom: 0 !important;
+  box-shadow: var(--shadow-jelly-sm) !important;
+  cursor: pointer;
+  transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.15s ease;
+}
+
+.bill-tx-item:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-jelly-md) !important;
+}
+
+.bill-tx-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.bill-tx-cat {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.bill-tx-note {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.installment-tag {
+  font-size: 9px !important;
+  padding: 1px 6px !important;
+  background-color: var(--color-expense) !important;
+  margin-top: 4px;
+  width: fit-content;
+}
+
+.bill-tx-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.bill-tx-amount-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.bill-tx-amount {
+  font-size: 14px;
+  font-weight: 800;
+  color: #FF5A5A;
+}
+
+.bill-tx-date {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.btn-edit-tx {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  border: var(--border-width) solid var(--color-border) !important;
+  background-color: var(--color-bg-warm) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: var(--color-text-dark) !important;
+  box-shadow: var(--shadow-jelly-sm) !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
+  cursor: pointer;
+}
+
+.btn-edit-tx:hover {
+  background-color: var(--color-primary, #FFDF80) !important;
+}
+
+.btn-edit-tx :deep(svg),
+.btn-edit-tx svg {
+  display: block !important;
+  flex-shrink: 0 !important;
+  width: 14px !important;
+  height: 14px !important;
+  color: var(--color-text-dark) !important;
+  pointer-events: none;
 }
 
 /* 配色與背景 */
