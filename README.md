@@ -25,7 +25,7 @@
 * **剔除原生 HTML `<select>`**：編輯明細彈窗中的「支付帳戶」與「存入帳戶」下拉選單，重構為 100% 自訂的馬卡龍色果凍風下拉選單，支援精緻 Emoji 頭像與 click-outside 自動關閉。
 * **乾淨備註設計**：新增記帳且沒有輸入備註時，系統不再自動填入分類名稱作為預設備註，直接留空，讓帳目更加乾淨純粹。
 
-### 4. 💳 信用卡理財中心
+### 4. 💳 信用卡帳單（整合於我的錢包）
 * 支援「額度當下全扣，分月攤還」嚴謹分期邏輯、未出帳/已出帳單自動歸屬、結帳日繳款日管理，以及一鍵扣繳連動還款交易。信用卡繳清後，明細會自動標記亮麗的「✓ 已繳清」馬卡龍綠 jelly 標籤。
 
 ### 5. 👁️ 淨資產隱藏保護
@@ -108,7 +108,7 @@
 ├── scripts/               # 專案準備與構建自動化腳本
 ├── src/
 │   ├── assets/            # 靜態資源 (馬卡龍配色插畫、Dodo 圖標等)
-│   ├── components/        # UI 元件 (DodoCat, Dashboard, CreditCardCenter 等)
+│   ├── components/        # UI 元件 (DodoCat, Dashboard, AccountManager 等)
 │   ├── composables/       # 全域狀態管理與業務邏輯 (含 useLedger.ts、useLiveUpdates.ts 等)
 │   ├── services/          # 資料存取層 (db.ts，LocalStorage 與 Firebase 雙核心)
 │   ├── types/             # TypeScript 類型定義
