@@ -50,6 +50,9 @@
     transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   }
   ```
+- **本地預覽優先原則（嚴禁盲目 Push 升級版號）**：
+  - 凡涉及樣式、UI 排版或元件視覺調整，**一律先在本地啟動預覽（`npm run dev`）檢查渲染外觀並向使用者確認，嚴禁在未經確認前直接 commit & push 造成版號頻繁遞增**。
+  - 待使用者確認視覺無誤後，再統一進行版本遞增、更新日誌並推送至遠端。
 
 ### 1.3 Dodo Cat SVG 規範
 - 實作位置：`src/components/DodoCat.vue`。
