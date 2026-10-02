@@ -1,18 +1,31 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useLedger } from '../composables/useLedger'
+import { useConfirm } from '../composables/useConfirm'
+import type { Transaction } from '../types'
 import { 
   CreditCard, 
   Calendar, 
   CheckCircle,
-  Sparkles
+  Sparkles,
+  Pencil,
+  Trash2,
+  X,
+  Check
 } from 'lucide-vue-next'
+import DatePicker from './DatePicker.vue'
+import AccountDropdown from './AccountDropdown.vue'
 
 const { 
   visibleAccounts, 
   transactions, 
+  categories,
+  editTransaction,
+  deleteTransaction,
   payCreditCardBill 
 } = useLedger()
+
+const { showConfirm } = useConfirm()
 
 // 篩選出所有信用卡帳戶
 const creditCards = computed(() => {
@@ -102,6 +115,77 @@ const handlePayBill = async () => {
 // 格式化千分位金額
 const formatCurrency = (val: number) => {
   return new Intl.NumberFormat('zh-TW', { style: 'decimal' }).format(val)
+}
+
+// ========== 編輯信用卡消費明細邏輯 ==========
+const showEditTxModal = ref(false)
+const editingTx = ref<Transaction | null>(null)
+const editTxAmount = ref<number | ''>('')
+const editTxNote = ref('')
+const editTxDateStr = ref('')
+const editTxCategory = ref('')
+const editTxSubCategory = ref('')
+const editTxFromAccountId = ref('')
+
+const expenseCategories = computed(() =>
+  categories.value.filter(c => c.type === 'expense')
+)
+
+const subCategoryOptionsForEditTx = computed(() => {
+  const cat = categories.value.find(c => c.name === editTxCategory.value && c.type === 'expense')
+  return cat?.subCategories || []
+})
+
+const selectEditTxCategory = (catName: string) => {
+  editTxCategory.value = catName
+  const cat = categories.value.find(c => c.name === catName && c.type === 'expense')
+  editTxSubCategory.value = cat?.subCategories?.[0] || ''
+}
+
+const openEditTxModal = (tx: Transaction) => {
+  editingTx.value = tx
+  editTxAmount.value = tx.amount
+  editTxNote.value = tx.note || ''
+  editTxDateStr.value = new Date(tx.date).toISOString().split('T')[0]
+  editTxCategory.value = tx.category
+  editTxSubCategory.value = tx.subCategory || ''
+  editTxFromAccountId.value = tx.fromAccountId || ''
+  showEditTxModal.value = true
+}
+
+const closeEditTxModal = () => {
+  showEditTxModal.value = false
+  editingTx.value = null
+}
+
+const handleSaveEditTx = async () => {
+  if (!editingTx.value) return
+  const amt = Number(editTxAmount.value)
+  if (isNaN(amt) || amt <= 0) return
+
+  await editTransaction(editingTx.value.id, {
+    amount: amt,
+    note: editTxNote.value.trim(),
+    date: new Date(editTxDateStr.value).getTime(),
+    category: editTxCategory.value,
+    subCategory: editTxSubCategory.value || undefined,
+    fromAccountId: editTxFromAccountId.value || undefined
+  })
+
+  closeEditTxModal()
+}
+
+const handleDeleteEditTx = async () => {
+  if (!editingTx.value) return
+  const tx = editingTx.value
+  const confirmed = await showConfirm(
+    `確定要刪除這筆「${tx.category}${tx.note ? ' - ' + tx.note : ''}」$${formatCurrency(tx.amount)} 的明細嗎？刪除後信用卡額度與帳單金額將自動釋放與更新喔！喵？`,
+    '🐱 確定刪除此筆明細？'
+  )
+  if (!confirmed) return
+
+  await deleteTransaction(tx.id)
+  closeEditTxModal()
 }
 
 // 初始化
@@ -210,6 +294,8 @@ initDefaults()
             v-for="tx in billedTransactions" 
             :key="tx.id"
             class="bill-tx-item card-jelly"
+            @click="openEditTxModal(tx)"
+            title="點擊編輯明細"
           >
             <div class="bill-tx-left">
               <span class="bill-tx-cat">
@@ -222,10 +308,20 @@ initDefaults()
             </div>
             
             <div class="bill-tx-right">
-              <span class="bill-tx-amount">${{ formatCurrency(tx.amount) }}</span>
-              <span class="bill-tx-date">
-                消費日: {{ new Date(tx.date).toLocaleDateString(undefined, {month: 'numeric', day: 'numeric'}) }}
-              </span>
+              <div class="bill-tx-amount-group">
+                <span class="bill-tx-amount">${{ formatCurrency(tx.amount) }}</span>
+                <span class="bill-tx-date">
+                  消費日: {{ new Date(tx.date).toLocaleDateString(undefined, {month: 'numeric', day: 'numeric'}) }}
+                </span>
+              </div>
+              <button
+                class="btn-edit-tx btn-jelly"
+                @click.stop="openEditTxModal(tx)"
+                title="編輯明細"
+                type="button"
+              >
+                <Pencil :size="13" />
+              </button>
             </div>
           </div>
         </div>
@@ -269,6 +365,103 @@ initDefaults()
         </div>
       </div>
     </div>
+
+    <!-- 5. 編輯信用卡消費明細彈窗 -->
+    <Teleport to="#app">
+      <div v-if="showEditTxModal" class="modal-overlay" @click="closeEditTxModal">
+        <div class="modal-card card-jelly pop-jelly" @click.stop>
+          <div class="modal-header-with-close">
+            <h3 class="modal-title">✏️ 編輯消費明細</h3>
+            <button class="btn-jelly btn-close-modal" @click="closeEditTxModal" type="button">
+              <X :size="16" />
+            </button>
+          </div>
+
+          <!-- 分期交易提示 -->
+          <div v-if="editingTx?.creditCardDetails?.isInstallment" class="installment-notice card-jelly">
+            <span>💡 此筆為分期消費（第 {{ editingTx.creditCardDetails.currentInstallment }}/{{ editingTx.creditCardDetails.installmentTerm }} 期），修改金額將更新本期分攤金額。</span>
+          </div>
+
+          <!-- 金額 -->
+          <div class="form-group">
+            <label class="label-cute">消費金額</label>
+            <input v-model.number="editTxAmount" type="number" min="0" class="input-jelly" placeholder="0" />
+          </div>
+
+          <!-- 備註 -->
+          <div class="form-group">
+            <label class="label-cute">備註說明</label>
+            <input v-model="editTxNote" type="text" class="input-jelly" maxlength="40" placeholder="例如：生活日用品" />
+          </div>
+
+          <!-- 日期 -->
+          <div class="form-group">
+            <label class="label-cute">消費日期</label>
+            <DatePicker v-model="editTxDateStr" />
+          </div>
+
+          <!-- 扣款卡片 / 帳戶 -->
+          <div class="form-group">
+            <label class="label-cute">扣款信用卡 / 帳戶</label>
+            <AccountDropdown
+              v-model="editTxFromAccountId"
+              :accounts="visibleAccounts"
+              placeholder="選擇扣款信用卡或帳戶..."
+            />
+          </div>
+
+          <!-- 主分類 -->
+          <div class="form-group">
+            <label class="label-cute">主分類</label>
+            <div class="cat-chips">
+              <button
+                v-for="cat in expenseCategories"
+                :key="cat.id"
+                class="btn-jelly chip-btn"
+                :class="{ active: editTxCategory === cat.name }"
+                @click="selectEditTxCategory(cat.name)"
+                type="button"
+              >
+                {{ cat.name }}
+              </button>
+            </div>
+          </div>
+
+          <!-- 子分類 -->
+          <div v-if="subCategoryOptionsForEditTx.length" class="form-group">
+            <label class="label-cute">子分類</label>
+            <div class="cat-chips">
+              <button
+                v-for="sub in subCategoryOptionsForEditTx"
+                :key="sub"
+                class="btn-jelly chip-btn"
+                :class="{ active: editTxSubCategory === sub }"
+                @click="editTxSubCategory = sub"
+                type="button"
+              >
+                {{ sub }}
+                <Check v-if="editTxSubCategory === sub" :size="10" stroke-width="4" class="inline-check" />
+              </button>
+            </div>
+          </div>
+
+          <!-- 底部操作按鈕 -->
+          <div class="modal-actions-between">
+            <button
+              class="btn-jelly btn-delete-tx"
+              @click="handleDeleteEditTx"
+              type="button"
+            >
+              <Trash2 :size="14" /> 刪除此筆
+            </button>
+            <div class="right-buttons">
+              <button class="btn-jelly btn-secondary" @click="closeEditTxModal" type="button">取消</button>
+              <button class="btn-jelly btn-primary" @click="handleSaveEditTx" type="button">儲存修改</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -466,23 +659,35 @@ initDefaults()
   padding: 10px 14px !important;
   margin-bottom: 0 !important;
   box-shadow: var(--shadow-jelly-sm) !important;
+  cursor: pointer;
+  transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.15s ease;
+}
+
+.bill-tx-item:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-jelly-md) !important;
 }
 
 .bill-tx-left {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
+  flex: 1;
 }
 
 .bill-tx-cat {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
 }
 
 .bill-tx-note {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .installment-tag {
@@ -495,6 +700,13 @@ initDefaults()
 
 .bill-tx-right {
   display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.bill-tx-amount-group {
+  display: flex;
   flex-direction: column;
   align-items: flex-end;
 }
@@ -503,6 +715,133 @@ initDefaults()
   font-size: 14px;
   font-weight: 800;
   color: #FF5A5A;
+}
+
+.bill-tx-date {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.btn-edit-tx {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: var(--border-width) solid var(--color-border);
+  background-color: var(--color-bg-warm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-dark);
+  box-shadow: var(--shadow-jelly-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.btn-edit-tx:hover {
+  background-color: var(--color-primary);
+}
+
+/* 編輯明細彈窗專用樣式 */
+.modal-header-with-close {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.btn-close-modal {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--color-bg-warm);
+  border: var(--border-width) solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-text-dark);
+  box-shadow: var(--shadow-jelly-sm);
+}
+
+.btn-close-modal:hover {
+  background: var(--color-primary);
+}
+
+.installment-notice {
+  background-color: #FFF3CD;
+  border: 1.5px solid #FFEEBA;
+  border-radius: var(--border-radius-sm);
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #856404;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.cat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 120px;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: var(--border-radius-sm);
+  background: var(--color-bg-warm);
+  border: var(--border-width) solid var(--color-border);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.chip-btn.active {
+  background: var(--color-primary);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.12);
+}
+
+.inline-check {
+  margin-left: 2px;
+  color: var(--color-text-dark);
+}
+
+.modal-actions-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+  gap: 8px;
+}
+
+.modal-actions-between .right-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-delete-tx {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  background-color: #FFEAE8;
+  color: #D9383A;
+  border: var(--border-width) solid #FFCCD2;
+  border-radius: var(--border-radius-md);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: var(--shadow-jelly-sm);
+}
+
+.btn-delete-tx:hover {
+  background-color: #FFD4D0;
 }
 
 .bill-tx-date {

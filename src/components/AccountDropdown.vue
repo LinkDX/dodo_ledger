@@ -3,11 +3,17 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { Wallet, Landmark, CreditCard, Compass, Check, ChevronDown } from 'lucide-vue-next'
 import type { Account } from '../types'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   modelValue: string    // account id
   accounts: Account[]
   placeholder?: string
-}>()
+  allowAll?: boolean
+  allLabel?: string
+}>(), {
+  placeholder: '請選擇帳戶...',
+  allowAll: false,
+  allLabel: '全部帳戶 (所有資產)'
+})
 
 const emit = defineEmits<{
   (e: 'update:modelValue', val: string): void
@@ -61,7 +67,7 @@ onUnmounted(() => {
     <!-- 觸發按鈕 -->
     <button 
       class="dropdown-trigger" 
-      :class="{ 'has-value': !!selectedAccount }"
+      :class="{ 'has-value': !!selectedAccount || (allowAll && modelValue === '') }"
       @click="toggle" 
       type="button"
     >
@@ -70,6 +76,7 @@ onUnmounted(() => {
         <div 
           class="acct-avatar" 
           :class="selectedAccount?.color || 'card-default'"
+          :style="(!selectedAccount && allowAll && modelValue === '') ? 'background-color: #FFE4B5;' : ''"
         >
           <span v-if="selectedAccount?.avatar" class="avatar-emoji">{{ selectedAccount.avatar }}</span>
           <template v-else-if="selectedAccount">
@@ -77,6 +84,9 @@ onUnmounted(() => {
             <Landmark v-else-if="selectedAccount.type === 'bank'" :size="14" />
             <CreditCard v-else-if="selectedAccount.type === 'credit_card'" :size="14" />
             <Compass v-else :size="14" />
+          </template>
+          <template v-else-if="allowAll && modelValue === ''">
+            <span class="avatar-emoji">🐾</span>
           </template>
           <template v-else>
             <Compass :size="14" class="default-icon" />
@@ -86,10 +96,13 @@ onUnmounted(() => {
         <!-- 帳戶文字資訊 -->
         <div class="acct-text-info">
           <span class="acct-name">
-            {{ selectedAccount ? selectedAccount.name : (placeholder || '請選擇帳戶...') }}
+            {{ selectedAccount ? selectedAccount.name : (allowAll && modelValue === '' ? allLabel : (placeholder || '請選擇帳戶...')) }}
           </span>
           <span v-if="selectedAccount" class="acct-balance">
             {{ getBalanceText(selectedAccount) }}
+          </span>
+          <span v-else-if="allowAll && modelValue === ''" class="acct-balance">
+            全資產彙整分析
           </span>
         </div>
       </div>
@@ -100,6 +113,29 @@ onUnmounted(() => {
     <transition name="fade">
       <div v-if="isOpen" class="dropdown-panel card-jelly">
         <div class="options-container">
+          <!-- 全部帳戶 (當 allowAll 為 true 時提供) -->
+          <button
+            v-if="allowAll"
+            class="dropdown-option btn-jelly"
+            :class="['card-default', { 'is-active': modelValue === '' }]"
+            @click="select('')"
+            type="button"
+          >
+            <div class="option-left">
+              <div class="acct-avatar-inner" style="background-color: #FFE4B5;">
+                <span class="avatar-emoji">🐾</span>
+              </div>
+              <div class="option-text-info">
+                <span class="option-name">{{ allLabel }}</span>
+                <span class="option-balance">全資產彙整分析</span>
+              </div>
+            </div>
+            <!-- 選中勾勾 -->
+            <div v-if="modelValue === ''" class="selected-check">
+              <Check :size="8" stroke-width="4" stroke="#FFF" />
+            </div>
+          </button>
+
           <button
             v-for="a in accounts"
             :key="a.id"

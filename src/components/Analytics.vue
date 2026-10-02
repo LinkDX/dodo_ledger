@@ -1,10 +1,15 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useLedger } from '../composables/useLedger'
-import { Sparkles, PieChart, TrendingUp, AlertCircle, BarChart2, CalendarDays } from 'lucide-vue-next'
+import { Sparkles, PieChart, TrendingUp, AlertCircle, BarChart2, CalendarDays, Wallet } from 'lucide-vue-next'
 import MonthYearPicker from './MonthYearPicker.vue'
+import AccountDropdown from './AccountDropdown.vue'
 
-const { transactions } = useLedger()
+const { transactions, visibleAccounts } = useLedger()
+
+// ─── 帳戶篩選 ───────────────────────────────────────
+const selectedAccountId = ref('')
+const selectedAccount = computed(() => visibleAccounts.value.find(a => a.id === selectedAccountId.value))
 
 // ─── 模式切換 & 時間選擇 ───────────────────────────
 type ViewMode = 'monthly' | 'yearly'
@@ -90,8 +95,10 @@ const getCatColor = (palette: string[], idx: number) => palette[idx % palette.le
 
 // ─── 1a. 支出篩選 ────────────────────────────────
 const filteredExpenseTxs = computed(() => {
+  const accountId = selectedAccountId.value
   if (viewMode.value === 'monthly') {
     return transactions.value.filter(tx => {
+      if (accountId && tx.fromAccountId !== accountId) return false
       if (tx.creditCardDetails?.isInstallment)
         return tx.creditCardDetails.billPeriod === selectedMonth.value
       const p = `${new Date(tx.date).getFullYear()}-${String(new Date(tx.date).getMonth() + 1).padStart(2, '0')}`
@@ -99,6 +106,7 @@ const filteredExpenseTxs = computed(() => {
     })
   } else {
     return transactions.value.filter(tx => {
+      if (accountId && tx.fromAccountId !== accountId) return false
       if (tx.creditCardDetails?.isInstallment)
         return tx.creditCardDetails.billPeriod?.startsWith(String(selectedYear.value))
       return tx.type === 'expense' && new Date(tx.date).getFullYear() === selectedYear.value
@@ -107,15 +115,17 @@ const filteredExpenseTxs = computed(() => {
 })
 
 // ─── 1b. 收入篩選 ────────────────────────────────
-const filteredIncomeTxs = computed(() =>
-  transactions.value.filter(tx => {
+const filteredIncomeTxs = computed(() => {
+  const accountId = selectedAccountId.value
+  return transactions.value.filter(tx => {
+    if (accountId && tx.toAccountId !== accountId) return false
     if (viewMode.value === 'monthly') {
       const p = `${new Date(tx.date).getFullYear()}-${String(new Date(tx.date).getMonth() + 1).padStart(2, '0')}`
       return tx.type === 'income' && p === selectedMonth.value
     }
     return tx.type === 'income' && new Date(tx.date).getFullYear() === selectedYear.value
   })
-)
+})
 
 const periodTotalExpense = computed(() =>
   filteredExpenseTxs.value.reduce((s, tx) => s + tx.amount, 0)
@@ -166,6 +176,7 @@ const incomeDonutSlices  = computed(() => buildDonutSlices(categoryIncomes.value
 
 // ─── 3a. 月統計：最近 6 天趨勢折線 ──────────────
 const dailyTrendData = computed(() => {
+  const accountId = selectedAccountId.value
   const data = []
   for (let i = 5; i >= 0; i--) {
     const date = new Date()
@@ -174,7 +185,10 @@ const dailyTrendData = computed(() => {
     const start = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
     const end   = start + 86400000
     const amount = transactions.value
-      .filter(tx => tx.type === 'expense' && tx.date >= start && tx.date < end)
+      .filter(tx => {
+        if (accountId && tx.fromAccountId !== accountId) return false
+        return tx.type === 'expense' && tx.date >= start && tx.date < end
+      })
       .reduce((s, tx) => s + tx.amount, 0)
     data.push({ dateStr, amount })
   }
@@ -202,10 +216,12 @@ const trendPathD = computed(() => {
 const MONTH_LABELS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']
 
 const monthlyBarData = computed(() => {
+  const accountId = selectedAccountId.value
   return MONTH_LABELS.map((label, idx) => {
     const monthStr = `${selectedYear.value}-${String(idx + 1).padStart(2, '0')}`
     const expense = transactions.value
       .filter(tx => {
+        if (accountId && tx.fromAccountId !== accountId) return false
         if (tx.creditCardDetails?.isInstallment)
           return tx.creditCardDetails.billPeriod === monthStr
         const p = `${new Date(tx.date).getFullYear()}-${String(new Date(tx.date).getMonth() + 1).padStart(2, '0')}`
@@ -214,6 +230,7 @@ const monthlyBarData = computed(() => {
       .reduce((s, tx) => s + tx.amount, 0)
     const income = transactions.value
       .filter(tx => {
+        if (accountId && tx.toAccountId !== accountId) return false
         const p = `${new Date(tx.date).getFullYear()}-${String(new Date(tx.date).getMonth() + 1).padStart(2, '0')}`
         return tx.type === 'income' && p === monthStr
       })
@@ -294,11 +311,33 @@ const formatCurrency = (val: number) =>
       />
     </div>
 
+    <!-- 帳戶篩選列 -->
+    <div class="account-selector-bar card-jelly">
+      <div class="account-selector-header">
+        <span class="account-selector-title">
+          <Wallet :size="13" class="icon-inline" /> 統計帳戶範圍
+        </span>
+        <span v-if="selectedAccount" class="account-active-badge">
+          特定帳戶
+        </span>
+      </div>
+      <AccountDropdown
+        v-model="selectedAccountId"
+        :accounts="visibleAccounts"
+        :allow-all="true"
+        all-label="全部帳戶 (所有資產)"
+      />
+    </div>
+
     <!-- 空狀態 -->
     <div v-if="periodTotalExpense === 0 && periodTotalIncome === 0" class="empty-placeholder card-jelly">
       <div class="alert-icon-circle"><AlertCircle :size="32" /></div>
-      <p class="empty-text">這個{{ viewMode === 'monthly' ? '月' : '年' }}還沒有任何收支紀錄喔喵～</p>
-      <p class="empty-hint">先去記帳頁面新增幾筆，逗逗貓才能幫您手繪圖表喔！</p>
+      <p class="empty-text">
+        {{ selectedAccount ? `「${selectedAccount.name}」在` : '' }}這個{{ viewMode === 'monthly' ? '月' : '年' }}還沒有任何收支紀錄喔喵～
+      </p>
+      <p class="empty-hint">
+        {{ selectedAccount ? '切換其他帳戶或至記帳頁新增紀錄，逗逗貓就能幫您繪製圖表！' : '先去記帳頁面新增幾筆，逗逗貓才能幫您手繪圖表喔！' }}
+      </p>
     </div>
 
     <div v-else class="analytics-core">
@@ -330,7 +369,8 @@ const formatCurrency = (val: number) =>
       <div v-if="categoryExpenses.length > 0" class="chart-box card-jelly">
         <h3 class="chart-box-title">
           <PieChart :size="16" class="icon-inline" />
-          {{ viewMode === 'monthly' ? selectedMonth : selectedYear + ' 年' }} 支出分類佔比
+          {{ viewMode === 'monthly' ? selectedMonth : selectedYear + ' 年' }}
+          {{ selectedAccount ? `「${selectedAccount.name}」` : '' }} 支出分類佔比
         </h3>
 
         <div class="donut-chart-layout">
@@ -376,7 +416,8 @@ const formatCurrency = (val: number) =>
       <div v-if="categoryIncomes.length > 0" class="chart-box card-jelly">
         <h3 class="chart-box-title">
           <PieChart :size="16" class="icon-inline" />
-          {{ viewMode === 'monthly' ? selectedMonth : selectedYear + ' 年' }} 收入分類佔比
+          {{ viewMode === 'monthly' ? selectedMonth : selectedYear + ' 年' }}
+          {{ selectedAccount ? `「${selectedAccount.name}」` : '' }} 收入分類佔比
         </h3>
 
         <div class="donut-chart-layout">
@@ -420,7 +461,10 @@ const formatCurrency = (val: number) =>
 
       <!-- ── 2a. 月統計：6 天趨勢折線 ── -->
       <div v-if="viewMode === 'monthly'" class="chart-box card-jelly">
-        <h3 class="chart-box-title"><TrendingUp :size="16" class="icon-inline" /> 最近 6 天支出趨勢</h3>
+        <h3 class="chart-box-title">
+          <TrendingUp :size="16" class="icon-inline" />
+          最近 6 天支出趨勢 {{ selectedAccount ? `(${selectedAccount.name})` : '' }}
+        </h3>
         <div class="trend-chart-layout">
           <svg viewBox="0 0 240 100" class="trend-svg">
             <line x1="10" y1="20" x2="230" y2="20" stroke="#E8E8E8" stroke-width="1.5" stroke-dasharray="4" />
@@ -463,7 +507,10 @@ const formatCurrency = (val: number) =>
 
       <!-- ── 2b. 年統計：12 個月收支長條圖 ── -->
       <div v-else class="chart-box card-jelly">
-        <h3 class="chart-box-title"><BarChart2 :size="16" class="icon-inline" /> {{ selectedYear }} 年月度收支對比</h3>
+        <h3 class="chart-box-title">
+          <BarChart2 :size="16" class="icon-inline" />
+          {{ selectedYear }} 年月度收支對比 {{ selectedAccount ? `(${selectedAccount.name})` : '' }}
+        </h3>
 
         <div class="bar-legend-row">
           <span class="bar-legend-dot" style="background:#FF7B7B"></span><span class="bar-legend-label">支出</span>
@@ -582,6 +629,41 @@ const formatCurrency = (val: number) =>
 
 .mode-btn.active {
   background: var(--color-accent-gold) !important;
+}
+
+/* 帳戶篩選列 */
+.account-selector-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px !important;
+  background: #fff;
+  margin-bottom: 12px;
+}
+
+.account-selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.account-selector-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.account-active-badge {
+  font-size: 10px;
+  font-weight: 800;
+  color: #5D5FEF;
+  background-color: #ECEBFF;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid #D7D5FF;
 }
 
 .period-select {
