@@ -10,6 +10,7 @@
 - **樣式方案**：Vanilla CSS + Scoped Styles（繪本插畫風設計，大圓角、果凍微動畫、逗逗貓主視覺）
 - **自動化測試**：Vitest 測試框架
 - **資料儲存**：雙模式（LocalStorage 本地體驗模式 / Firebase 雲端同步模式）
+- **自動化記帳邊緣 API (Edge API)**：基於 Cloudflare Workers 的 Zero Host 邊緣端點，提供 AI Agent (Claude, GPTs, Antigravity) 及自動化腳本 (iOS 捷徑, Webhook) 執行原子化自動記帳，支援 OpenAPI 3.1 規範 (`public/api-spec.json`) 與 `llms.txt`。
 - **多使用者身分 (User Profiles)**：支援「多本地身分選擇與切換」。在 LocalStorage 中，所有資料皆以 `userId` 為 Key 進行分流隔離；登入 Firebase 時，則直接與 Firebase Auth 的 `uid` 綁定。
 
 ---

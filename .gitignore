@@ -33,4 +33,11 @@ release-notes.md
 latest-notes.md
 web-release-notes.md
 
+# Firebase Service Account Credentials & Worker Secrets (SECURITY)
+*firebase-adminsdk*.json
+*serviceaccount*.json
+*.service-account.json
+cloudflare-worker/.dev.vars
+
+
 

@@ -2,6 +2,22 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Web 2.7.0] - 2026-10-03
+
+### 🤖 推出 Zero Host 邊緣自動記帳 API，支援 AI Agent 與第三方服務自動記帳 (Web 端更新)
+- **Zero Host 邊緣 Serverless 架構**：
+  - 於 `cloudflare-worker/` 提供輕量級邊緣 API 實作，利用 Google Service Account 與 Firestore REST API Commit 批次事務，在零主機維護成本下達到每日 100,000 次免費自動記帳。
+  - 記帳具備 100% 原子性，同時完成「建立交易」、「即時扣減/增加帳戶餘額」與「追加操作稽核日誌」，絕無餘額漂移問題。
+- **Token-to-User 邊緣身分防護機制**：
+  - 徹底解決外部呼叫鑑權與多人共同記帳身分歸屬問題。
+  - API Token 於 Cloudflare 邊緣記憶體內直接綁定成員身分（暱稱與頭像），呼叫端完全無法冒名篡改，並支援獨立撤銷。
+- **AI Agent 與機器可讀開放規格**：
+  - 發布 OpenAPI 3.1 規範至 `public/api-spec.json`（隨 GitHub Pages 發布，支援 GPT Actions / LangChain / n8n 一鍵匯入）。
+  - 發布現代 AI 索引標準至 `public/llms.txt`。
+  - 新增完整架構與呼叫指引手冊 `API.md`。
+- **安全性防護強化**：
+  - 更新 `.gitignore` 嚴格忽略所有 Firebase 服務帳戶私密金鑰（`*adminsdk*.json`）與 `.dev.vars`，徹底防範憑證外洩。
+
 ## [Web 2.6.18] - 2026-10-02
 
 ### 🧹 清理歷史孤立殘留組件與範例檔案，統一「信用卡帳單」專案用詞 (Web 端更新)

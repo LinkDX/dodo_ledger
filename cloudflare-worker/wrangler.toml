@@ -1,0 +1,7 @@
+name = "dodo-ledger-api"
+main = "src/index.ts"
+compatibility_date = "2024-09-25"
+
+# [vars]
+# 可以在此設定非機密環境變數，機密環境變數請使用 `wrangler secret put <KEY>`
+# FIREBASE_PROJECT_ID = "your-firebase-project-id"

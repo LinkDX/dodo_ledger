@@ -1,0 +1,28 @@
+# Dodo Ledger (逗逗記帳) AI Agent API 指引
+
+> Dodo Ledger 是一款溫馨可愛且具備多人共同記帳能力的 Serverless 記帳系統。
+> 本系統提供邊緣 API (基於 Cloudflare Workers)，供 AI Agent、自動化腳本 (n8n / Shortcuts / Zapier) 與聊天機器人直接進行自動記帳與帳務查詢。
+
+## 核心規格與資源
+- OpenAPI 3.1 機器可讀規格: https://linkdx.github.io/dodo_ledger/api-spec.json
+- 完整開發與部署手冊 (Markdown): https://github.com/LinkDX/dodo_ledger/blob/master/API.md
+- 官方網站 / Web App: https://linkdx.github.io/dodo_ledger/
+
+## AI Agent 自動記帳最佳操作流程
+1. **取得帳務元資料 (Metadata)**:
+   呼叫 `GET /api/metadata` 取得目前帳本擁有的帳戶名稱清單 (如「錢包現金」、「玉山銀行」) 與收支分類清單。
+2. **理解使用者語意**:
+   使用者輸入：「我今天午餐吃了 120 元便當，用現金付的」
+   - 金額 (amount): 120
+   - 類型 (type): expense (支出)
+   - 帳戶 (account): "現金" (API 支援名稱模糊匹配)
+   - 分類 (category): "餐飲"
+   - 子分類 (subCategory): "午餐"
+   - 備註 (note): "午餐便當"
+3. **執行記帳**:
+   發送 `POST /api/transactions` 完成記帳。本系統具備原子事務性，會自動同步扣減帳戶餘額並記錄稽核日誌。
+
+## 鑑權方式
+- 所有請求須於 Header 帶入 Bearer Token:
+  `Authorization: Bearer <API_TOKEN>`
+- 每個 Token 會自動綁定特定記帳人身分，API 自動將記帳人頭像與姓名附加於交易記錄上。

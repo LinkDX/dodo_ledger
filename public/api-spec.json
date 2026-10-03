@@ -1,0 +1,276 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Dodo Ledger Automation API",
+    "version": "1.0.0",
+    "description": "Dodo Ledger 逗逗記帳邊緣自動化記帳 API。提供 AI Agent、外部機器人與自動化工具查詢帳戶、分類與自動執行原子性記帳功能。",
+    "contact": {
+      "name": "Dodo Ledger Team",
+      "url": "https://github.com/LinkDX/dodo_ledger"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://dodo-ledger-api.linkatzelda.workers.dev",
+      "description": "Cloudflare Worker 邊緣 API 伺服器"
+    }
+  ],
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/health": {
+      "get": {
+        "summary": "健康檢查",
+        "description": "檢查 API 服務是否運作正常",
+        "operationId": "getHealth",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "服務運作正常",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "ok" },
+                    "timestamp": { "type": "integer", "example": 1727956800000 }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/metadata": {
+      "get": {
+        "summary": "取得帳本元資料 (帳戶與分類清單)",
+        "description": "供 AI Agent 查詢目前所有可用的帳戶 (包含餘額、幣別) 與收支分類結構，方便在記帳時進行精準匹配。",
+        "operationId": "getLedgerMetadata",
+        "responses": {
+          "200": {
+            "description": "成功取得元資料",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/transactions": {
+      "post": {
+        "summary": "建立記帳交易 (支出/收入/轉帳)",
+        "description": "自動執行一筆記帳。此操作具備原子性 (Atomic)，會自動建立交易記錄、同步更新關聯帳戶的即時餘額，並追加系統操作日誌。",
+        "operationId": "createTransaction",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTransactionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "記帳成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateTransactionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "請求參數錯誤",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "傳入由 Cloudflare Worker 設定的個人或機器人 API Token (例如 dodo_sec_luke_xxx)。Token 會自動綁定記帳人身分。"
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "未授權或 Token 無效",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "error": "未授權：無效或未提供 API Token"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Account": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "example": "acc_cash_1" },
+          "name": { "type": "string", "example": "錢包現金" },
+          "type": { "type": "string", "enum": ["cash", "bank", "credit_card", "electronic_ticket"] },
+          "balance": { "type": "number", "example": 2500 },
+          "currency": { "type": "string", "example": "TWD" }
+        }
+      },
+      "Category": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "example": "cat_food" },
+          "name": { "type": "string", "example": "餐飲" },
+          "type": { "type": "string", "enum": ["expense", "income"] },
+          "subCategories": {
+            "type": "array",
+            "items": { "type": "string" },
+            "example": ["早餐", "午餐", "晚餐", "飲料/點心"]
+          }
+        }
+      },
+      "MetadataResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true },
+          "operator": {
+            "type": "object",
+            "properties": {
+              "userId": { "type": "string", "example": "user_luke_01" },
+              "name": { "type": "string", "example": "Luke" },
+              "avatar": { "type": "string", "example": "cat-happy" }
+            }
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "accounts": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/Account" }
+              },
+              "categories": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/Category" }
+              }
+            }
+          }
+        }
+      },
+      "CreateTransactionRequest": {
+        "type": "object",
+        "required": ["amount", "type"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["expense", "income", "transfer"],
+            "description": "交易類型：expense (支出)、income (收入)、transfer (轉帳)"
+          },
+          "amount": {
+            "type": "number",
+            "minimum": 0.01,
+            "description": "交易金額 (須大於 0)",
+            "example": 120
+          },
+          "account": {
+            "type": "string",
+            "description": "扣款帳戶名稱或帳戶 ID (支出與轉帳來源)。支援模糊匹配，例如傳「現金」可自動匹配「錢包現金」",
+            "example": "現金"
+          },
+          "toAccount": {
+            "type": "string",
+            "description": "入帳帳戶名稱或 ID (收入與轉帳目的)。收入類型時必填此欄或 account 欄",
+            "example": "玉山銀行"
+          },
+          "fee": {
+            "type": "number",
+            "description": "轉帳手續費 (僅 transfer 適用)",
+            "example": 15
+          },
+          "category": {
+            "type": "string",
+            "description": "主分類名稱或 ID (例如「餐飲」、「交通」)",
+            "example": "餐飲"
+          },
+          "subCategory": {
+            "type": "string",
+            "description": "子分類名稱 (例如「午餐」)",
+            "example": "午餐"
+          },
+          "note": {
+            "type": "string",
+            "description": "交易備註或品項說明",
+            "example": "排骨便當加蛋"
+          },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "標籤陣列",
+            "example": ["公司午餐", "外食"]
+          },
+          "date": {
+            "type": "string",
+            "description": "交易日期時間 (支援 ISO-8601 或 YYYY-MM-DD，若不填則預設為當前時間)",
+            "example": "2026-10-03T12:30:00+08:00"
+          }
+        }
+      },
+      "CreateTransactionResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true },
+          "data": {
+            "type": "object",
+            "properties": {
+              "transactionId": { "type": "string", "example": "tx_20261003_ab12cd34" },
+              "type": { "type": "string", "example": "expense" },
+              "amount": { "type": "number", "example": 120 },
+              "category": { "type": "string", "example": "餐飲" },
+              "subCategory": { "type": "string", "example": "午餐" },
+              "accountName": { "type": "string", "example": "錢包現金" },
+              "newBalance": { "type": "number", "example": 2380 },
+              "note": { "type": "string", "example": "排骨便當加蛋" },
+              "operator": { "type": "string", "example": "Luke" },
+              "date": { "type": "integer", "example": 1727956800000 }
+            }
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": false },
+          "error": { "type": "string", "example": "找不到指定的帳戶名稱：'國泰銀行'" }
+        }
+      }
+    }
+  }
+}
