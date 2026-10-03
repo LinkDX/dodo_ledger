@@ -19,17 +19,12 @@ console.log(`\n🐾 找到金鑰檔案：${saFile}`);
 console.log(`📁 專案 ID: ${saData.project_id}`);
 console.log(`📧 服務帳戶: ${saData.client_email}\n`);
 
-// 預設的使用者 Token 映射表
+// 預設的使用者 Token 映射表 (請於部署後至 Cloudflare 或本地更換為隨機密碼)
 const defaultUsers = {
-  "dodo_sec_luke_default": {
+  "dodo_sec_your_private_token_here": {
     "userId": "user_luke",
     "name": "Luke",
     "avatar": "cat-happy"
-  },
-  "dodo_sec_ai_bot": {
-    "userId": "bot_agent",
-    "name": "AI 記帳助理",
-    "avatar": "cat-glasses"
   }
 };
 

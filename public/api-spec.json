@@ -94,18 +94,70 @@
             }
           },
           "400": {
-            "description": "請求參數錯誤",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "$ref": "#/components/schemas/ErrorResponse"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           }
+        }
+      },
+      "get": {
+        "summary": "查詢交易明細清單 (對帳專用)",
+        "description": "供 AI Agent 或對帳腳本調閱歷史交易明細，支援依帳戶、交易類型、日期範圍與筆數篩選，按時間降冪排列。",
+        "operationId": "getTransactions",
+        "parameters": [
+          { "name": "limit", "in": "query", "description": "取得筆數 (預設 30，最多 100)", "schema": { "type": "integer", "default": 30 } },
+          { "name": "account", "in": "query", "description": "篩選特定帳戶名稱 (支援模糊匹配)", "schema": { "type": "string" } },
+          { "name": "type", "in": "query", "description": "篩選類型 (expense / income / transfer)", "schema": { "type": "string" } },
+          { "name": "startDate", "in": "query", "description": "起始日期 (ISO 字串或 YYYY-MM-DD)", "schema": { "type": "string" } },
+          { "name": "endDate", "in": "query", "description": "結束日期 (ISO 字串或 YYYY-MM-DD)", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "成功取得明細列表" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/transactions/{id}": {
+      "patch": {
+        "summary": "修改特定交易 (改錯對帳)",
+        "description": "修正金額、分類、備註或更換帳戶。系統會自動計算差值 delta 並以原子方式即時校正帳戶餘額。",
+        "operationId": "updateTransaction",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "description": "交易 ID", "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "amount": { "type": "number", "description": "新金額" },
+                  "category": { "type": "string", "description": "新分類" },
+                  "subCategory": { "type": "string", "description": "新子分類" },
+                  "account": { "type": "string", "description": "新扣款帳戶" },
+                  "note": { "type": "string", "description": "新備註" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "修正成功" },
+          "404": { "description": "找不到指定交易 ID" }
+        }
+      },
+      "delete": {
+        "summary": "刪除錯誤交易 (原子回退餘額)",
+        "description": "刪除一筆錯誤或重複的交易。系統會自動原路回退扣款帳戶餘額，並記錄刪除日誌。",
+        "operationId": "deleteTransaction",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "description": "欲刪除的交易 ID", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "刪除成功，餘額已原路退回" },
+          "404": { "description": "找不到指定交易 ID" }
         }
       }
     }

@@ -39,5 +39,5 @@ web-release-notes.md
 *.service-account.json
 cloudflare-worker/.dev.vars
 
-
-
+# Local Private Instructions with Secret Tokens
+AI_AGENT_INSTRUCTIONS.md

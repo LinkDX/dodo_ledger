@@ -210,7 +210,7 @@ Dodo Ledger 為多人共同記帳架構，具有家庭/團隊成員的概念（`
 #### Request 範例 (支出)
 ```bash
 curl -X POST https://dodo-ledger-api.linkatzelda.workers.dev/api/transactions \
-  -H "Authorization: Bearer dodo_sec_luke_default" \
+  -H "Authorization: Bearer <YOUR_API_TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{
     "type": "expense",
