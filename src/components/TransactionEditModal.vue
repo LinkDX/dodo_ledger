@@ -4,6 +4,7 @@ import { X, Check, ChevronDown, Trash2 } from 'lucide-vue-next'
 import { useLedger } from '../composables/useLedger'
 import { useConfirm } from '../composables/useConfirm'
 import DatePicker from './DatePicker.vue'
+import AmountCalculator from './AmountCalculator.vue'
 import type { Transaction } from '../types'
 
 const props = defineProps<{
@@ -139,10 +140,10 @@ const handleDelete = async () => {
             <span>💡 此筆為分期消費（第 {{ transaction.creditCardDetails.currentInstallment }}/{{ transaction.creditCardDetails.installmentTerm }} 期），修改金額將更新本期分攤金額。</span>
           </div>
 
-          <!-- 金額 -->
+          <!-- 金額 (果凍計算機) -->
           <div class="form-group">
             <label class="label-cute">金額</label>
-            <input v-model.number="editAmount" type="number" min="0" class="input-jelly" placeholder="0" />
+            <AmountCalculator v-model="editAmount" title="✏️ 編輯交易金額" placeholder="0" />
           </div>
 
           <!-- 備註 -->

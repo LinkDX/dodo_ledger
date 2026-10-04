@@ -5,9 +5,7 @@ import type { TransactionType } from '../types'
 import { 
   Check, 
   Tag, 
-  Sparkles,
-  Calculator,
-  Delete
+  Sparkles
 } from 'lucide-vue-next'
 import DatePicker from './DatePicker.vue'
 import AccountPicker from './AccountPicker.vue'
@@ -83,158 +81,11 @@ const handleSelectCat = (catId: string) => {
   selectedSubCat.value = cat?.subCategories[0] || ''
 }
 
-// 4. 計算機鍵盤狀態管理 (邊記邊算)
-const displayFormula = ref('0') // 顯示的算式
-const displayResult = ref(0)   // 當前計算出的金額結果
-const isNewInput = ref(true)    // 是否為新輸入
+import AmountCalculator from './AmountCalculator.vue'
 
-const handleKeyPress = (key: string) => {
-  if (key === 'C') {
-    // 清除
-    displayFormula.value = '0'
-    displayResult.value = 0
-    isNewInput.value = true
-    return
-  }
-
-  if (key === '⌫') {
-    // 回退刪除最後一個字元
-    if (displayFormula.value.length <= 1 || isNewInput.value) {
-      displayFormula.value = '0'
-      displayResult.value = 0
-      isNewInput.value = true
-    } else {
-      displayFormula.value = displayFormula.value.slice(0, -1)
-      instantCalculate()
-    }
-    return
-  }
-
-  if (key === 'OK') {
-    // 按下 OK 其實就是等號，計算最終結果
-    calculateResult()
-    isNewInput.value = true
-    return
-  }
-
-  // 處理數字 00 輸入
-  if (key === '00') {
-    if (isNewInput.value || displayFormula.value === '0') {
-      displayFormula.value = '0'
-      isNewInput.value = true
-    } else {
-      displayFormula.value += '00'
-      isNewInput.value = false
-      instantCalculate()
-    }
-    return
-  }
-
-  // 處理運算子 (+, -, ×, ÷)
-  if (key === '+' || key === '-' || key === '×' || key === '÷') {
-    calculateResult()
-    const lastChar = displayFormula.value.slice(-1)
-    if (lastChar === '+' || lastChar === '-' || lastChar === '×' || lastChar === '÷') {
-      // 替換運算子
-      displayFormula.value = displayFormula.value.slice(0, -1) + key
-    } else {
-      displayFormula.value += key
-    }
-    isNewInput.value = false
-    return
-  }
-
-  // 處理小數點
-  if (key === '.') {
-    const parts = displayFormula.value.split(/[\+\-×÷]/)
-    const currentNum = parts[parts.length - 1]
-    if (currentNum.includes('.')) return // 防止重複小數點
-    displayFormula.value += '.'
-    isNewInput.value = false
-    return
-  }
-
-  // 處理數字輸入
-  if (isNewInput.value || displayFormula.value === '0') {
-    displayFormula.value = key
-    isNewInput.value = false
-  } else {
-    displayFormula.value += key
-  }
-
-  // 即時計算當前結果
-  instantCalculate()
-}
-
-// 即時計算 (不影響算式，只更新預覽金額)
-const instantCalculate = () => {
-  try {
-    // 替換加減乘除進行過濾
-    const sanitized = displayFormula.value.replace(/[^0-9\.\+\-×÷]/g, '')
-    if (!sanitized) {
-      displayResult.value = 0
-      return
-    }
-    // 結尾若是運算子，先去掉再算
-    let toEval = sanitized
-    if (sanitized.endsWith('+') || sanitized.endsWith('-') || sanitized.endsWith('×') || sanitized.endsWith('÷')) {
-      toEval = sanitized.slice(0, -1)
-    }
-    // 把畫面展示的 × 轉換成代碼中的 *，把 ÷ 轉換成 / 進行解析
-    const formulaToCalc = toEval.replace(/×/g, '*').replace(/÷/g, '/')
-    displayResult.value = safeEval(formulaToCalc)
-  } catch (e) {
-    // 解析失敗時不更新
-  }
-}
-
-const calculateResult = () => {
-  instantCalculate()
-  displayFormula.value = String(displayResult.value)
-}
-
-// 簡單安全的手寫四則運算解析器 (先乘除，後加減，防範安全性漏洞)
-const safeEval = (str: string): number => {
-  try {
-    // 1. 將字串分割成數字與運算子 Token
-    const tokens = str.match(/(\d*\.?\d+)|([\+\-\*\/])/g) || []
-    if (tokens.length === 0) return 0
-
-    // 2. 處理第一優先順序：乘除法
-    const queue: (string | number)[] = []
-    let i = 0
-    while (i < tokens.length) {
-      const token = tokens[i]
-      if (token === '*' || token === '/') {
-        const prev = parseFloat(queue.pop() as string)
-        const next = parseFloat(tokens[i + 1])
-        const res = token === '*' ? prev * next : (next !== 0 ? prev / next : 0)
-        queue.push(res)
-        i += 2 // 跳過運算子和下一個數字
-      } else {
-        queue.push(token)
-        i++
-      }
-    }
-
-    // 3. 處理第二優先順序：加減法
-    let result = typeof queue[0] === 'number' ? queue[0] : parseFloat(queue[0] as string)
-    let op = '+'
-    for (let j = 1; j < queue.length; j++) {
-      const token = queue[j]
-      if (token === '+' || token === '-') {
-        op = token
-      } else {
-        const val = typeof token === 'number' ? token : parseFloat(token)
-        if (op === '+') result += val
-        else result -= val
-      }
-    }
-    return Math.max(result, 0) // 金額不能為負數
-  } catch (e) {
-    return 0
-  }
-}
+// 4. 金額與計算機狀態管理 (共用 AmountCalculator)
+const amount = ref(0)
+const calculatorRef = ref<any>(null)
 
 // 5. 信用卡分期付款配置
 const isInstallment = ref(false)
@@ -372,8 +223,8 @@ const triggerAlert = (message: string, type: 'success' | 'warning' | 'error' = '
 
 // 7. 送出交易
 const handleSubmit = async () => {
-  calculateResult() // 確保計算最終金額
-  const finalAmount = displayResult.value
+  calculatorRef.value?.calculateResult()
+  const finalAmount = amount.value
   
   if (finalAmount <= 0) {
     triggerAlert('🐱 喵？金額必須大於 0 才能記帳喔！', 'warning')
@@ -413,11 +264,10 @@ const handleSubmit = async () => {
   await addTransaction(txData)
 
   // 記帳成功，清空表單
-  displayFormula.value = '0'
-  displayResult.value = 0
+  amount.value = 0
+  calculatorRef.value?.reset()
   note.value = ''
   isInstallment.value = false
-  isNewInput.value = true
   triggerAlert('🐱 喵！成功記下一筆帳囉！', 'success')
 }
 </script>
@@ -555,58 +405,14 @@ const handleSubmit = async () => {
       </div>
     </div>
 
-    <!-- 4. 🧮 金額顯示看板與自訂 QQ 果凍計算機鍵盤 -->
-    <div class="calculator-panel card-jelly">
-      <!-- 算式與金額顯示看板 -->
-      <div class="calc-display-board">
-        <div class="formula-line">
-          <Calculator :size="14" class="icon-calc" /> {{ displayFormula }}
-        </div>
-        <div class="result-line">
-          <span class="currency-label">TWD</span> ${{ displayResult }}
-        </div>
-      </div>
-
-      <!-- 5x4 可愛果凍計算機按鍵群 -->
-      <div class="calc-keyboard-grid">
-        <!-- 第一橫列：全部為運算子 -->
-        <button class="btn-jelly key-btn key-operator" @click="handleKeyPress('+')">+</button>
-        <button class="btn-jelly key-btn key-operator" @click="handleKeyPress('-')">-</button>
-        <button class="btn-jelly key-btn key-operator" @click="handleKeyPress('×')">×</button>
-        <button class="btn-jelly key-btn key-operator" @click="handleKeyPress('÷')">÷</button>
-
-        <!-- 第二橫列：7, 8, 9 加上退格 ⌫ -->
-        <button class="btn-jelly key-btn" @click="handleKeyPress('7')">7</button>
-        <button class="btn-jelly key-btn" @click="handleKeyPress('8')">8</button>
-        <button class="btn-jelly key-btn" @click="handleKeyPress('9')">9</button>
-        <button class="btn-jelly key-btn key-backspace" @click="handleKeyPress('⌫')">
-          <Delete :size="18" />
-        </button>
-
-        <!-- 第三橫列：4, 5, 6 加上清除 C -->
-        <button class="btn-jelly key-btn" @click="handleKeyPress('4')">4</button>
-        <button class="btn-jelly key-btn" @click="handleKeyPress('5')">5</button>
-        <button class="btn-jelly key-btn" @click="handleKeyPress('6')">6</button>
-        <button class="btn-jelly key-btn key-clear" @click="handleKeyPress('C')">C</button>
-
-        <!-- 第四橫列：1、2、3 以及跨兩列的 OK 🐾 鍵 -->
-        <button class="btn-jelly key-btn" @click="handleKeyPress('1')">1</button>
-        <button class="btn-jelly key-btn" @click="handleKeyPress('2')">2</button>
-        <button class="btn-jelly key-btn" @click="handleKeyPress('3')">3</button>
-        <button 
-          class="btn-jelly key-btn key-confirm" 
-          @click="handleSubmit"
-          style="grid-row: span 2; height: auto;"
-        >
-          OK 🐾
-        </button>
-
-        <!-- 第五橫列：0、00、. (OK鍵佔了最右邊一格) -->
-        <button class="btn-jelly key-btn" @click="handleKeyPress('0')">0</button>
-        <button class="btn-jelly key-btn" @click="handleKeyPress('00')">00</button>
-        <button class="btn-jelly key-btn" @click="handleKeyPress('.')">.</button>
-      </div>
-    </div>
+    <!-- 4. 🧮 金額顯示看板與自訂 QQ 果凍計算機鍵盤 (共用元件) -->
+    <AmountCalculator 
+      ref="calculatorRef"
+      v-model="amount" 
+      inline 
+      ok-text="OK 🐾"
+      @submit="handleSubmit"
+    />
 
     <!-- 5. 交易備註輸入區（放到最底，不用滑動即可看到鍵盤） -->
     <div class="bottom-note-panel card-jelly">
@@ -961,87 +767,7 @@ const handleSubmit = async () => {
   color: var(--color-text-dark);
 }
 
-/* 計算機與鍵盤 */
-.calculator-panel {
-  padding: 10px !important;
-  background-color: var(--color-text-dark) !important;
-  border-color: var(--color-border);
-}
 
-.calc-display-board {
-  background-color: #FFFDF9;
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--border-radius-md);
-  padding: 8px 10px;
-  text-align: right;
-  margin-bottom: 8px;
-  box-shadow: var(--shadow-jelly-sm);
-}
-
-.formula-line {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--color-text-muted);
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-}
-
-.result-line {
-  font-size: 24px;
-  font-weight: 800;
-  margin-top: 2px;
-}
-
-.currency-label {
-  font-size: 11px;
-  font-weight: 800;
-  color: var(--color-text-muted);
-  border: 1px solid var(--color-border);
-  padding: 1px 4px;
-  border-radius: 4px;
-  vertical-align: middle;
-}
-
-.calc-keyboard-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-}
-
-.key-btn {
-  height: 42px;
-  font-size: 17px;
-  font-weight: 800;
-  background-color: #FFFFFF !important;
-  border-color: var(--color-border) !important;
-  box-shadow: var(--shadow-jelly-sm) !important;
-}
-
-.key-operator {
-  background-color: var(--color-transfer) !important;
-}
-
-.key-clear {
-  background-color: var(--color-expense) !important;
-}
-
-.key-backspace {
-  background-color: var(--color-accent-gold) !important;
-}
-
-.key-confirm {
-  background-color: var(--color-income) !important;
-  font-size: 14px;
-}
-
-.key-confirm:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none !important;
-  box-shadow: var(--shadow-jelly-sm) !important;
-}
 
 /* 底部交易備註面板 */
 .bottom-note-panel {

@@ -24,6 +24,7 @@ import MonthYearPicker from './MonthYearPicker.vue'
 import AccountPicker from './AccountPicker.vue'
 import AccountDropdown from './AccountDropdown.vue'
 import TransactionEditModal from './TransactionEditModal.vue'
+import AmountCalculator from './AmountCalculator.vue'
 
 
 const { 
@@ -821,7 +822,11 @@ const onAcctDrop = async (targetAcct: Account) => {
             <label class="label-cute">
               {{ newType === 'credit_card' ? '已消費欠款金額' : '初始餘額' }}
             </label>
-            <input v-model="newBalance" type="number" placeholder="0" class="input-jelly" />
+            <AmountCalculator 
+              v-model="newBalance" 
+              :title="newType === 'credit_card' ? '💳 已消費欠款金額' : '💰 初始餘額'" 
+              placeholder="0" 
+            />
           </div>
 
           <!-- 信用卡專屬欄位 (動態展開) -->
@@ -830,7 +835,11 @@ const onAcctDrop = async (targetAcct: Account) => {
               <h4 class="sub-fields-title">💳 信用卡參數設定</h4>
               <div class="form-group">
                 <label class="label-cute">信用額度</label>
-                <input v-model="creditLimit" type="number" placeholder="50000" class="input-jelly" />
+                <AmountCalculator 
+                  v-model="creditLimit" 
+                  title="💳 信用卡信用額度" 
+                  placeholder="50000" 
+                />
               </div>
               <div class="fields-row">
                 <div class="form-group half-width">
@@ -909,12 +918,20 @@ const onAcctDrop = async (targetAcct: Account) => {
 
           <div class="form-group">
             <label class="label-cute">轉帳金額</label>
-            <input v-model="transferAmount" type="number" placeholder="金額..." class="input-jelly" />
+            <AmountCalculator 
+              v-model="transferAmount" 
+              title="💸 轉帳金額" 
+              placeholder="金額..." 
+            />
           </div>
 
           <div class="form-group">
             <label class="label-cute">轉帳手續費 (將計為一筆獨立支出)</label>
-            <input v-model="transferFee" type="number" placeholder="0" class="input-jelly" />
+            <AmountCalculator 
+              v-model="transferFee" 
+              title="🪙 轉帳手續費" 
+              placeholder="0" 
+            />
           </div>
 
           <div class="form-group">
@@ -956,7 +973,11 @@ const onAcctDrop = async (targetAcct: Account) => {
             <label class="label-cute">
               {{ editType === 'credit_card' ? '當前已刷金額 (負債)' : '目前金額 (餘額)' }}
             </label>
-            <input v-model.number="editBalance" type="number" class="input-jelly" placeholder="0" />
+            <AmountCalculator 
+              v-model="editBalance" 
+              :title="editType === 'credit_card' ? '💳 當前已刷金額' : '💰 目前帳戶餘額'" 
+              placeholder="0" 
+            />
           </div>
 
           <!-- 信用卡專屬欄位 (編輯時動態展開) -->
@@ -965,7 +986,11 @@ const onAcctDrop = async (targetAcct: Account) => {
               <h4 class="sub-fields-title" style="font-size: 13px; font-weight: 800; margin-bottom: 8px;">💳 信用卡參數設定</h4>
               <div class="form-group">
                 <label class="label-cute">信用額度</label>
-                <input v-model="editCreditLimit" type="number" placeholder="50000" class="input-jelly" />
+                <AmountCalculator 
+                  v-model="editCreditLimit" 
+                  title="💳 信用卡信用額度" 
+                  placeholder="50000" 
+                />
               </div>
               <div class="fields-row" style="display: flex; gap: 8px;">
                 <div class="form-group half-width" style="flex: 1;">

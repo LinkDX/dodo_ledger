@@ -23,6 +23,7 @@ import {
 import { parseVersionFromApkName, compareVersions } from '../utils/version'
 import { Filesystem, Directory } from '@capacitor/filesystem'
 import { registerPlugin } from '@capacitor/core'
+import AmountCalculator from './AmountCalculator.vue'
 
 const { currentProfile, updateProfileSettings, updateProfileAvatar } = useAuth()
 const { showConfirm } = useConfirm()
@@ -387,11 +388,11 @@ const formatCurrency = (val: number) => {
       <div class="form-group">
         <label class="label-cute">本月記帳總預算 (TWD)</label>
         <div class="budget-input-row">
-          <input 
+          <AmountCalculator 
             v-model="budgetVal" 
-            type="number" 
+            title="✨ 理財月預算設定" 
             placeholder="20000" 
-            class="input-jelly budget-input" 
+            style="flex: 1;" 
           />
           <button class="btn-jelly btn-save-budget" @click="handleSaveBudget">
             儲存預算 🐾
