@@ -953,7 +953,7 @@ const isAchievementUnlocked = (id: string) => {
     <!-- 🏆 成就徽章彈出面板 -->
     <Transition name="fade-modal">
       <div v-if="showAchievements" class="modal-overlay" @click.self="showAchievements = false">
-        <div class="achievement-modal card-jelly">
+        <div class="achievement-modal card-jelly" @click.stop>
           <div class="modal-header">
             <h3 class="modal-title">🏆 逗逗貓成就徽章牆</h3>
             <button class="btn-close-circle btn-jelly" @click="showAchievements = false">×</button>

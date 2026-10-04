@@ -449,7 +449,7 @@ const handleSubmit = async () => {
     <Teleport to="#app">
       <Transition name="fade-alert">
         <div v-if="showQuickAddCat" class="modal-overlay" @click.self="showQuickAddCat = false">
-          <div class="modal-card card-jelly pop-jelly" style="padding: 24px;">
+          <div class="modal-card card-jelly pop-jelly" @click.stop style="padding: 24px;">
             <h3 class="modal-title">新增自訂主分類 🐱✨</h3>
             
             <div class="form-group">
@@ -497,7 +497,7 @@ const handleSubmit = async () => {
     <Teleport to="#app">
       <Transition name="fade-alert">
         <div v-if="showQuickAddSub" class="modal-overlay" @click.self="showQuickAddSub = false">
-          <div class="modal-card card-jelly pop-jelly" style="padding: 24px;">
+          <div class="modal-card card-jelly pop-jelly" @click.stop style="padding: 24px;">
             <h3 class="modal-title">新增子分類 🐱🏷️</h3>
             <p style="font-size: 11px; color: var(--color-text-muted); font-weight: 700; margin-bottom: 12px; text-align: center;">
               在主分類「{{ activeCategory?.name }}」下新增

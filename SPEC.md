@@ -257,6 +257,14 @@ ledgers/
    - **取消**：點擊右上角「X」關閉按鈕或點擊背景遮罩時，視為取消放棄，**自動還原為開啟前的原始數值**，不觸發資料更新。
    - **確認**：點擊「OK 🐾」鍵時，結算最終數值並透過 `emit('update:modelValue')`、`emit('change')` 與 `emit('submit')` 更新至父層。
 
+#### 3.2.7 全站彈窗遮罩關閉與多層事件隔離規範
+全站所有對話框與彈窗（包括 `AccountManager` 的編輯/新增/轉帳/繳款/顯示設定、`Settings` 的密碼鎖、`TransactionForm` 的快速新增分類、`Dashboard` 的成就牆、以及 `AmountCalculator` 的計算機抽屜）統一遵循以下互動規範：
+1. **點擊遮罩關閉 (Click Outside to Close)**：
+   - 所有彈窗的背景遮罩層必須監聽 `@click.self`（或 `@click.stop="handleBackdropClick"`），當使用者點擊對話框卡片以外的空白半透明遮罩處時，等同點擊右上角的「X」關閉按鈕，安全取消或關閉彈窗。
+2. **多層彈窗事件防穿透隔離 (Nested Modal Isolation)**：
+   - 所有內部對話框卡片本體（`.modal-card`、`.calc-modal-sheet`、`.lock-modal-card`、`.achievement-modal` 等）一律綁定 `@click.stop`、`@mousedown.stop` 與 `@touchstart.stop`，保證卡片內部的一切互動與點擊事件絕對不會冒泡至遮罩層。
+   - 當彈窗內再次喚起子彈窗（例如在編輯帳戶對話框內打開金額計算機抽屜）時，子彈窗的遮罩層全面阻斷事件冒泡，使用者點擊子彈窗以外區域時僅會關閉子彈窗，底層父級彈窗 100% 保持開啟。
+
 ### 3.3 週期性自動記帳觸發演算法
 為避免前端輪詢造成的效能浪費，週期性自動記帳採用**「啟動時懶惰檢查 (Lazy-check on Startup)」**機制：
 1. 當使用者打開網頁 (App 啟動) 時，從資料庫載入所有啟用的週期設定 `/recurring`。

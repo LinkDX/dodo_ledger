@@ -763,8 +763,8 @@ const onAcctDrop = async (targetAcct: Account) => {
 
     <!-- ========== 一鍵還款彈窗 ========== -->
     <Teleport to="#app">
-      <div v-if="showPayModal" class="modal-overlay">
-        <div class="modal-card card-jelly pop-jelly">
+      <div v-if="showPayModal" class="modal-overlay" @click.self="showPayModal = false">
+        <div class="modal-card card-jelly pop-jelly" @click.stop>
           <div class="mascot-pay-header">
             <span class="cat-pop-emoji">🐱</span>
             <p class="cat-speech-bubble">「喵嗚～主人！本期帳單要從哪一個銀行帳戶扣款繳納呢？」</p>
@@ -794,9 +794,14 @@ const onAcctDrop = async (targetAcct: Account) => {
 
     <!-- 1. 新增帳戶可愛彈窗 -->
     <Teleport to="#app">
-      <div v-if="showAddModal" class="modal-overlay">
-        <div class="modal-card card-jelly pop-jelly">
-          <h3 class="modal-title">新增理財帳戶</h3>
+      <div v-if="showAddModal" class="modal-overlay" @click.self="toggleAddModal">
+        <div class="modal-card card-jelly pop-jelly" @click.stop>
+          <div class="modal-header-row">
+            <h3 class="modal-title">新增理財帳戶</h3>
+            <button class="btn-jelly btn-close-edit" @click="toggleAddModal" type="button" title="關閉">
+              <X :size="14" />
+            </button>
+          </div>
           
           <div class="form-group">
             <label class="label-cute">帳戶名稱</label>
@@ -902,9 +907,14 @@ const onAcctDrop = async (targetAcct: Account) => {
 
     <!-- 2. 帳戶互轉可愛彈窗 -->
     <Teleport to="#app">
-      <div v-if="showTransferModal" class="modal-overlay">
-        <div class="modal-card card-jelly pop-jelly">
-          <h3 class="modal-title">資金帳戶互轉</h3>
+      <div v-if="showTransferModal" class="modal-overlay" @click.self="toggleTransferModal">
+        <div class="modal-card card-jelly pop-jelly" @click.stop>
+          <div class="modal-header-row">
+            <h3 class="modal-title">資金帳戶互轉</h3>
+            <button class="btn-jelly btn-close-edit" @click="toggleTransferModal" type="button" title="關閉">
+              <X :size="14" />
+            </button>
+          </div>
 
           <div class="form-group">
             <label class="label-cute">來源帳戶 (扣款)</label>
@@ -955,8 +965,8 @@ const onAcctDrop = async (targetAcct: Account) => {
 
     <!-- 3. 編輯帳戶彈窗 -->
     <Teleport to="#app">
-      <div v-if="showEditModal" class="modal-overlay">
-        <div class="modal-card card-jelly pop-jelly">
+      <div v-if="showEditModal" class="modal-overlay" @click.self="closeEditModal">
+        <div class="modal-card card-jelly pop-jelly" @click.stop>
           <div class="modal-header-row">
             <h3 class="modal-title">✏️ 編輯帳戶</h3>
             <button class="btn-jelly btn-close-edit" @click="closeEditModal">
@@ -1053,8 +1063,8 @@ const onAcctDrop = async (targetAcct: Account) => {
 
     <!-- 4. 設定顯示類別彈窗 -->
     <Teleport to="#app">
-      <div v-if="showSettingsModal" class="modal-overlay">
-        <div class="modal-card card-jelly pop-jelly">
+      <div v-if="showSettingsModal" class="modal-overlay" @click.self="showSettingsModal = false">
+        <div class="modal-card card-jelly pop-jelly" @click.stop>
           <div class="modal-header-row">
             <h3 class="modal-title">⚙️ 顯示類別設定</h3>
             <button class="btn-jelly btn-close-edit" @click="showSettingsModal = false">

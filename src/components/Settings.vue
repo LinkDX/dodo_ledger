@@ -749,8 +749,8 @@ const formatCurrency = (val: number) => {
 
     <!-- 🔒 密碼設定/驗證彈窗 Modal (Jelly Style) -->
     <Transition name="bubble-fade">
-      <div v-if="showLockModal" class="lock-modal-overlay">
-        <div class="lock-modal-card pop-jelly">
+      <div v-if="showLockModal" class="lock-modal-overlay" @click.self="showLockModal = false">
+        <div class="lock-modal-card pop-jelly" @click.stop>
           <div class="modal-header">
             <h4>
               {{ lockActionType === 'enable' ? '🔑 開啟密碼保護' : lockActionType === 'change' ? '🔄 修改防護密碼' : '🔓 關閉密碼保護' }}

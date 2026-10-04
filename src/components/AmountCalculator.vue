@@ -100,6 +100,15 @@ const cancelCalculator = () => {
   isOpen.value = false
 }
 
+// 點擊背景遮罩關閉（與按 X 一致，並阻止事件冒泡，防止底層彈窗被連帶關閉）
+const handleBackdropClick = (e?: Event) => {
+  if (e) {
+    e.stopPropagation()
+    e.preventDefault()
+  }
+  cancelCalculator()
+}
+
 // 安全四則運算解析器 (先乘除後加減)
 const safeEval = (str: string): number => {
   try {
@@ -313,10 +322,18 @@ defineExpose({
         <div 
           v-if="!inline && isOpen" 
           class="calc-modal-backdrop" 
-          @click.self="cancelCalculator"
+          @click.stop="handleBackdropClick"
+          @mousedown.stop
+          @touchstart.stop
         >
           <Transition name="calc-sheet-slide">
-            <div v-if="isOpen" class="calc-modal-sheet card-jelly">
+            <div 
+              v-if="isOpen" 
+              class="calc-modal-sheet card-jelly"
+              @click.stop
+              @mousedown.stop
+              @touchstart.stop
+            >
               <!-- 手機頂部小拉桿 -->
               <div class="sheet-pull-handle"></div>
 
@@ -329,7 +346,7 @@ defineExpose({
                 <button 
                   type="button" 
                   class="btn-jelly btn-close-sheet" 
-                  @click="cancelCalculator" 
+                  @click.stop="cancelCalculator" 
                   title="取消並關閉"
                 >
                   <X :size="16" />
