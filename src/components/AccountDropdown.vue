@@ -136,6 +136,10 @@ onUnmounted(() => {
             </div>
           </button>
 
+          <div v-if="!allowAll && accounts.length === 0" class="dropdown-empty">
+            <span>🐾 暫無符合此分類的帳戶喵～</span>
+          </div>
+
           <button
             v-for="a in accounts"
             :key="a.id"
@@ -301,6 +305,14 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.dropdown-empty {
+  padding: 14px 8px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-text-muted);
 }
 
 .dropdown-option {

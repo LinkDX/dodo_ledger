@@ -103,6 +103,91 @@ const transferAmount = ref<number | ''>('')
 const transferFee = ref<number>(0)
 const transferNote = ref('')
 
+// 資金互轉分類篩選
+const transferFromFilter = ref<string>('all')
+const transferToFilter = ref<string>('all')
+
+// 資金互轉分類標籤（依使用者現有帳戶所具備的分類動態呈現，並排除設定中隱藏的類型）
+const transferFilterTabs = computed(() => {
+  const hiddenTypes = currentProfile.value?.settings?.hiddenAccountTypes || []
+  const existingTypes = new Set<AccountType>(visibleAccounts.value.map(a => a.type))
+  const allTabs = [
+    { key: 'all',                label: '全部', emoji: '✨' },
+    { key: 'cash',               label: '現金', emoji: '💵' },
+    { key: 'bank',               label: '銀行', emoji: '🏦' },
+    { key: 'credit_card',        label: '信用卡', emoji: '💳' },
+    { key: 'electronic_ticket',  label: '票證', emoji: '🎫' }
+  ] as const
+  return allTabs.filter(tab => {
+    if (tab.key === 'all') return true
+    if (hiddenTypes.includes(tab.key as AccountType)) return false
+    return existingTypes.has(tab.key as AccountType)
+  })
+})
+
+// 依分類過濾來源帳戶
+const transferFromAccounts = computed(() => {
+  if (transferFromFilter.value === 'all') {
+    return visibleAccounts.value
+  }
+  return visibleAccounts.value.filter(a => a.type === transferFromFilter.value)
+})
+
+// 依分類過濾目的帳戶
+const transferToAccounts = computed(() => {
+  if (transferToFilter.value === 'all') {
+    return visibleAccounts.value
+  }
+  return visibleAccounts.value.filter(a => a.type === transferToFilter.value)
+})
+
+// 切換來源帳戶分類
+const setTransferFromFilter = (typeKey: string) => {
+  transferFromFilter.value = typeKey
+  const currentSelected = transferFromAccounts.value.find(a => a.id === fromAccountId.value)
+  if (!currentSelected) {
+    if (transferFromAccounts.value.length > 0) {
+      fromAccountId.value = transferFromAccounts.value[0].id
+    } else {
+      fromAccountId.value = ''
+    }
+  }
+  // 若導致來源與目的相同，且目的分類有其他帳戶，自動智慧調開
+  if (fromAccountId.value && fromAccountId.value === toAccountId.value) {
+    const diff = transferToAccounts.value.find(a => a.id !== fromAccountId.value)
+    if (diff) {
+      toAccountId.value = diff.id
+    }
+  }
+}
+
+// 切換目的帳戶分類
+const setTransferToFilter = (typeKey: string) => {
+  transferToFilter.value = typeKey
+  const currentSelected = transferToAccounts.value.find(a => a.id === toAccountId.value)
+  if (!currentSelected || currentSelected.id === fromAccountId.value) {
+    const candidate = transferToAccounts.value.find(a => a.id !== fromAccountId.value)
+    if (candidate) {
+      toAccountId.value = candidate.id
+    } else if (transferToAccounts.value.length > 0) {
+      toAccountId.value = transferToAccounts.value[0].id
+    } else {
+      toAccountId.value = ''
+    }
+  }
+}
+
+// 快速對調來源與目的帳戶
+const swapTransferAccounts = () => {
+  const tempId = fromAccountId.value
+  fromAccountId.value = toAccountId.value
+  toAccountId.value = tempId
+
+  const tempFilter = transferFromFilter.value
+  transferFromFilter.value = transferToFilter.value
+  transferToFilter.value = tempFilter
+}
+
 // 編輯帳戶表單狀態
 const editingAcctId = ref('')
 const editName = ref('')
@@ -131,8 +216,11 @@ const toggleAddModal = () => {
 const toggleTransferModal = () => {
   showTransferModal.value = !showTransferModal.value
   if (showTransferModal.value) {
-    fromAccountId.value = accounts.value[0]?.id || ''
-    toAccountId.value = accounts.value[1]?.id || ''
+    transferFromFilter.value = 'all'
+    transferToFilter.value = 'all'
+    const list = visibleAccounts.value
+    fromAccountId.value = list[0]?.id || ''
+    toAccountId.value = list.find(a => a.id !== fromAccountId.value)?.id || list[1]?.id || ''
     transferAmount.value = ''
     transferFee.value = 0
     transferNote.value = ''
@@ -916,14 +1004,81 @@ const onAcctDrop = async (targetAcct: Account) => {
             </button>
           </div>
 
-          <div class="form-group">
-            <label class="label-cute">來源帳戶 (扣款)</label>
-            <AccountDropdown v-model="fromAccountId" :accounts="visibleAccounts" placeholder="請選擇來源帳戶..." />
+          <!-- 來源帳戶 (扣款) -->
+          <div class="form-group transfer-field-group">
+            <div class="transfer-field-header">
+              <label class="label-cute">來源帳戶 (扣款)</label>
+              <!-- 來源分類篩選 Tab -->
+              <div v-if="transferFilterTabs.length > 2" class="transfer-capsule-tabs">
+                <button
+                  v-for="tab in transferFilterTabs"
+                  :key="tab.key"
+                  type="button"
+                  class="btn-jelly transfer-capsule-btn"
+                  :class="[
+                    tab.key === 'all' ? 'tab-all' : 
+                    tab.key === 'cash' ? 'tab-cash' : 
+                    tab.key === 'bank' ? 'tab-bank' : 
+                    tab.key === 'credit_card' ? 'tab-card' : 'tab-ticket',
+                    { active: transferFromFilter === tab.key }
+                  ]"
+                  @click="setTransferFromFilter(tab.key)"
+                >
+                  <span class="capsule-emoji">{{ tab.emoji }}</span>
+                  <span class="capsule-label">{{ tab.label }}</span>
+                </button>
+              </div>
+            </div>
+            <AccountDropdown 
+              v-model="fromAccountId" 
+              :accounts="transferFromAccounts" 
+              placeholder="請選擇來源帳戶..." 
+            />
           </div>
 
-          <div class="form-group">
-            <label class="label-cute">目的帳戶 (存款)</label>
-            <AccountDropdown v-model="toAccountId" :accounts="visibleAccounts" placeholder="請選擇目的帳戶..." />
+          <!-- 快速對調來源與目的按鈕 -->
+          <div class="transfer-swap-row">
+            <button 
+              type="button" 
+              class="btn-jelly btn-transfer-swap" 
+              @click="swapTransferAccounts" 
+              title="對調來源與目的帳戶"
+            >
+              <ArrowLeftRight :size="12" class="swap-icon" />
+              <span class="swap-text">對調帳戶</span>
+            </button>
+          </div>
+
+          <!-- 目的帳戶 (存款) -->
+          <div class="form-group transfer-field-group">
+            <div class="transfer-field-header">
+              <label class="label-cute">目的帳戶 (存款)</label>
+              <!-- 目的分類篩選 Tab -->
+              <div v-if="transferFilterTabs.length > 2" class="transfer-capsule-tabs">
+                <button
+                  v-for="tab in transferFilterTabs"
+                  :key="tab.key"
+                  type="button"
+                  class="btn-jelly transfer-capsule-btn"
+                  :class="[
+                    tab.key === 'all' ? 'tab-all' : 
+                    tab.key === 'cash' ? 'tab-cash' : 
+                    tab.key === 'bank' ? 'tab-bank' : 
+                    tab.key === 'credit_card' ? 'tab-card' : 'tab-ticket',
+                    { active: transferToFilter === tab.key }
+                  ]"
+                  @click="setTransferToFilter(tab.key)"
+                >
+                  <span class="capsule-emoji">{{ tab.emoji }}</span>
+                  <span class="capsule-label">{{ tab.label }}</span>
+                </button>
+              </div>
+            </div>
+            <AccountDropdown 
+              v-model="toAccountId" 
+              :accounts="transferToAccounts" 
+              placeholder="請選擇目的帳戶..." 
+            />
           </div>
 
           <div class="form-group">
@@ -2136,5 +2291,107 @@ const onAcctDrop = async (targetAcct: Account) => {
 .empty-emoji {
   font-size: 32px;
   margin-bottom: 8px;
+}
+
+/* 資金互轉欄位與分類篩選標籤 */
+.transfer-field-group {
+  margin-bottom: 8px;
+}
+
+.transfer-field-header {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 6px;
+}
+
+.transfer-capsule-tabs {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow-x: auto;
+  padding: 1px 1px 3px 1px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.transfer-capsule-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.transfer-capsule-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 22px;
+  padding: 0 7px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  background-color: #FFFFFF;
+  border: 1.5px solid var(--color-border);
+  border-radius: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.transfer-capsule-btn.active {
+  color: var(--color-text-dark);
+  font-weight: 800;
+  border-width: 2px;
+  border-color: var(--color-text-dark);
+  box-shadow: var(--shadow-jelly-sm);
+  transform: translateY(-1px);
+}
+
+/* 各分類選中時的馬卡龍色彩 */
+.transfer-capsule-btn.tab-all.active    { background-color: #FFE4B5; }
+.transfer-capsule-btn.tab-cash.active   { background-color: #C7F2E6; }
+.transfer-capsule-btn.tab-bank.active   { background-color: #C1E1FF; }
+.transfer-capsule-btn.tab-card.active   { background-color: #FFDAC1; }
+.transfer-capsule-btn.tab-ticket.active { background-color: #E2C6FF; }
+
+.capsule-emoji {
+  font-size: 11px;
+  line-height: 1;
+}
+
+.capsule-label {
+  line-height: 1;
+}
+
+/* 對調按鈕列 */
+.transfer-swap-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: -2px 0 6px 0;
+}
+
+.btn-transfer-swap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  background-color: var(--color-bg-warm);
+  border: 1.5px dashed var(--color-border);
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--color-text-dark);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-transfer-swap:hover {
+  background-color: #FFFFFF;
+  border-style: solid;
+  transform: translateY(-1px);
+}
+
+.swap-icon {
+  transform: rotate(90deg);
+  color: var(--color-transfer);
 }
 </style>
