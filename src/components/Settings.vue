@@ -16,8 +16,13 @@ import {
   ShieldCheck,
   BadgeAlert,
   X,
-  UserRound
+  UserRound,
+  Target
 } from 'lucide-vue-next'
+
+// ─── 分類帳戶對應管理 ───
+import CategoryAccountMapModal from './CategoryAccountMapModal.vue'
+import { useCategoryAccountMap } from '../composables/useCategoryAccountMap'
 
 // ─── App 原生更新與覆蓋安裝 ───
 import { parseVersionFromApkName, compareVersions } from '../utils/version'
@@ -28,6 +33,8 @@ import AmountCalculator from './AmountCalculator.vue'
 const { currentProfile, updateProfileSettings, updateProfileAvatar } = useAuth()
 const { showConfirm } = useConfirm()
 const { showAlert } = useAlert()
+const { rulesList } = useCategoryAccountMap()
+const showMapModal = ref(false)
 
 // 🔒 Dodo Gatekeeper - 密碼鎖防護邏輯
 import { useAppLock } from '../composables/useAppLock'
@@ -416,6 +423,28 @@ const formatCurrency = (val: number) => {
       </div>
     </div>
 
+    <!-- 1.5 分類預設帳戶綁定設定 (依成員個別記憶) -->
+    <div class="settings-box card-jelly">
+      <div class="box-header-flex">
+        <h3 class="box-title"><Target class="icon-inline" /> 分類預設帳戶綁定</h3>
+        <span class="user-setting-tag">{{ currentProfile?.avatar }} {{ currentProfile?.name }}</span>
+      </div>
+
+      <div class="cat-map-settings-card">
+        <p class="desc-text" style="margin-bottom: 8px;">
+          記帳時選取分類，系統會自動切換為對應的專屬帳戶，每個成員獨立記憶！
+        </p>
+        <div class="cat-map-stats-row">
+          <span class="cat-map-badge">
+            ✨ 目前已為您記憶 <strong>{{ rulesList.length }}</strong> 組分類帳戶對應
+          </span>
+          <button class="btn-jelly btn-action btn-open-map-modal" @click="showMapModal = true" type="button">
+            ⚙️ 管理與設定對應 🐾
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- 📡 逗逗貓自建熱更新監控閣 (僅在實體 Android 手機中渲染) -->
     <div v-if="Capacitor.isNativePlatform()" class="settings-box card-jelly pop-jelly" style="background-color: #FFFDF9 !important;">
       <h3 class="box-title" style="color: var(--color-text-dark); margin-bottom: 6px;">
@@ -747,6 +776,9 @@ const formatCurrency = (val: number) => {
       </span>
     </div>
 
+    <!-- 🎯 分類預設帳戶綁定管理彈窗 -->
+    <CategoryAccountMapModal :show="showMapModal" @close="showMapModal = false" />
+
     <!-- 🔒 密碼設定/驗證彈窗 Modal (Jelly Style) -->
     <Transition name="bubble-fade">
       <div v-if="showLockModal" class="lock-modal-overlay" @click.self="showLockModal = false">
@@ -853,6 +885,59 @@ const formatCurrency = (val: number) => {
 </template>
 
 <style scoped>
+/* ========== 分類預設帳戶綁定卡片樣式 ========== */
+.box-header-flex {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.user-setting-tag {
+  font-size: 11px;
+  background-color: #FFE6CA;
+  color: #B25E00;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.cat-map-settings-card {
+  background-color: #FFFDF9;
+  border: 1.5px solid var(--color-border);
+  border-radius: 16px;
+  padding: 12px 14px;
+}
+
+.cat-map-stats-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cat-map-badge {
+  font-size: 12px;
+  color: var(--color-text-dark);
+}
+
+.cat-map-badge strong {
+  color: var(--color-income, #7AC74F);
+  font-size: 14px;
+}
+
+.btn-open-map-modal {
+  background-color: #FFE6A7;
+  color: #7B4B00;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 14px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 /* ========== 彈窗樣式 ========== */
 .modal-overlay {
   position: fixed;

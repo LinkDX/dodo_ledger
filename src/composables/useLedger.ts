@@ -954,7 +954,7 @@ export function useLedger() {
   }
 
   // 10. 帳戶管理方法（🔒 使用 per-document 原子操作）
-  const addAccount = async (acctData: Omit<Account, 'id' | 'createdAt'>) => {
+  const addAccount = async (acctData: Omit<Account, 'id' | 'createdAt'>): Promise<Account> => {
     const newAcct: Account = {
       ...acctData,
       id: 'acct_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
@@ -963,6 +963,7 @@ export function useLedger() {
     }
     accounts.value.push(newAcct)
     db.addDocument('accounts', newAcct).catch(e => console.error('[Dodo Ledger] 新增帳戶失敗：', e))
+    return newAcct
   }
 
   const deleteAccount = async (acctId: string) => {

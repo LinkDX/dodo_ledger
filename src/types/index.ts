@@ -8,6 +8,15 @@ export interface UserSettings {
   theme: string;
   monthlyBudget: number;
   hiddenAccountTypes?: AccountType[];
+  categoryAccountMap?: Record<string, string>; // key: "主分類 > 子分類" 或 "主分類", value: accountId
+}
+
+// 分類與帳戶對應規則
+export interface CategoryAccountRule {
+  key: string;              // "交通 > 捷運/公車" 或 "餐飲"
+  category: string;         // 主分類名稱
+  subCategory?: string;     // 子分類名稱 (可選)
+  accountId: string;        // 對應帳戶 ID
 }
 
 // 本地使用者身分 Profile

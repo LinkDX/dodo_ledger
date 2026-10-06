@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { Wallet, Landmark, CreditCard, Compass, Check } from 'lucide-vue-next'
 import type { Account } from '../types'
 import { useAuth } from '../composables/useAuth'
@@ -39,6 +39,50 @@ const filteredAccounts = computed(() => {
     const matchSearch = !searchQuery.value || acct.name.toLowerCase().includes(searchQuery.value.toLowerCase())
     return matchType && matchSearch
   })
+})
+
+const cardRefs = new Map<string, HTMLElement>()
+const setCardRef = (id: string, el: any) => {
+  if (el) {
+    cardRefs.set(id, el as HTMLElement)
+  } else {
+    cardRefs.delete(id)
+  }
+}
+
+/** 平滑捲動至被選取的帳戶卡片 */
+const scrollToSelectedAccount = (behavior: ScrollBehavior = 'smooth') => {
+  nextTick(() => {
+    if (!props.modelValue) return
+    const targetEl = cardRefs.get(props.modelValue)
+    if (targetEl) {
+      targetEl.scrollIntoView({
+        behavior,
+        block: 'nearest',
+        inline: 'center'
+      })
+    }
+  })
+}
+
+// 監聽 modelValue 改變（包括分類自動切換帳戶時），平滑捲動至選取帳戶
+watch(() => props.modelValue, (newVal) => {
+  if (newVal) {
+    const isVisible = filteredAccounts.value.some(a => a.id === newVal)
+    if (!isVisible) {
+      selectedType.value = 'all'
+      searchQuery.value = ''
+    }
+    setTimeout(() => {
+      scrollToSelectedAccount('smooth')
+    }, 60)
+  }
+}, { immediate: true })
+
+onMounted(() => {
+  setTimeout(() => {
+    scrollToSelectedAccount('auto')
+  }, 100)
 })
 
 const select = (id: string) => emit('update:modelValue', id)
@@ -104,6 +148,7 @@ const balanceLabel = (acct: Account) => {
       <button
         v-for="acct in filteredAccounts"
         :key="acct.id"
+        :ref="(el) => setCardRef(acct.id, el)"
         class="btn-jelly acct-card"
         :class="[acct.color, { 'is-selected': modelValue === acct.id }]"
         @click="select(acct.id)"

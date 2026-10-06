@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { useLedger } from '../composables/useLedger'
+import { useCategoryAccountMap } from '../composables/useCategoryAccountMap'
 import type { TransactionType } from '../types'
 import { 
   Check, 
@@ -12,7 +13,7 @@ import AccountPicker from './AccountPicker.vue'
 
 const { 
   accounts, 
-  visibleAccounts,
+  visibleAccounts, 
   addTransaction, 
   categories: allCategories, 
   addTxPrefilledDate,
@@ -21,6 +22,8 @@ const {
   cuteIconsList,
   getIconEmoji
 } = useLedger()
+
+const { getPreferredAccountId, learnFromTransaction } = useCategoryAccountMap()
 
 // 1. 交易類型：支出 / 收入
 const txType = ref<TransactionType>('expense')
@@ -34,6 +37,7 @@ const availableAccounts = computed(() => {
 })
 
 const selectedAccountId = ref('')
+const autoMatchedAccountName = ref('')
 
 // 當帳戶列表載入或類型改變時，預設選取第一個帳戶
 watch([availableAccounts, txType], () => {
@@ -60,11 +64,37 @@ const categories = computed(() => {
 const selectedCatId = ref('')
 const selectedSubCat = ref('')
 
-// 監聽類別變更，重置子類別
+/** 嘗試根據分類與子分類自動對應上次使用的帳戶 */
+const applyPreferredAccount = (catName?: string, subCatName?: string) => {
+  const targetCat = catName || activeCategory.value?.name || ''
+  const targetSub = subCatName !== undefined ? subCatName : selectedSubCat.value
+  if (!targetCat) return
+
+  const preferredId = getPreferredAccountId(targetCat, targetSub, txType.value)
+  if (preferredId && preferredId !== selectedAccountId.value) {
+    if (availableAccounts.value.some(a => a.id === preferredId)) {
+      selectedAccountId.value = preferredId
+      const matched = accounts.value.find(a => a.id === preferredId)
+      if (matched) {
+        autoMatchedAccountName.value = matched.name
+        setTimeout(() => {
+          if (autoMatchedAccountName.value === matched.name) {
+            autoMatchedAccountName.value = ''
+          }
+        }, 2200)
+      }
+    }
+  }
+}
+
+// 監聽類別變更，重置子類別並嘗試對應帳戶
 watch(categories, () => {
   if (categories.value.length > 0) {
     selectedCatId.value = categories.value[0].id
     selectedSubCat.value = categories.value[0].subCategories[0] || ''
+    nextTick(() => {
+      applyPreferredAccount(categories.value[0].name, categories.value[0].subCategories[0])
+    })
   } else {
     selectedCatId.value = ''
     selectedSubCat.value = ''
@@ -78,7 +108,14 @@ const activeCategory = computed(() => {
 const handleSelectCat = (catId: string) => {
   selectedCatId.value = catId
   const cat = categories.value.find(c => c.id === catId)
-  selectedSubCat.value = cat?.subCategories[0] || ''
+  const firstSub = cat?.subCategories[0] || ''
+  selectedSubCat.value = firstSub
+  applyPreferredAccount(cat?.name, firstSub)
+}
+
+const handleSelectSubCat = (sub: string) => {
+  selectedSubCat.value = sub
+  applyPreferredAccount(activeCategory.value?.name, sub)
 }
 
 import AmountCalculator from './AmountCalculator.vue'
@@ -263,6 +300,13 @@ const handleSubmit = async () => {
 
   await addTransaction(txData)
 
+  // 自動學習並更新當前成員此分類的帳戶對應 (依成員獨立記憶)
+  await learnFromTransaction(
+    activeCategory.value?.name || '',
+    selectedSubCat.value,
+    selectedAccountId.value
+  )
+
   // 記帳成功，清空表單
   amount.value = 0
   calculatorRef.value?.reset()
@@ -309,7 +353,14 @@ const handleSubmit = async () => {
 
       <!-- 帳戶選取 -->
       <div class="form-group margin-zero">
-        <label class="label-cute">選擇支付 / 收款帳戶</label>
+        <div class="label-with-match-badge">
+          <label class="label-cute">選擇支付 / 收款帳戶</label>
+          <Transition name="fade-badge">
+            <span v-if="autoMatchedAccountName" class="auto-match-badge pop-jelly">
+              🎯 自動切換：{{ autoMatchedAccountName }}
+            </span>
+          </Transition>
+        </div>
         <AccountPicker v-model="selectedAccountId" :accounts="availableAccounts" />
       </div>
 
@@ -386,7 +437,7 @@ const handleSubmit = async () => {
             :key="sub"
             class="btn-jelly btn-sub-tag"
             :class="{ active: selectedSubCat === sub }"
-            @click="selectedSubCat = sub"
+            @click="handleSelectSubCat(sub)"
           >
             {{ sub }}
             <Check v-if="selectedSubCat === sub" :size="10" stroke-width="4" class="sub-check" />
@@ -532,6 +583,33 @@ const handleSubmit = async () => {
 </template>
 
 <style scoped>
+.label-with-match-badge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.auto-match-badge {
+  font-size: 11px;
+  background-color: #E8F5E9;
+  color: #2E7D32;
+  border: 1px solid #C8E6C9;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 800;
+}
+
+.fade-badge-enter-active,
+.fade-badge-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.fade-badge-enter-from,
+.fade-badge-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
 .transaction-form-page {
   padding: 12px;
   padding-bottom: 90px;
