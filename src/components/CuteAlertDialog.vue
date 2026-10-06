@@ -35,7 +35,7 @@ const { state, handleAlert } = useAlert()
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 99999; /* 比 confirm 更置頂，確保絕對覆蓋 */
+  z-index: 999999; /* 比 confirm 更置頂，確保絕對覆蓋 */
   background-color: rgba(44, 30, 27, 0.45); /* 巧克力灰半透明遮罩 */
   display: flex;
   align-items: center;

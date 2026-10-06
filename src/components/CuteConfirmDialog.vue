@@ -42,7 +42,7 @@ const { state, handleConfirm } = useConfirm()
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 9999; /* 超級置頂，確保蓋住所有彈窗和鍵盤 */
+  z-index: 999999; /* 超級置頂，確保蓋住所有彈窗和鍵盤 */
   background-color: rgba(44, 30, 27, 0.4); /* 巧克力灰半透明遮罩 */
   display: flex;
   align-items: center;

@@ -56,7 +56,11 @@ ledgers/
   "currency": "TWD",
   "theme": "warm-light",
   "monthlyBudget": 20000,
-  "hiddenAccountTypes": ["electronic_ticket"] // 已被使用者隱藏的帳戶類型
+  "hiddenAccountTypes": ["electronic_ticket"], // 已被使用者隱藏的帳戶類型
+  "categoryAccountMap": {                      // 每個成員獨立記憶之「分類 > 預設扣款/收款帳戶」對應
+    "餐飲 > 早餐": "acct_cash_1",
+    "交通": "acct_card_1"
+  }
 }
 ```
 

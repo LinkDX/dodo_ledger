@@ -301,7 +301,7 @@ const getCatEmojiByName = (catName: string) => {
                 <!-- 手機右上角獨立刪除按鈕 -->
                 <button 
                   class="btn-jelly btn-delete-rule mobile-only-del" 
-                  @click="handleDeleteRule(rule.key)" 
+                  @click.stop="handleDeleteRule(rule.key)" 
                   type="button"
                   title="刪除此規則"
                 >
@@ -326,7 +326,7 @@ const getCatEmojiByName = (catName: string) => {
               <!-- 桌面最右側獨立刪除按鈕 (垂直直線對齊) -->
               <button 
                 class="btn-jelly btn-delete-rule desktop-only-del" 
-                @click="handleDeleteRule(rule.key)" 
+                @click.stop="handleDeleteRule(rule.key)" 
                 type="button"
                 title="刪除此規則"
               >
