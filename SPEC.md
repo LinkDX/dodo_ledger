@@ -183,6 +183,16 @@ ledgers/
      `white-space: nowrap; overflow: hidden; text-overflow: ellipsis;`，配合 `min-width: 0` 和 `flex: 1`。
    - 這使得當帳戶名稱過長時，會優雅地以 `...` 截斷，而金額維持在下一行，Chevron 箭頭依然在最右側，完全保證 RWD 手機版面的高度一致性。
 
+#### 3.1.2 帳戶資金互轉多類別篩選與一鍵對調 (Swap) 規格
+為提供快速對帳與流暢的轉帳體驗，帳戶資金互轉彈窗提供獨立分類篩選與一鍵帳戶對調機制：
+1. **來源與目的帳戶獨立分類篩選列**：
+   - 於扣款（來源）與存入（目的）下拉選單上方，分別提供手繪馬卡龍風格的分類膠囊按鈕列：`全部 ✨`、`現金 💵`、`銀行 🏦`、`信用卡 💳` 與 `票證 🎫`。
+   - **動態類別感知**：系統自動讀取使用者的隱藏帳戶設定 (`hiddenAccountTypes`)，並僅動態呈現目前帳本內「存在有效帳戶」的類別標籤，杜絕空分類按鈕。
+   - **切換自動選取與精準連動**：當使用者切換分類標籤時，若當前選取的帳戶不在該分類內，自動智慧切換為該分類的第一個帳戶；點開下拉選單時，選項亦自動限定於該分類帳戶。
+2. **一鍵快速對調帳戶 (Swap)**：
+   - 於來源帳戶與目的帳戶區間配置 `⇅ 對調帳戶` 按鈕，點擊時原子交換兩側的選取帳戶 ID，並同步校正兩側所屬的分類標籤選取狀態，免去手動重複挑選之繁瑣。
+3. **超輕量 RWD 適配**：
+   - 標籤列採用 22px 緊湊高度，即使在小螢幕手機上亦無需縱向滾動即可完整操作金額、手續費、備註與送出按鈕。
 
 ### 3.2 信用卡帳單週期與分期攤還演算法
 
@@ -426,3 +436,27 @@ ledgers/
    - **核心方案**：優先使用 `getActivity().startActivity(intent)` 喚起安裝程序，並在 FileProvider 中額外補全了 `<files-path>` 設定（對應 `context.getFilesDir()`），保證安裝 Intent 的喚起率與相容性達到 100%。
 3. **UI 異常回饋閉環**：
    - 當背景下載失敗或原生端發生任何權限 reject 錯誤時，Web 端將拋出錯誤並透過馬卡龍自訂 Alert 彈窗顯式告知使用者失敗原因，確保優秀的互動透明度。
+
+---
+
+## 7. 自動化記帳邊緣 API (Edge API) 與開放整合規範
+
+為支援 AI Agent、iOS 捷徑、Webhook 及第三方服務進行無人化、高可靠度的自動記帳，系統在維持 Zero Host（0 主機伺服器費用）原則下，於 `cloudflare-worker/` 提供邊緣運算 API。
+
+### 7.1 核心架構與邊緣鑑權 (Token-to-User)
+1. **Google Service Account 簽署**：Worker 於邊緣快取 Google OAuth2 Access Token，直接透過 Firestore REST API `commit` 端點發送原子批次事務，不載入肥大 Firebase SDK。
+2. **Token-to-User 邊緣身分防護**：
+   - 每位家庭成員或 AI Agent 獲發獨立 API Token（例如 `Authorization: Bearer <TOKEN>`）。
+   - Cloudflare Worker 記憶體中的 `DODO_API_USERS` 字典將 Token 嚴格映射至特定成員（包含 `userId`、`name`、`avatar`），呼叫端完全無法篡改記帳人身分，並可隨時獨立吊銷單一 Token。
+
+### 7.2 交易原子性與餘額防漂移保證
+當呼叫 `POST /api/transactions`、`PUT /api/transactions/{id}` 或 `DELETE /api/transactions/{id}` 時：
+1. **單一 Commit 批次**：Worker 同時將「新增/更新/刪除 Transaction 文件」、「以 `transform.increment` 增減對應 Account 餘額」以及「追加 SystemLog 稽核日誌」打包於單一 Firestore `commit` 請求。
+2. **零餘額漂移**：若資料庫任何一步操作失敗，整體事務全數回滾，杜絕傳統多步 HTTP 造成的金額失準。
+3. **模糊名稱智慧匹配**：支援呼叫端傳入常用簡稱（如傳「現金」自動匹配至「倫現金」），降低 AI Agent 或捷徑輸入之難度。
+
+### 7.3 開放標準與文件索引
+- **OpenAPI 3.1 規範**：隨 Web 構建發布至 `public/api-spec.json`，供 GPT Actions、LangChain、n8n 一鍵匯入。
+- **AI 檢索標準**：發布 `public/llms.txt`，供各類 LLM Agent 即時檢索專案 API 上下文。
+- **詳細技術手冊**：完整 API 規格、參數定義與錯誤碼請參閱 [`API.md`](./API.md)。
+

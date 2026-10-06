@@ -88,7 +88,9 @@
   - `android/app/src/main/res/drawable-*`
 
 ### 1.5 UI 元件原則
-- 禁止使用原生 `select`、`alert`、`confirm` 等瀏覽器原生 UI。
+- 禁止使用原生 `select`、`alert`、`confirm` 以及數字輸入欄位 `<input type="number">` 等瀏覽器原生 UI。
+- 金額輸入一律使用全站共用計算機元件 `src/components/AmountCalculator.vue`，支援常駐內嵌 (`inline: true`) 與果凍抽屜彈出 (`inline: false`) 模式；抽屜模式透過 Teleport 掛載於頂層，具備「X 放棄還原」與「OK 結算更新」之防呆機制。
+- 多層彈窗 (Nested Modals) 隔離：全站彈窗本體全面監聽 `@click.stop`、`@mousedown.stop` 與 `@touchstart.stop`，確保彈窗內喚起計算機抽屜時，點擊外部關閉事件不會穿透底層父級彈窗。
 - 一律使用自製 SFC + 馬卡龍配色 + Jelly 動畫。自訂選單（例如 `src/components/AccountDropdown.vue`）必須支援 RWD 寬度適配，當帳戶名稱過長時自動透過 `text-overflow: ellipsis` 進行「...」截斷，且與金額採上下雙行排版，防範手機畫面擠壓跑版。
 - 全域 Dialog：
   - Confirm：`src/composables/useConfirm.ts` + `<CuteConfirmDialog />`

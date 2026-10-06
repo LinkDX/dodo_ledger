@@ -25,16 +25,34 @@
 * **剔除原生 HTML `<select>`**：編輯明細彈窗中的「支付帳戶」與「存入帳戶」下拉選單，重構為 100% 自訂的馬卡龍色果凍風下拉選單，支援精緻 Emoji 頭像與 click-outside 自動關閉。
 * **乾淨備註設計**：新增記帳且沒有輸入備註時，系統不再自動填入分類名稱作為預設備註，直接留空，讓帳目更加乾淨純粹。
 
-### 4. 💳 信用卡帳單（整合於我的錢包）
-* 支援「額度當下全扣，分月攤還」嚴謹分期邏輯、未出帳/已出帳單自動歸屬、結帳日繳款日管理，以及一鍵扣繳連動還款交易。信用卡繳清後，明細會自動標記亮麗的「✓ 已繳清」馬卡龍綠 jelly 標籤。
+### 4. 🧮 全站共用金額計算機 (AmountCalculator)
+* **徹底告別原生數字鍵盤**：全站全數淘汰原生 HTML 數字輸入欄位，全面改由自製果凍風金額計算機 `AmountCalculator.vue` 取代，徹底解決行動裝置軟體鍵盤遮擋按鈕與版面擠壓問題。
+* **安全四則運算解析器**：支援加減乘除（乘除優先級、括號運算防護），提供即時算式展示與動態金額試算。
+* **雙模式無縫整合**：
+  * **常駐內嵌模式 (`inline: true`)**：應用於首頁記帳主表單，維持直覺的 5x4 果凍按鈕面板。
+  * **果凍抽屜彈出模式 (`inline: false`)**：廣泛應用於編輯明細彈窗、新增/編輯帳戶、資金帳戶互轉與系統總預算設定。透過 `<Teleport to="#app">` 以高層級 Bottom Sheet 彈出，並具備「X 放棄還原」與「OK 結算更新」的防呆保護。
 
-### 5. 👁️ 淨資產隱藏保護
+### 5. 💳 信用卡帳單（整合於我的錢包）
+* 支援「額度當下全扣，分月攤還」嚴謹分期邏輯、未出帳/已出帳單自動歸屬、結帳日繳款日管理，以及一鍵扣繳連動還款交易。信用卡繳清後，明細會自動標記亮麗的「✓ 已繳清」馬卡龍綠 jelly 標籤。
+* **帳戶資金互轉多類別篩選與一鍵對調**：在「我的錢包」資金互轉彈窗中，來源與目的帳戶配備獨立的手繪膠囊分類標籤（現金、銀行、信用卡、票證），支援空類別動態過濾與自動切換；配備 `⇅ 對調帳戶` 按鈕，點擊即可秒級互換兩側帳戶。
+
+### 6. 🚪 全站彈窗一致化體驗與事件隔離防護
+* **統一遮罩點擊關閉**：全站所有對話框（我的錢包各操作彈窗、明細編輯彈窗、成就徽章牆、密碼鎖等）全面支援 `@click.self` 點擊外部遮罩流暢關閉，並配備標準圓形右上角 X 關閉鈕。
+* **多層彈窗 (Nested Modals) 事件隔離**：在彈窗內叫出計算機抽屜時，全面透過事件截斷 (`@click.stop`、`@mousedown.stop`、`@touchstart.stop`) 防止點擊外部連帶關閉底層彈窗，確保層級分明。
+
+### 7. 🤖 Zero Host 邊緣自動記帳 API & AI Agent 整合
+* **Serverless 零主機成本**：基於 Cloudflare Workers + Google Service Account + Firestore REST API Commit 批次事務，在零伺服器維護成本下提供每日 100,000 次免費邊緣記帳。
+* **Token-to-User 邊緣身分防護**：API Bearer Token 直接於 Cloudflare 邊緣記憶體綁定成員身分（暱稱與頭像），杜絕外部呼叫冒名篡改，並支援即時撤銷。
+* **完整 CRUD 原子性**：呼叫端可進行記帳、調閱歷史明細、原子修正交易與刪除回退，餘額即時自動同步加減，絕無金額漂移。
+* **開放規格相容**：提供 OpenAPI 3.1 規範 (`public/api-spec.json`) 與 AI 索引標準 (`public/llms.txt`)，開箱即用支援 GPT Actions、Claude、Antigravity、n8n 與 iOS 捷徑。詳細整合方式請參閱 [API.md](file:///root/code/playground/dodo_ledger/API.md)。
+
+### 8. 👁️ 淨資產隱藏保護
 * 首頁資產看板支援一鍵「眼睛」開關 (Eye / EyeOff)，隱藏時所有敏感帳戶餘額、資產與負債將安全顯示為 `***`，且隱藏狀態會經由 `localStorage` 自動記憶。
 
-### 6. 🔄 雙資料存取與多本地身分隔離
+### 9. 🔄 雙資料存取與多本地身分隔離
 * 預設免登入、免填寫金鑰，支援多個本地身分隨時切換（包含自訂名字與逗逗貓頭像，資料在 LocalStorage 中以 `userId` 為 Key 隔離分流獨立儲存），隨時可在設定中輸入 Firebase 設定一鍵備份升級至雲端多人並發同步。
 
-### 7. 🤖 Android 原生深度打包與熱更新系統
+### 10. 🤖 Android 原生深度打包與熱更新系統
 * **📲 一鍵自動化 APK 建置**：專案根目錄內置了自癒式建置腳本 `./build-apk.sh`。此腳本具備環境自動偵測與自癒修復能力，會自動安裝與配置 JDK 17 編譯環境，完成 Web 專案打包、同步至 Android 原生 Gradle 專案，並自動產出發布用的 Release 正式版 APK 到 `build-artifacts/dodo-ledger-v{version}.apk`。
 * **🔄 雙緩衝自建熱更新 (Live Updates) 引擎**：在不依賴第三方付費服務的前提下，獨立設計並實作了靜默式熱更新機制。App 在啟動時會於背景比對 GitHub Pages 上的 `version.json`，自動下載並解壓縮 `app-update.zip` 至沙盒目錄，並在使用者下一次啟動時無感套用，且具備斷網時的優雅降級保護與 Zip Slip 路徑穿越安全防護。
 * **🔏 SharedPreferences 原生安全鎖**：利用 Capacitor 提供的持久化機制，實現了 SharedPreferences 等級的 App 密碼解鎖狀態儲存。App 滑掉重開免重複輸入密碼；手動鎖定或於設定頁變更密碼時立即安全重設。
@@ -84,6 +102,14 @@
 ./view-logs
 ```
 
+### 6. 🤖 部署自動記帳邊緣 API (AI Agent / iOS 捷徑)
+若需啟用外部服務、iOS 捷徑或 AI Agent (Claude / GPTs / Antigravity) 自動記帳：
+1. 參閱 [API.md](file:///root/code/playground/dodo_ledger/API.md) 了解完整的端點規格與 Token 驗證機制。
+2. 進入 `cloudflare-worker/` 目錄並參考 [cloudflare-worker/README.md](file:///root/code/playground/dodo_ledger/cloudflare-worker/README.md) 一鍵部署至 Cloudflare Workers。
+3. 線上機器可讀規範：
+   * OpenAPI 3.1 規範：`public/api-spec.json` (或線上 `https://<your-domain>/api-spec.json`)
+   * AI 索引標準：`public/llms.txt`
+
 ---
 
 ## 🧪 自動化測試與 CI/CD
@@ -105,10 +131,12 @@
 ├── .github/workflows/     # GitHub Actions CI/CD 設定 (含自動化 Web 與 Android APK 雙管線)
 ├── android/               # Capacitor 生成之 Android 原生 Gradle 專案
 ├── build-artifacts/       # APK 建置產物輸出目錄
+├── cloudflare-worker/     # Zero Host 邊緣自動記帳 API Worker 專案 (Serverless)
+├── public/                # 靜態資源、圖示、OpenAPI (api-spec.json) 與 llms.txt
 ├── scripts/               # 專案準備與構建自動化腳本
 ├── src/
 │   ├── assets/            # 靜態資源 (馬卡龍配色插畫、Dodo 圖標等)
-│   ├── components/        # UI 元件 (DodoCat, Dashboard, AccountManager 等)
+│   ├── components/        # UI 元件 (DodoCat, AmountCalculator, AccountManager 等)
 │   ├── composables/       # 全域狀態管理與業務邏輯 (含 useLedger.ts、useLiveUpdates.ts 等)
 │   ├── services/          # 資料存取層 (db.ts，LocalStorage 與 Firebase 雙核心)
 │   ├── types/             # TypeScript 類型定義
@@ -121,6 +149,7 @@
 ├── run.sh                 # 一鍵啟動/重啟腳本
 ├── deploy.sh              # 一鍵打包部署腳本
 ├── view-logs              # 雲端日誌財務稽核拉取工具
+├── API.md                 # 邊緣自動記帳 API 規格與 AI Agent 整合手冊
 ├── SPEC.md                # 系統規格與演算法定義文件
 ├── SPEC_ANDROID.md        # Android 行動端專屬規格與熱更新機制文件
 ├── SPEC_CONFLICT_RESOLUTION.md # 多人並發衝突解決策略規格書
