@@ -140,8 +140,9 @@ const getCatEmojiByName = (catName: string) => {
 </script>
 
 <template>
-  <Transition name="fade-page">
-    <div v-if="show" class="map-modal-backdrop" @click="emit('close')">
+  <Teleport to="body">
+    <Transition name="fade-page">
+      <div v-if="show" class="map-modal-backdrop" @click="emit('close')">
       <div class="map-modal-container card-jelly pop-jelly" @click.stop>
         <!-- 頂部導航列 -->
         <div class="modal-header">
@@ -258,7 +259,7 @@ const getCatEmojiByName = (catName: string) => {
           <span class="rules-count-text">
             已建立 <strong>{{ rulesList.length }}</strong> 筆分類帳戶對應規則
           </span>
-          <span class="rules-hint-text">💡 點選右側帳戶可直接切換</span>
+          <span class="rules-hint-text">💡 點選帳戶可直接切換</span>
         </div>
 
         <!-- 規則列表滾動區塊 -->
@@ -280,29 +281,40 @@ const getCatEmojiByName = (catName: string) => {
             <div 
               v-for="rule in rulesList" 
               :key="rule.key" 
-              class="rule-item-card card-jelly"
+              class="rule-item-card"
             >
-              <!-- 左側：分類標籤 -->
-              <div class="rule-cat-info">
-                <span class="rule-cat-emoji">{{ getCatEmojiByName(rule.category) }}</span>
-                <div class="rule-cat-texts">
-                  <div class="rule-main-cat">{{ rule.category }}</div>
-                  <div v-if="rule.subCategory" class="rule-sub-cat">
-                    <span class="sub-arrow">↳</span> {{ rule.subCategory }}
-                  </div>
-                  <div v-else class="rule-sub-all">
-                    (全分類通用)
+              <!-- 行 1（手機）/ 左半（桌面）：分類標籤 + 手機專用刪除按鈕 -->
+              <div class="rule-header-row">
+                <div class="rule-cat-info">
+                  <span class="rule-cat-emoji">{{ getCatEmojiByName(rule.category) }}</span>
+                  <div class="rule-cat-texts">
+                    <div class="rule-main-cat">{{ rule.category }}</div>
+                    <div v-if="rule.subCategory" class="rule-sub-cat">
+                      <span class="sub-arrow">↳</span> {{ rule.subCategory }}
+                    </div>
+                    <div v-else class="rule-sub-all">
+                      (全分類通用)
+                    </div>
                   </div>
                 </div>
+
+                <!-- 手機右上角獨立刪除按鈕 -->
+                <button 
+                  class="btn-jelly btn-delete-rule mobile-only-del" 
+                  @click="handleDeleteRule(rule.key)" 
+                  type="button"
+                  title="刪除此規則"
+                >
+                  <Trash2 :size="16" />
+                </button>
               </div>
 
-              <!-- 中間箭頭 -->
-              <!-- 中間箭頭 -->
-              <div class="rule-arrow-divider">
+              <!-- 桌面中間箭頭 -->
+              <div class="rule-arrow-divider desktop-only-arrow">
                 <ArrowRight :size="16" class="icon-arrow" />
               </div>
 
-              <!-- 右側：帳戶選擇 -->
+              <!-- 行 2（手機）/ 右半（桌面）：帳戶選擇 -->
               <div class="rule-dropdown-wrapper">
                 <AccountDropdown 
                   :model-value="rule.accountId" 
@@ -311,9 +323,9 @@ const getCatEmojiByName = (catName: string) => {
                 />
               </div>
 
-              <!-- 最右側獨立刪除按鈕 (垂直直線對齊) -->
+              <!-- 桌面最右側獨立刪除按鈕 (垂直直線對齊) -->
               <button 
-                class="btn-jelly btn-delete-rule" 
+                class="btn-jelly btn-delete-rule desktop-only-del" 
                 @click="handleDeleteRule(rule.key)" 
                 type="button"
                 title="刪除此規則"
@@ -333,6 +345,7 @@ const getCatEmojiByName = (catName: string) => {
       </div>
     </div>
   </Transition>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -342,9 +355,10 @@ const getCatEmojiByName = (catName: string) => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(61, 43, 31, 0.45);
+  background-color: rgba(61, 43, 31, 0.55);
   backdrop-filter: blur(4px);
-  z-index: 9999;
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 100000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -371,6 +385,7 @@ const getCatEmojiByName = (catName: string) => {
   padding: 14px 18px;
   background-color: #FFFDF9;
   border-bottom: 1.5px solid var(--color-border, #E8D8C8);
+  flex-shrink: 0;
 }
 
 .btn-back-header,
@@ -421,18 +436,19 @@ const getCatEmojiByName = (catName: string) => {
 }
 
 .intro-banner {
-  margin: 12px 16px 8px;
+  margin: 8px 16px 6px;
   background-color: #FFFDF9;
   border: 1.5px solid #F0DFCE;
-  border-radius: 16px;
-  padding: 10px 14px;
+  border-radius: 14px;
+  padding: 8px 12px;
   display: flex;
-  gap: 10px;
-  align-items: flex-start;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .intro-icon {
-  font-size: 22px;
+  font-size: 20px;
   line-height: 1;
 }
 
@@ -441,23 +457,21 @@ const getCatEmojiByName = (catName: string) => {
 }
 
 .intro-text {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--color-text-dark, #3D2B1F);
-  line-height: 1.5;
-  margin: 0 0 4px 0;
+  line-height: 1.4;
+  margin: 0;
 }
 
 .intro-subtext {
-  font-size: 11px;
-  color: var(--color-text-muted, #8C7A6B);
-  line-height: 1.4;
-  margin: 0;
+  display: none; /* 精簡化：避免佔用過多手機空間 */
 }
 
 .modal-actions-bar {
   display: flex;
   gap: 8px;
-  padding: 8px 16px;
+  padding: 6px 16px;
+  flex-shrink: 0;
 }
 
 .btn-tool-primary {
@@ -523,6 +537,7 @@ const getCatEmojiByName = (catName: string) => {
   border: 1.5px dashed var(--color-income, #7AC74F);
   border-radius: 18px;
   padding: 12px 14px;
+  flex-shrink: 0;
 }
 
 .add-panel-header {
@@ -664,19 +679,27 @@ const getCatEmojiByName = (catName: string) => {
 .rules-list-container {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .rule-item-card {
+  margin: 0 !important;
   background-color: #FFFDF9;
   border: 1.5px solid var(--color-border, #E8D8C8);
-  border-radius: 16px;
-  padding: 10px 14px;
+  border-radius: 12px;
+  padding: 6px 10px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
   box-sizing: border-box;
+  box-shadow: 0 2px 4px rgba(61, 43, 31, 0.04);
+}
+
+.rule-header-row {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .rule-cat-info {
@@ -764,9 +787,17 @@ const getCatEmojiByName = (catName: string) => {
   color: var(--color-expense, #E06D53);
 }
 
-.btn-delete-rule:hover {
-  background-color: #FFEBE8;
-  color: var(--color-expense, #E06D53);
+/* 預設隱藏手機刪除鍵，顯示桌面版 */
+.mobile-only-del {
+  display: none !important;
+}
+
+.desktop-only-del {
+  display: flex !important;
+}
+
+.desktop-only-arrow {
+  display: flex !important;
 }
 
 .modal-footer {
@@ -775,6 +806,7 @@ const getCatEmojiByName = (catName: string) => {
   background-color: #FFFDF9;
   display: flex;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .btn-footer-close {
@@ -787,6 +819,132 @@ const getCatEmojiByName = (catName: string) => {
   font-size: 13px;
   font-weight: 800;
   cursor: pointer;
+}
+
+/* 📱 手機 RWD 排版 (窄螢幕全螢幕適配與卡片雙行結構) */
+@media (max-width: 600px) {
+  .map-modal-backdrop {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .map-modal-container {
+    max-width: 100%;
+    width: 100%;
+    height: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .modal-header {
+    padding: 12px 14px;
+  }
+
+  .intro-banner {
+    margin: 8px 12px 6px;
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .intro-icon {
+    font-size: 18px;
+  }
+
+  .intro-text {
+    font-size: 11px;
+    line-height: 1.4;
+    margin-bottom: 2px;
+  }
+
+  .intro-subtext {
+    font-size: 10px;
+  }
+
+  .modal-actions-bar {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 6px 12px;
+  }
+
+  .btn-tool-primary {
+    flex: 1 1 calc(50% - 4px);
+    font-size: 12px;
+    padding: 8px 6px;
+  }
+
+  .btn-tool-secondary {
+    flex: 1 1 calc(50% - 4px);
+    font-size: 12px;
+    padding: 8px 6px;
+  }
+
+  .btn-tool-danger {
+    flex: 1 1 100%;
+    padding: 6px 10px;
+    font-size: 12px;
+    justify-content: center;
+  }
+
+  .rules-header-summary {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 6px 14px 4px;
+    font-size: 11px;
+  }
+
+  .rules-scroll-area {
+    padding: 6px 12px 14px;
+  }
+
+  /* 規則卡片手機雙行模式：上行分類與刪除，下行滿寬選單 */
+  .rule-item-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    padding: 6px 8px;
+    border-radius: 10px;
+    margin: 0 !important;
+  }
+
+  .rule-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .rule-cat-info {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    flex: 1;
+  }
+
+  .desktop-only-arrow {
+    display: none !important;
+  }
+
+  .desktop-only-del {
+    display: none !important;
+  }
+
+  .mobile-only-del {
+    display: flex !important;
+  }
+
+  .rule-dropdown-wrapper {
+    width: 100%;
+    flex: none;
+  }
+
+  .modal-footer {
+    padding: 10px 14px;
+  }
 }
 
 /* 動畫 */

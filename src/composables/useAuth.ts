@@ -79,7 +79,10 @@ const profiles = ref<UserProfile[]>([])
 const currentProfile = ref<UserProfile | null>(null)
 const isLoading = ref(true)
 
-// 載入所有身分列表 (從資料庫拉取，並向後相容本地 localStorage)
+// 訂閱清理函式
+let profilesUnsubscribe: (() => void) | null = null
+
+// 載入所有身分列表 (從資料庫拉取，並向後相容本地 localStorage，並建立雲端即時同步監聽)
 const loadProfiles = async () => {
   isLoading.value = true
   const dbService = getDatabaseService()
@@ -117,6 +120,28 @@ const loadProfiles = async () => {
   } else {
     currentProfile.value = null
   }
+
+  // 🔒 訂閱雲端 Profiles 集合即時變更（支援多裝置自動同步成員設定與分類對應）
+  if (!profilesUnsubscribe && dbService.subscribeCollection) {
+    profilesUnsubscribe = dbService.subscribeCollection<UserProfile>('profiles', (remoteProfiles) => {
+      if (remoteProfiles && remoteProfiles.length > 0) {
+        const isDiff = JSON.stringify(remoteProfiles) !== JSON.stringify(profiles.value)
+        if (isDiff) {
+          console.log('[Dodo Ledger] 👥 偵測到雲端 Profiles 更新，已自動同步成員與設定！')
+          profiles.value = remoteProfiles
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(remoteProfiles))
+          }
+          if (currentProfile.value) {
+            const found = remoteProfiles.find(p => p.id === currentProfile.value?.id)
+            if (found) {
+              currentProfile.value = found
+            }
+          }
+        }
+      }
+    })
+  }
   
   isLoading.value = false
 }
@@ -150,6 +175,15 @@ const createProfile = async (name: string, avatar: string): Promise<UserProfile>
   }
   
   profiles.value.push(newProfile)
+  
+  const dbService = getDatabaseService()
+  try {
+    if (dbService.addDocument) {
+      await dbService.addDocument('profiles', newProfile)
+    }
+  } catch (e) {
+    console.error('[Dodo Ledger] 原子新增 Profile 失敗：', e)
+  }
   await saveProfiles()
   
   // 自動登入為新建立的身分
@@ -185,7 +219,7 @@ const logout = () => {
   }
 }
 
-// 更新設定 (支援預算變更日誌)
+// 更新設定 (支援預算變更日誌與雲端原子同步)
 const updateProfileSettings = async (newSettings: Partial<UserSettings>) => {
   if (!currentProfile.value) return
   
@@ -200,6 +234,19 @@ const updateProfileSettings = async (newSettings: Partial<UserSettings>) => {
   const idx = profiles.value.findIndex(p => p.id === currentProfile.value?.id)
   if (idx !== -1) {
     profiles.value[idx] = currentProfile.value
+    
+    // 雲端原子更新此成員設定，防止覆蓋其他裝置
+    const dbService = getDatabaseService()
+    try {
+      if (dbService.updateDocument) {
+        await dbService.updateDocument<UserProfile>('profiles', currentProfile.value.id, {
+          settings: currentProfile.value.settings
+        })
+      }
+    } catch (e) {
+      console.error('[Dodo Ledger] 原子更新 Profile 設定失敗：', e)
+    }
+
     await saveProfiles()
     
     if (isBudgetChanged) {
