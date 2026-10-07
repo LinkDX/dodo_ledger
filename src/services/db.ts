@@ -86,17 +86,26 @@ export class MockDatabaseService implements DatabaseService {
   private PROFILES_KEY = 'dodo_ledger_shared_profiles'
   private LOGS_KEY = 'dodo_ledger_shared_logs'
   private CAT_PROFILE_PREFIX = 'dodo_ledger_cat_profile_'
+  private memoryStore = new Map<string, string>()
 
   private readKey<T>(key: string): T[] {
-    if (typeof localStorage === 'undefined') return []
-    const data = localStorage.getItem(key)
+    let data: string | null = null
+    if (typeof localStorage !== 'undefined') {
+      data = localStorage.getItem(key)
+    } else {
+      data = this.memoryStore.get(key) || null
+    }
     if (!data) return []
     try { return JSON.parse(data) } catch { return [] }
   }
 
   private writeKey<T>(key: string, value: T[]): void {
-    if (typeof localStorage === 'undefined') return
-    localStorage.setItem(key, JSON.stringify(value))
+    const json = JSON.stringify(value)
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(key, json)
+    } else {
+      this.memoryStore.set(key, json)
+    }
   }
 
   async getAccounts(): Promise<Account[]> { return this.readKey(this.ACCOUNTS_KEY) }
@@ -118,17 +127,34 @@ export class MockDatabaseService implements DatabaseService {
   async saveLogs(logs: SystemLog[]): Promise<void> { this.writeKey(this.LOGS_KEY, logs) }
 
   async getCatProfile(userId: string): Promise<DodoCatProfile | null> {
-    if (typeof localStorage === 'undefined') return null
-    const data = localStorage.getItem(this.CAT_PROFILE_PREFIX + userId)
+    const key = this.CAT_PROFILE_PREFIX + userId
+    let data: string | null = null
+    if (typeof localStorage !== 'undefined') {
+      data = localStorage.getItem(key)
+    } else {
+      data = this.memoryStore.get(key) || null
+    }
     if (!data) return null
     try { return JSON.parse(data) } catch { return null }
   }
   async saveCatProfile(userId: string, profile: DodoCatProfile): Promise<void> {
-    if (typeof localStorage === 'undefined') return
-    localStorage.setItem(this.CAT_PROFILE_PREFIX + userId, JSON.stringify(profile))
+    const key = this.CAT_PROFILE_PREFIX + userId
+    const json = JSON.stringify(profile)
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(key, json)
+    } else {
+      this.memoryStore.set(key, json)
+    }
   }
   subscribeCatProfile(_userId: string, _callback: (profile: DodoCatProfile) => void): () => void {
     return () => {} // 本地模式暫不支援即時監聽
+  }
+
+  clearAllData(): void {
+    this.memoryStore.clear()
+    if (typeof localStorage !== 'undefined') {
+      localStorage.clear()
+    }
   }
 
   // ─── 多人防衝突原子操作 API（本地模式以模擬實作） ───

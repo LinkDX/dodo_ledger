@@ -1,12 +1,17 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useAuth } from '../src/composables/useAuth'
 import { useLedger } from '../src/composables/useLedger'
+import { getDatabaseService } from '../src/services/db'
 
-describe.skip('🐱 逗逗貓吉祥物情緒、陪伴對話與互動成就測試 (SPEC 3.4)', () => {
-  beforeEach(() => {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.clear()
-    }
+describe('🐱 逗逗貓吉祥物情緒、陪伴對話與互動成就測試 (SPEC 3.4)', () => {
+  beforeEach(async () => {
+    const db = getDatabaseService() as any
+    if (db.clearAllData) db.clearAllData()
+    const auth = useAuth()
+    await auth.reloadProfiles()
+    const ledger = useLedger()
+    ledger.clearLedgerData()
+    ledger.clearTemporaryMood()
   })
 
   it('1. 預算比例推算吉祥物心情 (dodoCatMood)：無預算或超支時情緒切換', async () => {
@@ -28,6 +33,7 @@ describe.skip('🐱 逗逗貓吉祥物情緒、陪伴對話與互動成就測試
     })
 
     // 支出 0 元：預算比 0% ➔ 快樂 (happy)
+    ledger.clearTemporaryMood()
     expect(ledger.budgetRatio.value).toBe(0)
     expect(ledger.dodoCatMood.value).toBe('happy')
 
@@ -41,6 +47,7 @@ describe.skip('🐱 逗逗貓吉祥物情緒、陪伴對話與互動成就測試
       note: '聚餐',
       tags: []
     })
+    ledger.clearTemporaryMood()
     expect(ledger.budgetRatio.value).toBe(0.6)
     expect(ledger.dodoCatMood.value).toBe('nervous')
 
@@ -54,6 +61,7 @@ describe.skip('🐱 逗逗貓吉祥物情緒、陪伴對話與互動成就測試
       note: '買新衣服',
       tags: []
     })
+    ledger.clearTemporaryMood()
     expect(ledger.budgetRatio.value).toBe(0.9)
     expect(ledger.dodoCatMood.value).toBe('scared')
 
@@ -67,6 +75,7 @@ describe.skip('🐱 逗逗貓吉祥物情緒、陪伴對話與互動成就測試
       note: '看演唱會',
       tags: []
     })
+    ledger.clearTemporaryMood()
     expect(ledger.budgetRatio.value).toBe(1.1)
     expect(ledger.dodoCatMood.value).toBe('crying')
   })
@@ -82,10 +91,10 @@ describe.skip('🐱 逗逗貓吉祥物情緒、陪伴對話與互動成就測試
     expect(ledger.catProfile.value).not.toBeNull()
     const initialPets = ledger.catProfile.value?.stats.totalPets || 0
 
-    // 進行撫摸 (pet) 互動
+    // 進行撫摸 (pet) 互動 (深夜時段可能揉眼 sleeping，其他時段 happy)
     await ledger.interactWithCat('pet')
     expect(ledger.catProfile.value?.stats.totalPets).toBe(initialPets + 1)
-    expect(ledger.temporaryMood.value).toBe('happy')
+    expect(['happy', 'sleeping']).toContain(ledger.temporaryMood.value)
     expect(ledger.temporarySpeech.value).toBeTruthy()
 
     // 進行逗貓棒 (play_teaser) 互動
@@ -106,20 +115,11 @@ describe.skip('🐱 逗逗貓吉祥物情緒、陪伴對話與互動成就測試
     await ledger.loadLedgerData()
 
     // 建立現金帳戶 (正資產) 與信用卡 (初始 0 負債)
-    await ledger.addAccount({
+    const bank = await ledger.addAccount({
       name: '存款',
       type: 'bank',
       balance: 100000,
       icon: 'Landmark',
-      color: '#fff',
-      currency: 'TWD'
-    })
-
-    const card = await ledger.addAccount({
-      name: '信用卡',
-      type: 'credit_card',
-      balance: 0,
-      icon: 'CreditCard',
       color: '#fff',
       currency: 'TWD'
     })
@@ -129,7 +129,7 @@ describe.skip('🐱 逗逗貓吉祥物情緒、陪伴對話與互動成就測試
       type: 'expense',
       amount: 1000,
       category: '餐飲',
-      fromAccountId: card.id,
+      fromAccountId: bank.id,
       date: Date.now(),
       note: '輕食午餐',
       tags: []
@@ -138,5 +138,7 @@ describe.skip('🐱 逗逗貓吉祥物情緒、陪伴對話與互動成就測試
     const unlocked = ledger.catProfile.value?.unlockedAchievementIds || []
     // 預算消耗低於 10% 觸發【省錢達人】(saver_10)
     expect(unlocked).toContain('saver_10')
+    // 且無信用卡負債且淨資產為正 觸發【無債一身輕】(zero_debt)
+    expect(unlocked).toContain('zero_debt')
   })
 })

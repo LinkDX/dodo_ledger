@@ -181,6 +181,8 @@ export function useLedger() {
     categories.value = []
     triggeredReports.value = []
     catProfile.value = null
+    temporaryMood.value = null
+    temporarySpeech.value = null
     isDataLoaded.value = false
   }
 
@@ -652,10 +654,14 @@ export function useLedger() {
     }
 
     // 🔒 原子寫入：交易文件 + 帳戶餘額增減在同一批次完成
-    atomicWriteTransactionWithBalance(
-      [{ type: 'addTransaction', transaction: newTx }],
-      deltas
-    ).catch(e => console.error('[Dodo Ledger] 原子寫入交易與餘額失敗：', e))
+    try {
+      await atomicWriteTransactionWithBalance(
+        [{ type: 'addTransaction', transaction: newTx }],
+        deltas
+      )
+    } catch (e) {
+      console.error('[Dodo Ledger] 原子寫入交易與餘額失敗：', e)
+    }
 
 
 
@@ -1438,6 +1444,13 @@ export function useLedger() {
 
 
 
+  const clearTemporaryMood = () => {
+    if (interactionTimeoutId) clearTimeout(interactionTimeoutId)
+    temporaryMood.value = null
+    temporarySpeech.value = null
+    interactionTimeoutId = null
+  }
+
   const resetTemporaryState = () => {
     if (interactionTimeoutId) clearTimeout(interactionTimeoutId)
     interactionTimeoutId = setTimeout(() => {
@@ -1508,6 +1521,8 @@ export function useLedger() {
     
     loadLedgerData,
     clearLedgerData,
+    resetTemporaryState,
+    clearTemporaryMood,
     
     addTransaction,
     deleteTransaction,
