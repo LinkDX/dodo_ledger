@@ -180,8 +180,9 @@ const getCatEmojiByName = (catName: string) => {
             @click="openAddPanel" 
             :disabled="isAddingRule"
             type="button"
+            title="新增自訂對應規則"
           >
-            <Plus :size="16" /> 新增自訂綁定
+            <Plus :size="16" /> 新增綁定
           </button>
           
           <button 
@@ -189,9 +190,10 @@ const getCatEmojiByName = (catName: string) => {
             @click="handleExtractFromHistory" 
             :disabled="isExtracting"
             type="button"
+            title="從記帳歷史一鍵學習"
           >
             <RotateCw :size="16" :class="{ 'spin-anim': isExtracting }" /> 
-            {{ isExtracting ? '正在分析中...' : '從記帳歷史一鍵學習' }}
+            {{ isExtracting ? '分析中...' : '一鍵學習' }}
           </button>
 
           <button 
@@ -199,7 +201,7 @@ const getCatEmojiByName = (catName: string) => {
             class="btn-jelly btn-tool-danger" 
             @click="handleClearAll"
             type="button"
-            title="清空所有規則"
+            title="清空所有對應規則"
           >
             <Trash2 :size="16" /> 清空
           </button>
@@ -453,45 +455,51 @@ const getCatEmojiByName = (catName: string) => {
 
 .modal-actions-bar {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 6px 16px;
   flex-shrink: 0;
 }
 
 .btn-tool-primary {
-  flex: 1.2;
+  flex: 1;
+  min-width: 0;
   background-color: var(--color-income, #7AC74F);
   color: #fff;
   border: none;
-  padding: 8px 12px;
+  padding: 8px 10px;
   border-radius: 14px;
   font-size: 13px;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
   cursor: pointer;
+  white-space: nowrap;
   box-shadow: 0 3px 6px rgba(122, 199, 79, 0.3);
 }
 
 .btn-tool-secondary {
-  flex: 1.5;
+  flex: 1;
+  min-width: 0;
   background-color: #FFE6A7;
   color: #7B4B00;
   border: none;
-  padding: 8px 12px;
+  padding: 8px 10px;
   border-radius: 14px;
   font-size: 13px;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .btn-tool-danger {
+  flex-shrink: 0;
   background-color: #FFEBE8;
   color: var(--color-expense, #E06D53);
   border: none;
@@ -502,7 +510,27 @@ const getCatEmojiByName = (catName: string) => {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   cursor: pointer;
+  white-space: nowrap;
+}
+
+@media (max-width: 380px) {
+  .modal-actions-bar {
+    gap: 6px;
+    padding: 6px 12px;
+  }
+  .btn-tool-primary,
+  .btn-tool-secondary {
+    padding: 7px 6px;
+    font-size: 12px;
+    gap: 4px;
+  }
+  .btn-tool-danger {
+    padding: 7px 8px;
+    font-size: 12px;
+    gap: 3px;
+  }
 }
 
 .spin-anim {
