@@ -1101,8 +1101,12 @@ export function useLedger() {
       isActive: true
     }
     recurringTransactions.value.push(newRec)
-    syncRecurring().catch(e => console.error('[Dodo Ledger] 同步週期記帳失敗：', e))
-    checkAndTriggerRecurring().catch(e => console.error('[Dodo Ledger] 檢查週期記帳失敗：', e))
+    try {
+      await syncRecurring()
+      await checkAndTriggerRecurring()
+    } catch (e) {
+      console.error('[Dodo Ledger] 處理新增週期記帳失敗：', e)
+    }
 
     // 解鎖週期自動記帳成就 (貓咪保險箱)
     unlockAchievement('cat_vault', '貓咪保險箱', '成功建立並啟用至少一個「週期性自動記帳」設定項目。')

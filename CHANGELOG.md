@@ -2,6 +2,20 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Web 2.8.2] - 2026-10-07
+
+### 🌐 統一 Web 與 Mobile 平台卡片自適應排版、刪除確認提示與單元測試套件擴充 (Web 端更新)
+- **跨平台一致性體驗 (Unified Web & Mobile Adaptive Layout)**：
+  - 響應使用者反饋「在 Web 的頁面樣式不應該跟手機有不同，同樣頁面應該可以適應各平台」，徹底重構分類對應彈窗（`CategoryAccountMapModal.vue`）之版面結構。
+  - 移除平台割裂的 `desktop-only` / `mobile-only` 與小螢幕全螢幕強制覆寫，全端一律採用自適應上下雙層卡片結構（首行：分類 Emoji + 主分類 + ↳ 子分類標籤，右上角獨立刪除按鈕；次行：100% 滿寬帳戶下拉選單）。
+  - 無論在桌面寬螢幕、平板還是手機端，外觀、圓角、線框、間距與排版 100% 一致並自適應視窗。
+- **刪除綁定防誤觸確認提示置頂保障**：
+  - 將全域 Dialog（`CuteConfirmDialog.vue` / `CuteAlertDialog.vue`）層級提升至 `z-index: 999999`，點擊解除綁定垃圾桶時，可愛確認對話框確保置頂於所有彈窗本體最前方，提供明確二次確認防誤觸反饋。
+- **後台服務測試環境相容性強化**：
+  - 修復 `MockDatabaseService` 中吉祥物個人檔案存取方法在 Node/Vitest 測試環境下缺少 `localStorage` 守衛的 ReferenceError，確保單元測試在各環境無縫執行。
+- **單元測試套件全面補齊**：
+  - 補齊新增分類層級級聯更新（`categoryCascade.test.ts`）、分期攤還演算法（`installment.test.ts`）、週期性記帳（`recurring.test.ts`）、使用者驗證與權限（`useAuth.test.ts`）等單元測試，已累計通過 59+ 項測試。
+
 ## [Web 2.8.1] - 2026-10-06
 
 ### 📱 分類預設帳戶綁定支援手機端雙行 RWD 適配、緊湊排版、全域確認提示修復與多裝置雲端即時同步 (Web 端更新)

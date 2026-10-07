@@ -118,11 +118,13 @@ export class MockDatabaseService implements DatabaseService {
   async saveLogs(logs: SystemLog[]): Promise<void> { this.writeKey(this.LOGS_KEY, logs) }
 
   async getCatProfile(userId: string): Promise<DodoCatProfile | null> {
+    if (typeof localStorage === 'undefined') return null
     const data = localStorage.getItem(this.CAT_PROFILE_PREFIX + userId)
     if (!data) return null
     try { return JSON.parse(data) } catch { return null }
   }
   async saveCatProfile(userId: string, profile: DodoCatProfile): Promise<void> {
+    if (typeof localStorage === 'undefined') return
     localStorage.setItem(this.CAT_PROFILE_PREFIX + userId, JSON.stringify(profile))
   }
   subscribeCatProfile(_userId: string, _callback: (profile: DodoCatProfile) => void): () => void {

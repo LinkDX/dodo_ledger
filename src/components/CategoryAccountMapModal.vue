@@ -7,7 +7,6 @@ import { useConfirm } from '../composables/useConfirm'
 import { useAlert } from '../composables/useAlert'
 import { 
   Target, 
-  ArrowRight, 
   Trash2, 
   Plus, 
   RotateCw, 
@@ -283,38 +282,33 @@ const getCatEmojiByName = (catName: string) => {
               :key="rule.key" 
               class="rule-item-card"
             >
-              <!-- 行 1（手機）/ 左半（桌面）：分類標籤 + 手機專用刪除按鈕 -->
+              <!-- 上層：分類資訊與刪除按鈕 -->
               <div class="rule-header-row">
                 <div class="rule-cat-info">
                   <span class="rule-cat-emoji">{{ getCatEmojiByName(rule.category) }}</span>
                   <div class="rule-cat-texts">
-                    <div class="rule-main-cat">{{ rule.category }}</div>
-                    <div v-if="rule.subCategory" class="rule-sub-cat">
+                    <span class="rule-main-cat">{{ rule.category }}</span>
+                    <span v-if="rule.subCategory" class="rule-sub-cat">
                       <span class="sub-arrow">↳</span> {{ rule.subCategory }}
-                    </div>
-                    <div v-else class="rule-sub-all">
+                    </span>
+                    <span v-else class="rule-sub-all">
                       (全分類通用)
-                    </div>
+                    </span>
                   </div>
                 </div>
 
-                <!-- 手機右上角獨立刪除按鈕 -->
+                <!-- 統一刪除按鈕 -->
                 <button 
-                  class="btn-jelly btn-delete-rule mobile-only-del" 
+                  class="btn-jelly btn-delete-rule" 
                   @click.stop="handleDeleteRule(rule.key)" 
                   type="button"
-                  title="刪除此規則"
+                  title="解除此對應規則"
                 >
                   <Trash2 :size="16" />
                 </button>
               </div>
 
-              <!-- 桌面中間箭頭 -->
-              <div class="rule-arrow-divider desktop-only-arrow">
-                <ArrowRight :size="16" class="icon-arrow" />
-              </div>
-
-              <!-- 行 2（手機）/ 右半（桌面）：帳戶選擇 -->
+              <!-- 下層：全寬帳戶選單 -->
               <div class="rule-dropdown-wrapper">
                 <AccountDropdown 
                   :model-value="rule.accountId" 
@@ -322,16 +316,6 @@ const getCatEmojiByName = (catName: string) => {
                   @update:model-value="(newId) => handleChangeAccount(rule.category, rule.subCategory, newId)"
                 />
               </div>
-
-              <!-- 桌面最右側獨立刪除按鈕 (垂直直線對齊) -->
-              <button 
-                class="btn-jelly btn-delete-rule desktop-only-del" 
-                @click.stop="handleDeleteRule(rule.key)" 
-                type="button"
-                title="刪除此規則"
-              >
-                <Trash2 :size="16" />
-              </button>
             </div>
           </div>
         </div>
@@ -367,11 +351,11 @@ const getCatEmojiByName = (catName: string) => {
 
 .map-modal-container {
   width: 100%;
-  max-width: 620px;
-  max-height: 92vh;
+  max-width: 460px;
+  max-height: 90vh;
   background-color: var(--color-bg-warm, #FFF8EC);
-  border: 2px solid var(--color-border, #E8D8C8);
-  border-radius: 24px;
+  border: var(--border-width, 2.5px) solid var(--color-border, #2C1E1B);
+  border-radius: 20px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -682,15 +666,17 @@ const getCatEmojiByName = (catName: string) => {
   gap: 6px;
 }
 
+/* 🌟 全平台統一規則卡片結構 (Web 與 Mobile 100% 一致) */
 .rule-item-card {
   margin: 0 !important;
   background-color: #FFFDF9;
   border: 1.5px solid var(--color-border, #E8D8C8);
   border-radius: 12px;
-  padding: 6px 10px;
+  padding: 8px 12px;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
   width: 100%;
   box-sizing: border-box;
   box-shadow: 0 2px 4px rgba(61, 43, 31, 0.04);
@@ -699,17 +685,16 @@ const getCatEmojiByName = (catName: string) => {
 .rule-header-row {
   display: flex;
   align-items: center;
-  flex-shrink: 0;
+  justify-content: space-between;
+  width: 100%;
 }
 
 .rule-cat-info {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 120px;
-  min-width: 120px;
-  max-width: 120px;
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
 }
 
@@ -720,50 +705,41 @@ const getCatEmojiByName = (catName: string) => {
 
 .rule-cat-texts {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
   overflow: hidden;
+  flex-wrap: wrap;
 }
 
 .rule-main-cat {
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 800;
   color: var(--color-text-dark, #3D2B1F);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .rule-sub-cat {
   font-size: 11px;
   font-weight: 700;
   color: #C26300;
+  background-color: #FFF4E5;
+  padding: 1px 6px;
+  border-radius: 6px;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .sub-arrow {
-  color: var(--color-text-muted);
+  color: #C26300;
 }
 
 .rule-sub-all {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--color-text-muted, #8C7A6B);
 }
 
-.rule-arrow-divider {
-  color: var(--color-text-muted, #B09F90);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  flex-shrink: 0;
-}
-
 .rule-dropdown-wrapper {
-  flex: 1;
-  min-width: 0;
+  width: 100%;
 }
 
 .btn-delete-rule {
@@ -787,17 +763,8 @@ const getCatEmojiByName = (catName: string) => {
   color: var(--color-expense, #E06D53);
 }
 
-/* 預設隱藏手機刪除鍵，顯示桌面版 */
-.mobile-only-del {
-  display: none !important;
-}
-
-.desktop-only-del {
-  display: flex !important;
-}
-
-.desktop-only-arrow {
-  display: flex !important;
+.btn-delete-rule:active {
+  transform: scale(0.9);
 }
 
 .modal-footer {
@@ -819,132 +786,6 @@ const getCatEmojiByName = (catName: string) => {
   font-size: 13px;
   font-weight: 800;
   cursor: pointer;
-}
-
-/* 📱 手機 RWD 排版 (窄螢幕全螢幕適配與卡片雙行結構) */
-@media (max-width: 600px) {
-  .map-modal-backdrop {
-    padding: 0;
-    align-items: stretch;
-  }
-
-  .map-modal-container {
-    max-width: 100%;
-    width: 100%;
-    height: 100%;
-    max-height: 100vh;
-    border-radius: 0;
-    border: none;
-    box-shadow: none;
-    padding-top: env(safe-area-inset-top, 0px);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-
-  .modal-header {
-    padding: 12px 14px;
-  }
-
-  .intro-banner {
-    margin: 8px 12px 6px;
-    padding: 8px 10px;
-    gap: 8px;
-  }
-
-  .intro-icon {
-    font-size: 18px;
-  }
-
-  .intro-text {
-    font-size: 11px;
-    line-height: 1.4;
-    margin-bottom: 2px;
-  }
-
-  .intro-subtext {
-    font-size: 10px;
-  }
-
-  .modal-actions-bar {
-    flex-wrap: wrap;
-    gap: 6px;
-    padding: 6px 12px;
-  }
-
-  .btn-tool-primary {
-    flex: 1 1 calc(50% - 4px);
-    font-size: 12px;
-    padding: 8px 6px;
-  }
-
-  .btn-tool-secondary {
-    flex: 1 1 calc(50% - 4px);
-    font-size: 12px;
-    padding: 8px 6px;
-  }
-
-  .btn-tool-danger {
-    flex: 1 1 100%;
-    padding: 6px 10px;
-    font-size: 12px;
-    justify-content: center;
-  }
-
-  .rules-header-summary {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
-    padding: 6px 14px 4px;
-    font-size: 11px;
-  }
-
-  .rules-scroll-area {
-    padding: 6px 12px 14px;
-  }
-
-  /* 規則卡片手機雙行模式：上行分類與刪除，下行滿寬選單 */
-  .rule-item-card {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 4px;
-    padding: 6px 8px;
-    border-radius: 10px;
-    margin: 0 !important;
-  }
-
-  .rule-header-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-  }
-
-  .rule-cat-info {
-    width: auto;
-    min-width: 0;
-    max-width: none;
-    flex: 1;
-  }
-
-  .desktop-only-arrow {
-    display: none !important;
-  }
-
-  .desktop-only-del {
-    display: none !important;
-  }
-
-  .mobile-only-del {
-    display: flex !important;
-  }
-
-  .rule-dropdown-wrapper {
-    width: 100%;
-    flex: none;
-  }
-
-  .modal-footer {
-    padding: 10px 14px;
-  }
 }
 
 /* 動畫 */
