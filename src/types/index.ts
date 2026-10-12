@@ -47,6 +47,7 @@ export interface CreditCardDetails {
   billingCycleDate: number;     // 每月結帳日 (1-31)
   paymentDueDate: number;       // 每月繳款日 (1-31)
   linkedBankAccountId?: string; // 可綁定自動扣繳的銀行帳戶
+  customBillAmounts?: Record<string, number>; // 自訂各月份帳單應繳金額 (例如 '2026-09': 15000)
 }
 
 // 帳戶本體

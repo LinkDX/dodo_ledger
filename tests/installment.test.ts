@@ -179,4 +179,99 @@ describe('💳 信用卡分期付款核心演算法測試 (SPEC 3.2.1)', () => {
     // 第 3 期：2027-02
     expect(txs[2].creditCardDetails?.billPeriod).toBe('2027-02')
   })
+
+  it('4. 結帳日 27 號之跨月出帳週期推算：8/28~9/27 歸屬 10 月帳單，9/28~10/27 歸屬 11 月帳單', async () => {
+    const auth = useAuth()
+    const ledger = useLedger()
+
+    const user = await auth.createProfile('結帳日27測試者', '🐱')
+    auth.switchProfile(user.id)
+    await ledger.loadLedgerData()
+
+    // 結帳日 27 號，繳款日 12 號 (paymentDueDate < billingCycleDate 跨月出帳)
+    const card = await ledger.addAccount({
+      name: '中信信用卡',
+      type: 'credit_card',
+      balance: 0,
+      icon: 'CreditCard',
+      color: '#00B894',
+      currency: 'TWD',
+      cardDetails: { creditLimit: 50000, billingCycleDate: 27, paymentDueDate: 12 }
+    })
+
+    // 8 月 28 號消費 -> 9/27 結帳 -> 歸屬 2026-10 帳單
+    const d1 = new Date('2026-08-28T12:00:00Z').getTime()
+    expect(ledger.getBillPeriodForCard(card.id, d1)).toBe('2026-10')
+
+    // 9 月 15 號消費 -> 9/27 結帳 -> 歸屬 2026-10 帳單
+    const d2 = new Date('2026-09-15T12:00:00Z').getTime()
+    expect(ledger.getBillPeriodForCard(card.id, d2)).toBe('2026-10')
+
+    // 9 月 27 號消費 (結帳日當天) -> 9/27 結帳 -> 歸屬 2026-10 帳單
+    const d3 = new Date('2026-09-27T12:00:00Z').getTime()
+    expect(ledger.getBillPeriodForCard(card.id, d3)).toBe('2026-10')
+
+    // 9 月 28 號消費 (已過結帳日) -> 10/27 結帳 -> 歸屬 2026-11 帳單
+    const d4 = new Date('2026-09-28T12:00:00Z').getTime()
+    expect(ledger.getBillPeriodForCard(card.id, d4)).toBe('2026-11')
+
+    // 10 月 27 號消費 -> 10/27 結帳 -> 歸屬 2026-11 帳單
+    const d5 = new Date('2026-10-27T12:00:00Z').getTime()
+    expect(ledger.getBillPeriodForCard(card.id, d5)).toBe('2026-11')
+  })
+
+  it('5. 支援自訂帳單金額與無明細歷史月份手動銷帳', async () => {
+    const auth = useAuth()
+    const ledger = useLedger()
+
+    const user = await auth.createProfile('銷帳測試者', '🐱')
+    auth.switchProfile(user.id)
+    await ledger.loadLedgerData()
+
+    // 建立銀行帳戶與信用卡
+    const bank = await ledger.addAccount({
+      name: '薪轉銀行',
+      type: 'bank',
+      balance: 100000,
+      icon: 'Landmark',
+      color: '#0984E3',
+      currency: 'TWD'
+    })
+
+    const card = await ledger.addAccount({
+      name: '富邦信用卡',
+      type: 'credit_card',
+      balance: 0,
+      icon: 'CreditCard',
+      color: '#6C5CE7',
+      currency: 'TWD',
+      cardDetails: { creditLimit: 50000, billingCycleDate: 27, paymentDueDate: 12 }
+    })
+
+    // 使用者 10 月才開始記帳，9 月帳單 (2026-09) 無任何消費明細
+    // 1) 測試手動自訂 9 月帳單應繳金額為 15,000 元
+    await ledger.setCustomBillAmount(card.id, '2026-09', 15000)
+    const cardUpdated = ledger.accounts.value.find(a => a.id === card.id)
+    expect(cardUpdated?.cardDetails?.customBillAmounts?.['2026-09']).toBe(15000)
+
+    // 2) 執行銷帳扣款：從銀行帳戶扣除 15,000 元
+    await ledger.payCreditCardBill(card.id, bank.id, '2026-09', 15000)
+
+    // 驗證銀行扣款 15,000 (100,000 -> 85,000)
+    const bankAfter = ledger.accounts.value.find(a => a.id === bank.id)
+    expect(bankAfter?.balance).toBe(85000)
+
+    // 驗證信用卡可用額度增加 15,000 (0 -> 15,000)
+    const cardAfter = ledger.accounts.value.find(a => a.id === card.id)
+    expect(cardAfter?.balance).toBe(15000)
+
+    // 驗證產生轉帳還款記錄且帶有 billPeriod
+    const payTx = ledger.transactions.value.find(tx => tx.note?.includes('2026-09 帳單'))
+    expect(payTx).toBeDefined()
+    expect(payTx?.amount).toBe(15000)
+    expect(payTx?.creditCardDetails?.billPeriod).toBe('2026-09')
+
+    // 驗證銷帳扣款後，信用卡自動記憶綁定此扣款銀行帳戶
+    expect(cardAfter?.cardDetails?.linkedBankAccountId).toBe(bank.id)
+  })
 })

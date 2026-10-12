@@ -15,6 +15,7 @@ import {
   Calendar,
   CheckCircle,
   Pencil,
+  RotateCcw,
   GripVertical,
   X,
   Eye
@@ -37,6 +38,7 @@ const {
   reorderAccounts,
   addTransaction,
   payCreditCardBill,
+  setCustomBillAmount,
   getBillPeriodForCard,
   getCreditCardBillPeriod
 } = useLedger()
@@ -95,6 +97,7 @@ const selectedColorIdx = ref(0)
 const creditLimit = ref<number>(50000)
 const billingCycleDate = ref<number>(10)
 const paymentDueDate = ref<number>(25)
+const linkedBankAccountId = ref<string>('')
 
 // 帳戶互轉表單狀態
 const fromAccountId = ref('')
@@ -198,6 +201,7 @@ const editType = ref('cash')
 const editCreditLimit = ref<number>(50000)
 const editBillingCycleDate = ref<number>(10)
 const editPaymentDueDate = ref<number>(25)
+const editLinkedBankAccountId = ref<string>('')
 
 const toggleAddModal = () => {
   showAddModal.value = !showAddModal.value
@@ -210,6 +214,7 @@ const toggleAddModal = () => {
     creditLimit.value = 50000
     billingCycleDate.value = 10
     paymentDueDate.value = 25
+    linkedBankAccountId.value = ''
   }
 }
 
@@ -240,10 +245,12 @@ const openEditModal = (acct: Account) => {
     editCreditLimit.value = acct.cardDetails.creditLimit
     editBillingCycleDate.value = acct.cardDetails.billingCycleDate
     editPaymentDueDate.value = acct.cardDetails.paymentDueDate
+    editLinkedBankAccountId.value = acct.cardDetails.linkedBankAccountId || ''
   } else {
     editCreditLimit.value = 50000
     editBillingCycleDate.value = 10
     editPaymentDueDate.value = 25
+    editLinkedBankAccountId.value = ''
   }
   
   showEditModal.value = true
@@ -266,10 +273,13 @@ const handleSaveEdit = async () => {
   }
   
   if (editType.value === 'credit_card') {
+    const origAcct = accounts.value.find(a => a.id === editingAcctId.value)
     updateData.cardDetails = {
+      ...(origAcct?.cardDetails || {}),
       creditLimit: Number(editCreditLimit.value) || 50000,
       billingCycleDate: Number(editBillingCycleDate.value) || 10,
-      paymentDueDate: Number(editPaymentDueDate.value) || 25
+      paymentDueDate: Number(editPaymentDueDate.value) || 25,
+      linkedBankAccountId: editLinkedBankAccountId.value || undefined
     }
   }
   
@@ -296,7 +306,8 @@ const handleAddAccount = async () => {
     acctData.cardDetails = {
       creditLimit: Number(creditLimit.value) || 50000,
       billingCycleDate: Number(billingCycleDate.value) || 10,
-      paymentDueDate: Number(paymentDueDate.value) || 25
+      paymentDueDate: Number(paymentDueDate.value) || 25,
+      linkedBankAccountId: linkedBankAccountId.value || undefined
     }
   }
 
@@ -374,6 +385,31 @@ const initCreditDefaults = () => {
 
 const activeCard = computed(() => creditCards.value.find(a => a.id === selectedCardId.value))
 
+const billingCycleRangeText = computed(() => {
+  if (!activeCard.value?.cardDetails || !selectedPeriod.value) return ''
+  const [yStr, mStr] = selectedPeriod.value.split('-')
+  const billYear = parseInt(yStr, 10)
+  const billMonth = parseInt(mStr, 10) - 1 // 0-indexed
+  const cycleDate = activeCard.value.cardDetails.billingCycleDate
+  const dueDate = activeCard.value.cardDetails.paymentDueDate
+
+  const isNextMonth = (dueDate !== undefined && dueDate > 0)
+    ? (dueDate < cycleDate)
+    : (cycleDate >= 16)
+
+  const cycleYear = isNextMonth ? (billMonth === 0 ? billYear - 1 : billYear) : billYear
+  const cycleMonth = isNextMonth ? (billMonth === 0 ? 11 : billMonth - 1) : billMonth
+
+  const prevMonth = cycleMonth === 0 ? 11 : cycleMonth - 1
+  const prevYear = cycleMonth === 0 ? cycleYear - 1 : cycleYear
+
+  const startDate = new Date(prevYear, prevMonth, cycleDate + 1)
+  const endDate = new Date(cycleYear, cycleMonth, cycleDate)
+
+  const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`
+  return `${fmt(startDate)} ~ ${fmt(endDate)}`
+})
+
 const billPeriods = computed(() => {
   const periods = new Set<string>()
 
@@ -417,24 +453,85 @@ const billedTransactions = computed(() => {
     })
 })
 
-const billTotalAmount = computed(() =>
+const rawBilledTotal = computed(() =>
   billedTransactions.value.reduce((sum, tx) => sum + tx.amount, 0)
 )
 
+const paymentsForSelectedPeriod = computed(() => {
+  if (!selectedCardId.value || !selectedPeriod.value) return []
+  return transactions.value.filter(tx =>
+    tx.type === 'transfer' &&
+    tx.toAccountId === selectedCardId.value &&
+    (tx.creditCardDetails?.billPeriod === selectedPeriod.value ||
+     tx.note?.includes(`繳納信用卡 ${selectedPeriod.value} 帳單`))
+  )
+})
+
+const paidAmount = computed(() =>
+  paymentsForSelectedPeriod.value.reduce((sum, tx) => sum + tx.amount, 0)
+)
+
+const hasCustomAmount = computed(() => {
+  return activeCard.value?.cardDetails?.customBillAmounts?.[selectedPeriod.value] !== undefined
+})
+
+const billTotalAmount = computed(() => {
+  if (hasCustomAmount.value) {
+    return activeCard.value!.cardDetails!.customBillAmounts![selectedPeriod.value]
+  }
+  return rawBilledTotal.value
+})
+
+const remainingDueAmount = computed(() => {
+  return Math.max(0, billTotalAmount.value - paidAmount.value)
+})
+
+const isBillPaid = computed(() => {
+  if (paidAmount.value <= 0) return false
+  return paidAmount.value >= billTotalAmount.value
+})
+
 const bankAccounts = computed(() => accounts.value.filter(a => a.type === 'bank' || a.type === 'cash'))
 
+// 調整帳單金額彈窗狀態
+const showEditBillAmountModal = ref(false)
+const tempBillAmount = ref<number | ''>(0)
+
+const openEditBillAmount = () => {
+  tempBillAmount.value = billTotalAmount.value
+  showEditBillAmountModal.value = true
+}
+
+const handleSaveCustomAmount = async (val: number) => {
+  if (!selectedCardId.value || !selectedPeriod.value) return
+  await setCustomBillAmount(selectedCardId.value, selectedPeriod.value, val)
+  showEditBillAmountModal.value = false
+}
+
+const handleResetCustomAmount = async () => {
+  if (!selectedCardId.value || !selectedPeriod.value) return
+  await setCustomBillAmount(selectedCardId.value, selectedPeriod.value, null)
+}
+
+// 銷帳還款彈窗狀態
 const showPayModal = ref(false)
 const linkedBankId = ref('')
+const customPayAmount = ref<number | ''>(0)
 
-const openPayModal = () => {
-  if (billTotalAmount.value <= 0) return
+const openPayModal = (suggestedAmount?: number) => {
   linkedBankId.value = activeCard.value?.cardDetails?.linkedBankAccountId || bankAccounts.value[0]?.id || ''
+  const target = suggestedAmount !== undefined
+    ? suggestedAmount
+    : (remainingDueAmount.value > 0 ? remainingDueAmount.value : billTotalAmount.value)
+  customPayAmount.value = target > 0 ? target : ''
   showPayModal.value = true
 }
 
 const handlePayBill = async () => {
   if (!selectedCardId.value || !linkedBankId.value || !selectedPeriod.value) return
-  await payCreditCardBill(selectedCardId.value, linkedBankId.value, selectedPeriod.value)
+  const payVal = typeof customPayAmount.value === 'number' ? customPayAmount.value : 0
+  if (payVal <= 0) return
+  await payCreditCardBill(selectedCardId.value, linkedBankId.value, selectedPeriod.value, payVal)
   showPayModal.value = false
 }
 
@@ -733,6 +830,9 @@ const onAcctDrop = async (targetAcct: Account) => {
             </div>
             <div class="card-details-small">
               結帳 {{ acct.cardDetails?.billingCycleDate }} 號 · 繳款 {{ acct.cardDetails?.paymentDueDate }} 號
+              <span v-if="acct.cardDetails?.linkedBankAccountId" class="card-linked-bank">
+                · 銷帳綁定: {{ accounts.find(a => a.id === acct.cardDetails?.linkedBankAccountId)?.name || '已綁定' }}
+              </span>
             </div>
           </div>
           <div v-else class="general-balance" :class="{ 'negative-val': acct.balance < 0 }">
@@ -767,14 +867,45 @@ const onAcctDrop = async (targetAcct: Account) => {
         <!-- 當期帳單狀態看板 -->
         <div class="bill-status-board card-jelly" :class="activeCard?.color">
           <div class="board-top">
-            <span class="board-period-badge">
-              <Calendar :size="12" /> {{ selectedPeriod }} 帳單
-            </span>
+            <div class="board-badges-left">
+              <span class="board-period-badge">
+                <Calendar :size="12" /> {{ selectedPeriod }} 帳單
+              </span>
+              <span v-if="billingCycleRangeText" class="board-cycle-badge">
+                週期 {{ billingCycleRangeText }}
+              </span>
+            </div>
             <span class="board-due-date">每月 {{ activeCard?.cardDetails?.paymentDueDate }} 號截止</span>
           </div>
           <div class="board-amount-section">
-            <span class="amount-label">本期應繳總額</span>
+            <div class="amount-header-row">
+              <span class="amount-label">本期應繳總額</span>
+              <div class="custom-amount-actions">
+                <span v-if="hasCustomAmount" class="badge-custom-tag">自訂</span>
+                <button 
+                  v-if="hasCustomAmount" 
+                  class="btn-reset-amount btn-jelly" 
+                  @click="handleResetCustomAmount" 
+                  title="還原為明細計算"
+                  type="button"
+                >
+                  <RotateCcw :size="11" /> 還原
+                </button>
+                <button 
+                  class="btn-edit-amount btn-jelly" 
+                  @click="openEditBillAmount" 
+                  title="調整此期帳單金額"
+                  type="button"
+                >
+                  <Pencil :size="11" /> 調整金額
+                </button>
+              </div>
+            </div>
             <h2 class="amount-value">${{ formatCurrency(billTotalAmount) }}</h2>
+            <div v-if="paidAmount > 0" class="paid-sub-status">
+              <span class="paid-tag">已繳納 ${{ formatCurrency(paidAmount) }}</span>
+              <span v-if="remainingDueAmount > 0" class="remain-tag">尚餘 ${{ formatCurrency(remainingDueAmount) }}</span>
+            </div>
           </div>
           <div class="board-progress-section">
             <div class="progress-labels">
@@ -795,12 +926,34 @@ const onAcctDrop = async (targetAcct: Account) => {
             </div>
           </div>
           <div class="board-actions">
-            <div v-if="billTotalAmount === 0" class="pay-success-status pop-jelly">
-              <CheckCircle :size="16" class="icon-success" /> 本期已繳清或無消費，棒棒噠！
+            <!-- 情況 1：已繳清 (已銷帳) -->
+            <div v-if="isBillPaid" class="pay-success-status-box pop-jelly">
+              <div class="pay-success-status">
+                <CheckCircle :size="16" class="icon-success" /> 本期已繳清銷帳（已繳 ${{ formatCurrency(paidAmount) }}）
+              </div>
+              <button class="btn-jelly btn-pay-again" @click="openPayModal()">
+                再次繳款 / 補繳
+              </button>
             </div>
-            <button v-else class="btn-jelly btn-pay-bill pop-jelly" @click="openPayModal">
-              一鍵扣款繳納帳單 ➜
+
+            <!-- 情況 2：尚有待繳金額 -->
+            <button 
+              v-else-if="billTotalAmount > 0" 
+              class="btn-jelly btn-pay-bill pop-jelly" 
+              @click="openPayModal()"
+            >
+              一鍵扣款繳納帳單 (銷帳) ➜
             </button>
+
+            <!-- 情況 3：本期明細為 0 且未繳納（剛開始記帳的歷史月份） -->
+            <div v-else class="empty-bill-actions pop-jelly">
+              <div class="empty-bill-tip">
+                <span>🐾 本期尚未有消費明細紀錄</span>
+              </div>
+              <button class="btn-jelly btn-empty-pay" @click="openPayModal(0)" type="button">
+                💳 自訂金額手動銷帳 ➜
+              </button>
+            </div>
           </div>
         </div>
 
@@ -849,31 +1002,79 @@ const onAcctDrop = async (targetAcct: Account) => {
       </div>
     </div>
 
-    <!-- ========== 一鍵還款彈窗 ========== -->
+    <!-- ========== 一鍵還款 / 銷帳彈窗 ========== -->
     <Teleport to="#app">
       <div v-if="showPayModal" class="modal-overlay" @click.self="showPayModal = false">
         <div class="modal-card card-jelly pop-jelly" @click.stop>
           <div class="mascot-pay-header">
             <span class="cat-pop-emoji">🐱</span>
-            <p class="cat-speech-bubble">「喵嗚～主人！本期帳單要從哪一個銀行帳戶扣款繳納呢？」</p>
+            <p class="cat-speech-bubble">「喵嗚～主人！請確認本期欲繳納金額與扣款帳戶～」</p>
           </div>
           <div class="pay-amount-summary">
             <span class="summary-label">繳納帳單月份</span>
             <span class="summary-period">{{ selectedPeriod }} 帳單</span>
-            <h3 class="summary-amount">${{ formatCurrency(billTotalAmount) }}</h3>
           </div>
           <div class="form-group">
-            <label class="label-cute">扣款銀行 / 現金帳戶</label>
+            <label class="label-cute">繳納銷帳金額</label>
+            <AmountCalculator
+              v-model="customPayAmount"
+              title="輸入繳納銷帳金額"
+              placeholder="0"
+              ok-text="確認金額 🐾"
+            />
+          </div>
+          <div class="form-group">
+            <div class="bank-picker-label-row">
+              <label class="label-cute">扣款銀行 / 現金帳戶</label>
+              <span v-if="activeCard?.cardDetails?.linkedBankAccountId && activeCard?.cardDetails?.linkedBankAccountId === linkedBankId" class="badge-remembered">
+                ✓ 已記憶綁定
+              </span>
+            </div>
             <AccountPicker v-model="linkedBankId" :accounts="bankAccounts" />
+            <span class="helper-text-cute">🐾 系統會自動為「{{ activeCard?.name }}」記憶此扣款帳戶，下次銷帳免重選～</span>
           </div>
           <div class="modal-actions">
             <button class="btn-jelly btn-cancel" @click="showPayModal = false">取消</button>
             <button 
               class="btn-jelly btn-confirm-pay" 
-              :disabled="!linkedBankId || bankAccounts.length === 0"
+              :disabled="!linkedBankId || bankAccounts.length === 0 || !customPayAmount || Number(customPayAmount) <= 0"
               @click="handlePayBill"
             >
-              確認扣款還卡費 ➜
+              確認扣款還卡費 (${{ formatCurrency(customPayAmount || 0) }}) ➜
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- ========== 自訂帳單應繳金額彈窗 ========== -->
+    <Teleport to="#app">
+      <div v-if="showEditBillAmountModal" class="modal-overlay" @click.self="showEditBillAmountModal = false">
+        <div class="modal-card card-jelly pop-jelly" @click.stop>
+          <div class="mascot-pay-header">
+            <span class="cat-pop-emoji">📝</span>
+            <div class="cat-speech-bubble">
+              <strong>自訂 {{ selectedPeriod }} 帳單金額</strong><br/>
+              <span style="font-size: 12px; font-weight: normal;">若您甫開始記帳或有前期費用，可直接輸入銀行帳單金額以利銷帳。</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="label-cute">本期實體帳單應繳總額</label>
+            <AmountCalculator
+              v-model="tempBillAmount"
+              title="輸入本期實體帳單金額"
+              placeholder="0"
+              ok-text="完成輸入 🐾"
+              @submit="handleSaveCustomAmount"
+            />
+          </div>
+          <div class="modal-actions">
+            <button class="btn-jelly btn-cancel" @click="showEditBillAmountModal = false">取消</button>
+            <button 
+              class="btn-jelly btn-confirm-save" 
+              @click="handleSaveCustomAmount(Number(tempBillAmount) || 0)"
+            >
+              確認儲存金額 🐾
             </button>
           </div>
         </div>
@@ -943,6 +1144,10 @@ const onAcctDrop = async (targetAcct: Account) => {
                   <label class="label-cute">每月繳款截止日</label>
                   <input v-model="paymentDueDate" type="number" min="1" max="31" placeholder="25" class="input-jelly" />
                 </div>
+              </div>
+              <div class="form-group">
+                <label class="label-cute">預設扣繳/銷帳帳戶（可選）</label>
+                <AccountPicker v-model="linkedBankAccountId" :accounts="bankAccounts" />
               </div>
             </div>
           </Transition>
@@ -1166,6 +1371,10 @@ const onAcctDrop = async (targetAcct: Account) => {
                   <label class="label-cute">每月繳款截止日</label>
                   <input v-model="editPaymentDueDate" type="number" min="1" max="31" placeholder="25" class="input-jelly" />
                 </div>
+              </div>
+              <div class="form-group">
+                <label class="label-cute">預設扣繳/銷帳帳戶（可選）</label>
+                <AccountPicker v-model="editLinkedBankAccountId" :accounts="bankAccounts" />
               </div>
             </div>
           </Transition>
@@ -1476,6 +1685,13 @@ const onAcctDrop = async (targetAcct: Account) => {
   flex-wrap: wrap;
 }
 
+.board-badges-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .board-period-badge {
   display: flex;
   align-items: center;
@@ -1487,28 +1703,111 @@ const onAcctDrop = async (targetAcct: Account) => {
   font-weight: 800;
 }
 
+.board-cycle-badge {
+  background-color: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(44, 30, 27, 0.15);
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--color-text-dark);
+}
+
 .board-due-date {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 800;
 }
 
 .board-amount-section {
   text-align: center;
-  margin: 20px 0;
+  margin: 16px 0 20px 0;
+}
+
+.amount-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  position: relative;
+  flex-wrap: wrap;
 }
 
 .amount-label {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 800;
   color: var(--color-text-muted);
 }
 
-.amount-value {
-  font-size: 44px;
+.custom-amount-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.badge-custom-tag {
+  background-color: var(--color-accent-gold);
+  border: 1px solid var(--color-border);
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
   font-weight: 800;
-  margin-top: 8px;
+  color: var(--color-text-dark);
+}
+
+.btn-reset-amount {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px !important;
+  font-size: 11px;
+  background-color: #FFFFFF !important;
+  border: 1.5px solid var(--color-border);
+  border-radius: 10px;
+  color: var(--color-text-dark);
+}
+
+.btn-edit-amount {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px !important;
+  font-size: 11px;
+  background-color: #FFFFFF !important;
+  border: 1.5px solid var(--color-border);
+  border-radius: 12px;
+  color: var(--color-text-dark);
+}
+
+.amount-value {
+  font-size: 40px;
+  font-weight: 800;
+  margin-top: 6px;
   letter-spacing: -1px;
   line-height: 1;
+}
+
+.paid-sub-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.paid-tag {
+  color: #2C8C67;
+  background-color: rgba(46, 176, 134, 0.15);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.remain-tag {
+  color: var(--color-expense);
+  background-color: rgba(255, 107, 107, 0.12);
+  padding: 2px 8px;
+  border-radius: 10px;
 }
 
 .board-progress-section {
@@ -1532,19 +1831,68 @@ const onAcctDrop = async (targetAcct: Account) => {
 .board-actions {
   display: flex;
   justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pay-success-status-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
 }
 
 .pay-success-status {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 800;
   color: #2C8C67;
   background-color: rgba(46, 176, 134, 0.15);
   border: 1.5px solid #2C8C67;
   padding: 8px 14px;
   border-radius: 20px;
+  width: 100%;
+  text-align: center;
+}
+
+.btn-pay-again {
+  background-color: #FFFFFF !important;
+  padding: 8px 16px !important;
+  font-size: 12px;
+  border-radius: 14px;
+}
+
+.empty-bill-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background-color: rgba(255, 255, 255, 0.5);
+  padding: 12px;
+  border-radius: 16px;
+  border: 1.5px dashed var(--color-border);
+}
+
+.empty-bill-tip {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--color-text-muted);
+}
+
+.btn-empty-pay {
+  width: 100%;
+  background-color: var(--color-accent-gold) !important;
+  padding: 12px 14px !important;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .icon-success { color: #2C8C67; }
@@ -1553,8 +1901,42 @@ const onAcctDrop = async (targetAcct: Account) => {
   width: 100%;
   background-color: #FFFFFF !important;
   padding: 14px !important;
-  font-size: 16px;
+  font-size: 15px;
   letter-spacing: 0.3px;
+}
+
+.btn-confirm-save {
+  background-color: var(--color-accent-gold) !important;
+}
+
+.card-linked-bank {
+  color: var(--color-text-muted);
+  font-weight: 700;
+}
+
+.bank-picker-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.badge-remembered {
+  font-size: 11px;
+  font-weight: 800;
+  color: #2C8C67;
+  background-color: rgba(46, 176, 134, 0.15);
+  border: 1px solid #2C8C67;
+  padding: 1px 7px;
+  border-radius: 10px;
+}
+
+.helper-text-cute {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  margin-top: 5px;
 }
 
 .bill-details-section.card-jelly {

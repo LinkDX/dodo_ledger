@@ -452,26 +452,52 @@ export function useLedger() {
     }
   }
 
-  // 5. 輔助函數：計算信用卡的帳單歸屬月份
-  const calculateBillPeriod = (dateMs: number, billingCycleDate: number): string => {
+  // 5. 輔助函數：計算信用卡的帳單歸屬月份（以帳單出帳/繳款月份為準）
+  const calculateBillPeriod = (dateMs: number, billingCycleDate: number, paymentDueDate?: number): string => {
     const date = new Date(dateMs)
     const y = date.getFullYear()
     const m = date.getMonth()
     const d = date.getDate()
 
-    let targetYear = y
-    let targetMonth = m
+    let cycleYear = y
+    let cycleMonth = m
 
+    // 若消費日已過當月結帳日，落入下個月結帳週期
     if (d > billingCycleDate) {
-      targetMonth += 1
-      if (targetMonth > 11) {
-        targetMonth = 0
-        targetYear += 1
+      cycleMonth += 1
+      if (cycleMonth > 11) {
+        cycleMonth = 0
+        cycleYear += 1
       }
     }
 
-    const finalMonthStr = String(targetMonth + 1).padStart(2, '0')
-    return `${targetYear}-${finalMonthStr}`
+    // 判斷該結帳日對應的繳款/出帳月份是否跨至次月：
+    // 1) 若有指定繳款日 paymentDueDate：
+    //    - 若繳款日小於結帳日（例如結帳 27 號、繳款 12 號或 25 號），表示繳款日跨入次月，帳單月份為結帳月 + 1
+    //    - 若繳款日大於等於結帳日（例如結帳 10 號、繳款 25 號），當月結帳當月繳款，帳單月份為結帳月
+    // 2) 若未指定繳款日：
+    //    - 結帳日 >= 16 號之卡片，銀行免息繳款期必定跨入次月，帳單月份為結帳月 + 1
+    //    - 結帳日 < 16 號之卡片，當月繳款，帳單月份為結帳月
+    let isNextMonthPayment = false
+    if (paymentDueDate !== undefined && paymentDueDate > 0) {
+      isNextMonthPayment = paymentDueDate < billingCycleDate
+    } else {
+      isNextMonthPayment = billingCycleDate >= 16
+    }
+
+    let billYear = cycleYear
+    let billMonth = cycleMonth
+
+    if (isNextMonthPayment) {
+      billMonth += 1
+      if (billMonth > 11) {
+        billMonth = 0
+        billYear += 1
+      }
+    }
+
+    const finalMonthStr = String(billMonth + 1).padStart(2, '0')
+    return `${billYear}-${finalMonthStr}`
   }
 
   const getCreditCardAccount = (accountId?: string) => {
@@ -484,7 +510,11 @@ export function useLedger() {
   const getBillPeriodForCard = (cardId: string, dateMs: number = Date.now()) => {
     const cardAcct = getCreditCardAccount(cardId)
     if (!cardAcct?.cardDetails) return null
-    return calculateBillPeriod(dateMs, cardAcct.cardDetails.billingCycleDate)
+    return calculateBillPeriod(
+      dateMs,
+      cardAcct.cardDetails.billingCycleDate,
+      cardAcct.cardDetails.paymentDueDate
+    )
   }
 
   const getCreditCardBillPeriod = (tx: Pick<Transaction, 'type' | 'fromAccountId' | 'date' | 'creditCardDetails'>) => {
@@ -492,12 +522,18 @@ export function useLedger() {
       return tx.creditCardDetails?.billPeriod || null
     }
 
-    if (tx.creditCardDetails?.billPeriod) {
+    // 分期交易各期數有固定規劃之期數月份，優先使用
+    if (tx.creditCardDetails?.isInstallment && tx.creditCardDetails?.billPeriod) {
       return tx.creditCardDetails.billPeriod
     }
 
-    if (!tx.fromAccountId) return null
-    return getBillPeriodForCard(tx.fromAccountId, tx.date)
+    // 一般信用卡消費，以卡片最新結帳設定動態計算歸屬帳單月份
+    if (tx.fromAccountId) {
+      const dynamicPeriod = getBillPeriodForCard(tx.fromAccountId, tx.date)
+      if (dynamicPeriod) return dynamicPeriod
+    }
+
+    return tx.creditCardDetails?.billPeriod || null
   }
 
   // 6. 記帳核心方法（🔒 原子操作防衝突版本）
@@ -562,7 +598,11 @@ export function useLedger() {
           
           const billDate = new Date(txData.date)
           billDate.setMonth(billDate.getMonth() + (i - 1))
-          const currentBillPeriod = calculateBillPeriod(billDate.getTime(), cardAcct.cardDetails.billingCycleDate)
+          const currentBillPeriod = calculateBillPeriod(
+            billDate.getTime(),
+            cardAcct.cardDetails.billingCycleDate,
+            cardAcct.cardDetails.paymentDueDate
+          )
 
           const installmentTx: Transaction = {
             id: `${txId}_inst_${i}`,
@@ -787,35 +827,94 @@ export function useLedger() {
     }
   }
 
-  // 8. 信用卡一鍵繳款（🔒 原子操作防衝突版本）
-  const payCreditCardBill = async (cardId: string, linkedBankId: string, billPeriod: string) => {
+  // 8. 信用卡自訂帳單金額與一鍵繳款（🔒 原子操作防衝突版本）
+  const setCustomBillAmount = async (cardId: string, billPeriod: string, amount: number | null) => {
+    const cardAcct = accounts.value.find(a => a.id === cardId)
+    if (!cardAcct || cardAcct.type !== 'credit_card' || !cardAcct.cardDetails) return
+
+    const customAmounts = { ...(cardAcct.cardDetails.customBillAmounts || {}) }
+    if (amount === null || amount <= 0) {
+      delete customAmounts[billPeriod]
+    } else {
+      customAmounts[billPeriod] = Math.round(amount)
+    }
+
+    cardAcct.cardDetails.customBillAmounts = customAmounts
+    cardAcct.updatedAt = Date.now()
+
+    await editAccount(cardAcct.id, { cardDetails: cardAcct.cardDetails })
+
+    addSystemLog(
+      currentProfile.value?.name || '系統自動',
+      currentProfile.value?.avatar || '⚙️',
+      'edit_account',
+      `調整信用卡「${cardAcct.name}」${billPeriod} 帳單應繳金額：${amount === null ? '已還原為明細計算' : `自訂為 ${Math.round(amount)} 元`}`
+    ).catch((e: any) => console.error('[Dodo Ledger] 寫入背景日誌失敗：', e))
+  }
+
+  const payCreditCardBill = async (
+    cardId: string, 
+    linkedBankId: string, 
+    billPeriod: string,
+    payAmount?: number
+  ) => {
     const cardAcct = accounts.value.find(a => a.id === cardId)
     const bankAcct = accounts.value.find(a => a.id === linkedBankId)
     
     if (!cardAcct || cardAcct.type !== 'credit_card' || !bankAcct) return
 
-    const billAmount = transactions.value
-      .filter(tx => tx.fromAccountId === cardId && getCreditCardBillPeriod(tx) === billPeriod)
+    const calculatedTotal = transactions.value
+      .filter(tx => tx.type === 'expense' && tx.fromAccountId === cardId && getCreditCardBillPeriod(tx) === billPeriod)
       .reduce((sum, tx) => sum + tx.amount, 0)
 
-    if (billAmount <= 0) return
+    let finalAmount = payAmount ?? cardAcct.cardDetails?.customBillAmounts?.[billPeriod] ?? calculatedTotal
+    finalAmount = Math.round(finalAmount)
+
+    if (finalAmount <= 0) return
 
     // 樂觀更新本地
-    bankAcct.balance -= billAmount
+    bankAcct.balance -= finalAmount
     bankAcct.updatedAt = Date.now()
-    cardAcct.balance += billAmount
+    cardAcct.balance += finalAmount
     cardAcct.updatedAt = Date.now()
+
+    let shouldUpdateCardDetails = false
+    if (!cardAcct.cardDetails) {
+      cardAcct.cardDetails = { creditLimit: 50000, billingCycleDate: 10, paymentDueDate: 25 }
+      shouldUpdateCardDetails = true
+    }
+
+    // 記憶綁定：自動將此銷帳扣款帳戶綁定至該信用卡
+    if (cardAcct.cardDetails.linkedBankAccountId !== linkedBankId) {
+      cardAcct.cardDetails.linkedBankAccountId = linkedBankId
+      shouldUpdateCardDetails = true
+    }
+
+    // 若繳款金額與原本明細總額不同，自動記錄至 customBillAmounts 確保帳單總額與還款銷帳一致
+    if (finalAmount !== calculatedTotal) {
+      cardAcct.cardDetails.customBillAmounts = {
+        ...(cardAcct.cardDetails.customBillAmounts || {}),
+        [billPeriod]: finalAmount
+      }
+      shouldUpdateCardDetails = true
+    }
 
     const payTx: Transaction = {
       id: 'tx_pay_' + Date.now() + Math.random().toString(36).substr(2, 4),
       type: 'transfer',
-      amount: billAmount,
+      amount: finalAmount,
       category: '轉帳',
       fromAccountId: linkedBankId,
       toAccountId: cardId,
       date: Date.now(),
       note: `繳納信用卡 ${billPeriod} 帳單`,
       tags: ['信用卡繳款'],
+      creditCardDetails: {
+        isInstallment: false,
+        installmentTerm: 1,
+        currentInstallment: 1,
+        billPeriod: billPeriod
+      },
       createdBy: currentProfile.value?.name || '系統自動',
       createdByAvatar: currentProfile.value?.avatar || '🐱',
       updatedAt: Date.now()
@@ -826,12 +925,16 @@ export function useLedger() {
     atomicWriteTransactionWithBalance(
       [{ type: 'addTransaction', transaction: payTx }],
       [
-        { accountId: linkedBankId, delta: -billAmount },
-        { accountId: cardId, delta: billAmount }
+        { accountId: linkedBankId, delta: -finalAmount },
+        { accountId: cardId, delta: finalAmount }
       ]
     ).catch(e => console.error('[Dodo Ledger] 原子信用卡還款寫入失敗：', e))
 
-    if (billAmount >= 10000) {
+    if (shouldUpdateCardDetails) {
+      editAccount(cardAcct.id, { cardDetails: cardAcct.cardDetails }).catch((e: any) => console.error('[Dodo Ledger] 更新信用卡綁定帳戶或自訂帳單金額失敗：', e))
+    }
+
+    if (finalAmount >= 10000) {
       unlockAchievement('debt_buster', '負債剋星', '單筆還清信用卡款項超過 TWD $10,000。')
     }
 
@@ -839,7 +942,7 @@ export function useLedger() {
       currentProfile.value?.name || '系統自動',
       currentProfile.value?.avatar || '⚙️',
       'pay_credit_card',
-      `繳納信用卡帳單：帳本「${cardAcct.name}」已使用「${bankAcct.name}」繳納 ${billPeriod} 帳單共 ${billAmount} 元`
+      `繳納信用卡帳單：帳本「${cardAcct.name}」已使用「${bankAcct.name}」繳納 ${billPeriod} 帳單共 ${finalAmount} 元`
     ).catch(e => console.error('[Dodo Ledger] 寫入背景日誌失敗：', e))
   }
 
@@ -1528,6 +1631,7 @@ export function useLedger() {
     deleteTransaction,
     editTransaction,
     payCreditCardBill,
+    setCustomBillAmount,
     getBillPeriodForCard,
     getCreditCardBillPeriod,
     

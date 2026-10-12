@@ -113,7 +113,7 @@ describe('📊 財務統計分析與報表彙總演算法測試 (SPEC 3.5)', () 
       currency: 'TWD',
       cardDetails: {
         billingCycleDate: 28, // 確保目前日期落在當期
-        paymentDueDate: 15,
+        paymentDueDate: 30,
         creditLimit: 50000
       }
     })
