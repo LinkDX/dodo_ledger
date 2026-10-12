@@ -103,6 +103,20 @@ const handleMonthSelect = (month: number) => {
 }
 
 
+// ─── 快速跳轉至今天 ───
+const goToToday = () => {
+  const today = new Date()
+  state.value = {
+    y: today.getFullYear(),
+    m: today.getMonth() + 1,
+    d: today.getDate()
+  }
+  emit_change()
+  isYearSelectOpen.value = false
+  isMonthSelectOpen.value = false
+  isOpen.value = false
+}
+
 const isToday = (d: number | null) => {
   if (!d) return false
   const today = new Date()
@@ -232,9 +246,19 @@ onUnmounted(() => {
           </button>
         </div>
 
-        <!-- 已選日期標示 -->
-        <div class="dp-selected-display">
-          已選：{{ state.y }}/{{ String(state.m).padStart(2,'0') }}/{{ String(state.d).padStart(2,'0') }}
+        <!-- 底部資訊與跳到今天按鈕 -->
+        <div class="dp-footer">
+          <div class="dp-selected-display">
+            已選：{{ state.y }}/{{ String(state.m).padStart(2,'0') }}/{{ String(state.d).padStart(2,'0') }}
+          </div>
+          <button
+            class="dp-today-btn btn-jelly"
+            @click="goToToday"
+            type="button"
+            title="跳到今天"
+          >
+            🐾 跳到今天
+          </button>
         </div>
       </div>
     </transition>
@@ -482,14 +506,48 @@ onUnmounted(() => {
   background-color: var(--color-accent-gold) !important;
 }
 
-.dp-selected-display {
+.dp-footer {
   margin-top: 4px;
-  text-align: center;
+  border-top: 1.5px dashed var(--color-border);
+  padding-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dp-selected-display {
   font-size: 11px;
   font-weight: 800;
   color: var(--color-text-muted);
-  border-top: 1.5px dashed var(--color-border);
-  padding-top: 6px;
+  white-space: nowrap;
+}
+
+.dp-today-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--color-text-dark);
+  background-color: var(--color-bg-warm);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  box-shadow: var(--shadow-jelly-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.dp-today-btn:hover {
+  background-color: #FFFFFF;
+}
+
+.dp-today-btn:active {
+  transform: scale(0.92);
+  box-shadow: var(--shadow-jelly-active);
 }
 
 /* 動畫 */

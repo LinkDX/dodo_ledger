@@ -86,8 +86,8 @@ describe('📜 系統財務與成員變更稽核日誌測試 (GEMINI 3.4)', () =
       }
     })
 
-    const now = new Date()
-    const billPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    const txDate = Date.now()
+    const billPeriod = ledger.getBillPeriodForCard(card.id, txDate) || '2026-05'
 
     // 刷一筆 3,000 元消費生成當期帳單
     await ledger.addTransaction({
@@ -95,7 +95,7 @@ describe('📜 系統財務與成員變更稽核日誌測試 (GEMINI 3.4)', () =
       amount: 3000,
       category: '購物',
       fromAccountId: card.id,
-      date: Date.now(),
+      date: txDate,
       note: '刷卡買日常用品',
       tags: []
     })
