@@ -6,6 +6,7 @@ import { useConfirm } from '../composables/useConfirm'
 import DatePicker from './DatePicker.vue'
 import AmountCalculator from './AmountCalculator.vue'
 import type { Transaction } from '../types'
+import { formatLocalDate, parseLocalDateToTimestamp, isDateToday } from '../utils/date'
 
 const props = defineProps<{
   modelValue: boolean
@@ -64,7 +65,7 @@ watch(() => props.transaction, (tx) => {
   if (tx) {
     editAmount.value = tx.amount
     editNote.value = tx.note || ''
-    editDateStr.value = new Date(tx.date).toISOString().split('T')[0]
+    editDateStr.value = formatLocalDate(tx.date)
     editCategory.value = tx.category
     editSubCategory.value = tx.subCategory || ''
     editFromAccountId.value = tx.fromAccountId || ''
@@ -84,10 +85,14 @@ const handleSave = async () => {
   const amt = Number(editAmount.value)
   if (isNaN(amt) || amt <= 0) return
 
+  const updatedDate = parseLocalDateToTimestamp(editDateStr.value, {
+    preserveCurrentTime: isDateToday(editDateStr.value)
+  })
+
   await editTransaction(props.transaction.id, {
     amount: amt,
     note: editNote.value.trim(),
-    date: new Date(editDateStr.value).getTime(),
+    date: updatedDate,
     category: editCategory.value,
     subCategory: editSubCategory.value || undefined,
     fromAccountId: editFromAccountId.value || undefined,
@@ -98,7 +103,7 @@ const handleSave = async () => {
     ...props.transaction,
     amount: amt,
     note: editNote.value.trim(),
-    date: new Date(editDateStr.value).getTime(),
+    date: updatedDate,
     category: editCategory.value,
     subCategory: editSubCategory.value || undefined,
     fromAccountId: editFromAccountId.value || undefined,

@@ -2,6 +2,24 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Web 2.8.6] - 2026-10-19
+
+### 📅 記帳日期本地時區偏差修復、Tab 切換自動校正與「回到今天」快捷鍵 (Web 端更新)
+- **本地時間精準日期演算 (Local Date Precision & Anti-UTC Shift)**：
+  - 徹底解決原程式碼使用 `new Date().toISOString().split('T')[0]` 導致在台灣等 UTC+8 地區於每日清晨（00:00~07:59）打開記帳時日期錯誤落在「昨天」的重大缺陷。
+  - 建立專屬日期工具模組 `src/utils/date.ts`，提供 `formatLocalDate`、`getTodayLocalDateString`、`getYesterdayLocalDateString`、`isDateToday` 與 `parseLocalDateToTimestamp`，全站統一以使用者本地時區計算年月日。
+- **記帳頁籤切換與喚醒動態校正 (Active Tab & Visibility Sync)**：
+  - 表單常駐元件（`TransactionForm.vue`）新增監聽 `activeTab`，每次切換到記帳分頁且非指定補記日期時，全自動對齊至當前「今天」，徹底解決 App 放至隔天打開仍停留在昨天日期的痛點。
+  - 監聽 `document.visibilitychange`，手機從休眠、後台或螢幕解鎖切回 App 且未輸入金額時，自動校正日期至最新當天。
+  - 記帳送出成功後清空表單，一併將日期自動重設回今天，不殘留上一筆手動挑選的歷史日期。
+- **UI 貼心體驗優化：軟萌「🐾 回到今天」果凍按鈕**：
+  - 當使用者挑選非今天之歷史或未來日期時，記帳日期標籤右側自動彈性浮現可愛的「🐾 回到今天」按鈕（`.btn-reset-today`），隨時可一鍵快速還原至今天。
+- **明細分組與編輯彈窗全面對齊**：
+  - 修復 `TransactionList.vue` 中「今天 🐾」與「昨天」標籤的比對邏輯，杜絕清晨時間標籤錯位問題。
+  - 修復 `TransactionEditModal.vue` 編輯時的日期解析與寫入，避免清晨編輯交易時日期被誤改為前一天。
+- **單元測試套件全面通過 (13 個測試檔 / 全數 77 項測試 100% 通過)**：
+  - 新增 `tests/dateUtil.test.ts` 單元測試，涵蓋各時段、跨日運算、字串與時間戳記解析，確保日期核心邏輯零退化。
+
 ## [Web 2.8.5] - 2026-10-12
 
 ### 💳 信用卡出帳週期演算法修正、自訂帳單應繳金額、手動銷帳與扣款帳戶自動記憶綁定 (Web 端更新)

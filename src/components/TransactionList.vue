@@ -15,6 +15,7 @@ import {
 } from 'lucide-vue-next'
 import MonthYearPicker from './MonthYearPicker.vue'
 import TransactionEditModal from './TransactionEditModal.vue'
+import { getTodayLocalDateString, getYesterdayLocalDateString } from '../utils/date'
 
 const props = defineProps<{
   activeTab?: string
@@ -340,10 +341,8 @@ const groupedTransactions = computed(() => {
     const dateLabel = `${month}月${date}日 星期${dayOfWeek}`
     
     let relativeLabel = ''
-    const todayStr = new Date().toISOString().split('T')[0]
-    const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
-    const yesterdayStr = yesterday.toISOString().split('T')[0]
+    const todayStr = getTodayLocalDateString()
+    const yesterdayStr = getYesterdayLocalDateString()
     
     if (dateStr === todayStr) {
       relativeLabel = '今天 🐾'

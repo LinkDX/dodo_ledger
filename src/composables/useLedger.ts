@@ -5,6 +5,7 @@ import { useAuth } from './useAuth'
 import { useAlert } from './useAlert'
 import { getDatabaseService, addSystemLog } from '../services/db'
 import { DEFAULT_CATEGORIES } from './useAuth'
+import { getTodayLocalDateString, getYesterdayLocalDateString } from '../utils/date'
 
 // 核心響應式狀態 (Singleton 全域共享，維護同一個資產紀錄)
 const accounts = ref<Account[]>([])
@@ -441,7 +442,7 @@ export function useLedger() {
     if (!catProfile.value) return
     const lastInteract = catProfile.value.stats.lastInteractDate
     if (lastInteract) {
-      const todayStr = new Date().toISOString().split('T')[0]
+      const todayStr = getTodayLocalDateString()
       const lastDate = new Date(lastInteract)
       const todayDate = new Date(todayStr)
       const diffTime = Math.abs(todayDate.getTime() - lastDate.getTime())
@@ -1410,7 +1411,7 @@ export function useLedger() {
       }
     }
 
-    const today = new Date().toISOString().split('T')[0]
+    const today = getTodayLocalDateString()
     
     let speech = ''
     let mood: CatMood = 'happy'
@@ -1564,9 +1565,7 @@ export function useLedger() {
   }
 
   const getYesterdayDate = () => {
-    const d = new Date()
-    d.setDate(d.getDate() - 1)
-    return d.toISOString().split('T')[0]
+    return getYesterdayLocalDateString()
   }
 
   const cuteIconsList = [

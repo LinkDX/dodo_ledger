@@ -1,7 +1,12 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useLedger } from '../composables/useLedger'
 import { useCategoryAccountMap } from '../composables/useCategoryAccountMap'
+import { 
+  getTodayLocalDateString, 
+  parseLocalDateToTimestamp,
+  isDateToday 
+} from '../utils/date'
 import type { TransactionType } from '../types'
 import { 
   Check, 
@@ -10,6 +15,10 @@ import {
 } from 'lucide-vue-next'
 import DatePicker from './DatePicker.vue'
 import AccountPicker from './AccountPicker.vue'
+
+const props = defineProps<{
+  activeTab?: string
+}>()
 
 const { 
   accounts, 
@@ -138,7 +147,13 @@ watch(selectedAccountId, (newId) => {
 
 // 6. 其他表單欄位
 const note = ref('')
-const dateStr = ref(new Date().toISOString().split('T')[0]) // 預設今天
+const dateStr = ref(getTodayLocalDateString()) // 預設今天 (本地時間)
+
+const isToday = computed(() => isDateToday(dateStr.value))
+
+const resetDateToToday = () => {
+  dateStr.value = getTodayLocalDateString()
+}
 
 // 監聽來自明細頁面的預填日期請求
 watch(addTxPrefilledDate, (newVal) => {
@@ -147,6 +162,35 @@ watch(addTxPrefilledDate, (newVal) => {
     addTxPrefilledDate.value = null // 消費後立即清空
   }
 }, { immediate: true })
+
+// 監聽 Tab 切換：每次切換到記帳頁面，若無外部指定的補記日期，一律校正為當天
+watch(() => props.activeTab, (newTab) => {
+  if (newTab === 'add') {
+    if (addTxPrefilledDate.value) {
+      dateStr.value = addTxPrefilledDate.value
+      addTxPrefilledDate.value = null
+    } else {
+      dateStr.value = getTodayLocalDateString()
+    }
+  }
+})
+
+// 監聽頁面可見性：自背景恢復且未輸入金額時，自動校正日期至今天
+const handleVisibilityChange = () => {
+  if (document.visibilityState === 'visible') {
+    if (amount.value === 0 && !note.value.trim() && !addTxPrefilledDate.value) {
+      dateStr.value = getTodayLocalDateString()
+    }
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+})
 
 // 快速新增主分類狀態與方法
 const showQuickAddCat = ref(false)
@@ -283,7 +327,7 @@ const handleSubmit = async () => {
     subCategory: selectedSubCat.value,
     fromAccountId: txType.value === 'expense' ? selectedAccountId.value : undefined,
     toAccountId: txType.value === 'income' ? selectedAccountId.value : undefined,
-    date: new Date(dateStr.value).getTime(),
+    date: parseLocalDateToTimestamp(dateStr.value, { preserveCurrentTime: isDateToday(dateStr.value) }),
     note: note.value.trim(),
     tags: []
   }
@@ -307,11 +351,12 @@ const handleSubmit = async () => {
     selectedAccountId.value
   )
 
-  // 記帳成功，清空表單
+  // 記帳成功，清空表單並自動校正日期回今天
   amount.value = 0
   calculatorRef.value?.reset()
   note.value = ''
   isInstallment.value = false
+  dateStr.value = getTodayLocalDateString()
   triggerAlert('🐱 喵！成功記下一筆帳囉！', 'success')
 }
 </script>
@@ -347,7 +392,19 @@ const handleSubmit = async () => {
     <div class="form-core-details card-jelly">
       <!-- 記帳日期 -->
       <div class="form-group">
-        <label class="label-cute">記帳日期</label>
+        <div class="label-with-match-badge">
+          <label class="label-cute">記帳日期</label>
+          <Transition name="fade-badge">
+            <button 
+              v-if="!isToday" 
+              type="button" 
+              class="btn-reset-today btn-jelly" 
+              @click="resetDateToToday"
+            >
+              🐾 回到今天
+            </button>
+          </Transition>
+        </div>
         <DatePicker v-model="dateStr" />
       </div>
 
@@ -598,6 +655,24 @@ const handleSubmit = async () => {
   padding: 2px 8px;
   border-radius: 999px;
   font-weight: 800;
+}
+
+.btn-reset-today {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #795548;
+  background-color: #FFF3E0;
+  border: 1px solid #FFE0B2;
+  border-radius: 999px;
+  padding: 2px 9px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-reset-today:active {
+  transform: scale(0.92);
 }
 
 .fade-badge-enter-active,

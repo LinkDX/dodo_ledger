@@ -83,7 +83,7 @@ onMounted(() => {
 
       <!-- 記帳表單 -->
       <div v-show="activeTab === 'add'">
-        <TransactionForm />
+        <TransactionForm :active-tab="activeTab" />
       </div>
 
       <!-- 記帳分類手動管理 -->
