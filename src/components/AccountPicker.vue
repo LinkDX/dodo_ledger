@@ -41,6 +41,7 @@ const filteredAccounts = computed(() => {
   })
 })
 
+const pickerScrollRef = ref<HTMLElement | null>(null)
 const cardRefs = new Map<string, HTMLElement>()
 const setCardRef = (id: string, el: any) => {
   if (el) {
@@ -50,16 +51,17 @@ const setCardRef = (id: string, el: any) => {
   }
 }
 
-/** 平滑捲動至被選取的帳戶卡片 */
+/** 僅在橫向滾動容器內捲動至被選取的帳戶卡片，避免 scrollIntoView 劫持全頁垂直捲動 */
 const scrollToSelectedAccount = (behavior: ScrollBehavior = 'smooth') => {
   nextTick(() => {
     if (!props.modelValue) return
+    const container = pickerScrollRef.value
     const targetEl = cardRefs.get(props.modelValue)
-    if (targetEl) {
-      targetEl.scrollIntoView({
-        behavior,
-        block: 'nearest',
-        inline: 'center'
+    if (container && targetEl && container.clientWidth > 0) {
+      const targetLeft = targetEl.offsetLeft - (container.clientWidth / 2) + (targetEl.offsetWidth / 2)
+      container.scrollTo({
+        left: Math.max(0, targetLeft),
+        behavior
       })
     }
   })
@@ -144,7 +146,7 @@ const balanceLabel = (acct: Account) => {
     </div>
 
     <!-- 卡片橫向滑動清單 -->
-    <div v-if="filteredAccounts.length > 0" class="picker-scroll">
+    <div v-if="filteredAccounts.length > 0" ref="pickerScrollRef" class="picker-scroll">
       <button
         v-for="acct in filteredAccounts"
         :key="acct.id"
@@ -343,7 +345,7 @@ const balanceLabel = (acct: Account) => {
   align-items: center;
   text-align: center;
   border-width: 2px;
-  touch-action: pan-x; /* 解放手勢！允許直接在卡片上水平滑動進行橫向滾動 */
+  touch-action: manipulation; /* 同時支援橫向滑動選卡與頁面垂直捲動，不鎖死 pan-y */
 }
 
 .acct-card.is-selected {

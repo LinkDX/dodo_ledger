@@ -451,8 +451,8 @@ watch(() => props.activeTab, async (newTab) => {
 })
 
 onMounted(() => {
-  // 使用捕獲（capture: true）以確保不論在哪個容器滾動，都能精準監聽到滾動事件
-  window.addEventListener('scroll', handleScroll, true)
+  // 使用捕獲（capture: true）與被動監聽（passive: true），確保不阻塞行動端觸控捲動執行緒
+  window.addEventListener('scroll', handleScroll, { capture: true, passive: true })
 })
 
 onUnmounted(() => {

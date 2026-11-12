@@ -51,6 +51,10 @@ describe('🔒 Dodo Gatekeeper - 雙層安全認證機制測試', () => {
     // 不同的輸入產生不同的 Hash
     const hashDifferent = await sha256('dodo521')
     expect(hashDifferent).not.toBe(hash)
+
+    // 驗證與標準 SHA-256 測試向量完全一致（包含無 window.crypto.subtle 之區網 HTTP 環境）
+    const stdHash = await sha256('dodo0919')
+    expect(stdHash).toBe('d73fd756b5e7a6e9c54b3a5b1195e98ab2b0f1717fb1aad9d6838c3905eba073')
   })
 
   it('2. 預設無任何鎖時，預設解鎖狀態', () => {

@@ -34,7 +34,13 @@ const { checkForUpdates } = useLiveUpdates()
 const activeTab = ref('dashboard')
 
 const setTab = (tab: string) => {
+  const isChanged = activeTab.value !== tab
   activeTab.value = tab
+  if (isChanged && typeof window !== 'undefined') {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
+  }
 }
 
 // 解決「DB 有資料，但網頁上卻沒看到」之重大載入 Bug
@@ -196,7 +202,6 @@ onMounted(() => {
 .app-main-content {
   flex: 1;
   width: 100%;
-  overflow-y: auto;
 }
 
 /* 底欄 Tab 特殊樣式微調 */

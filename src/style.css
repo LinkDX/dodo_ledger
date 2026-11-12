@@ -46,6 +46,11 @@
   color: var(--color-text-dark);
 }
 
+html,
+body {
+  overflow-x: clip;
+}
+
 body {
   background-color: var(--color-bg-warm);
   min-height: 100vh;
@@ -53,7 +58,6 @@ body {
   justify-content: center;
   align-items: flex-start;
   padding: 0;
-  overflow-x: hidden;
 }
 
 /* 行動端與網頁置中容器 */
@@ -204,7 +208,7 @@ body {
 }
 
 .pop-jelly-mild {
-  animation: popJellyMild 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.15) forwards;
+  animation: popJellyMild 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.15);
 }
 
 /* 預算進度條容器 */

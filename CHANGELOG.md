@@ -2,6 +2,22 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Web 2.8.7] - 2026-11-12
+
+### 📱 修復手機端「錢包」與「明細」換頁後無法立即捲動問題，並支援非 HTTPS 區網預覽密碼驗證 (Web 端更新)
+- **消除雙層滾動容器觸控手勢搶奪 (Scroll Latching Fix)**：
+  - 移除 `App.vue` 中 `.app-main-content` 多餘的 `overflow-y: auto` 屬性，統一由 `window` 作為全域唯一垂直捲動容器。
+  - 將 `src/style.css` 中 `body` 的 `overflow-x: hidden` 升級為 `html, body { overflow-x: clip }`，避免瀏覽器依 CSS 規範將 `body` 的 `overflow-y` 自動強制轉為 `auto` 而形成隱藏的第二層捲動容器。
+  - 移除 `.pop-jelly-mild` 進場動畫的 `forwards` 屬性，解決換頁瞬間因 `translateY(16px)` 造成內層容器產生短暫垂直溢位、進而把手機第一次滑動手勢鎖死（Latch）在內層容器導致畫面滑不動的問題。
+- **帳戶選取器 (`AccountPicker.vue`) 觸控手勢與橫向捲動優化**：
+  - 將 `.acct-card` 的 `touch-action: pan-x` 修正為 `touch-action: manipulation`，解決手機手指落點在帳戶卡片區域時垂直捲動（`pan-y`）被瀏覽器阻斷的問題。
+  - 重構 `scrollToSelectedAccount`，改為僅針對橫向容器 `.picker-scroll` 執行 `container.scrollTo({ left })` 定位，取代原先會連帶觸發並劫持全頁 `window` 垂直平滑滾動的 `scrollIntoView`。
+- **分頁切換捲動重設與被動監聽優化**：
+  - `App.vue` 的 `setTab` 在切換至不同分頁時自動將頁面捲動位置重設回頂部（`top: 0`），中斷前一分頁殘留的手機慣性滾動，避免換頁後直接卡在新頁面底部。
+  - `TransactionList.vue` 的 `scroll` 監聽補齊 `{ capture: true, passive: true }`，確保不阻塞行動端觸控合成執行緒。
+- **非 HTTPS 區網預覽環境 SHA-256 密碼鎖相容性修復 (`useAppLock.ts`)**：
+  - 補齊標準純 JS SHA-256 演算法作為非安全環境（如區網 IP `http://10.x.x.x` 預覽，`window.crypto.subtle` 為 `undefined`）之 Fallback，解決區網 HTTP 預覽無法通過全域密碼驗證的問題，並消除建置時 `crypto` 外部化警告。
+
 ## [Web 2.8.6] - 2026-10-19
 
 ### 📅 記帳日期本地時區偏差修復、Tab 切換自動校正與「回到今天」快捷鍵 (Web 端更新)
