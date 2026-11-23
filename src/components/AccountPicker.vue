@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { Wallet, Landmark, CreditCard, Compass, Check } from 'lucide-vue-next'
 import type { Account } from '../types'
 import { useAuth } from '../composables/useAuth'
+import { computeCenteredScrollLeft } from '../utils/scroll'
 
 const props = defineProps<{
   modelValue: string    // account id
@@ -51,40 +52,147 @@ const setCardRef = (id: string, el: any) => {
   }
 }
 
+let scrollTimer: ReturnType<typeof setTimeout> | null = null
+let scrollRafId: number | null = null
+let resizeObserver: ResizeObserver | null = null
+let lastContainerWidth = 0
+
+const clearPendingScroll = () => {
+  if (scrollTimer !== null) {
+    clearTimeout(scrollTimer)
+    scrollTimer = null
+  }
+  if (scrollRafId !== null && typeof cancelAnimationFrame === 'function') {
+    cancelAnimationFrame(scrollRafId)
+    scrollRafId = null
+  }
+}
+
+const cleanupResizeObserver = () => {
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
+}
+
+/** 直接於橫向捲動容器內將選中卡片捲至置中位置，若容器尚未顯示或未排版完成則回傳 false */
+const performScrollToSelected = (behavior: ScrollBehavior = 'smooth'): boolean => {
+  if (!props.modelValue) return false
+  const container = pickerScrollRef.value
+  const targetEl = cardRefs.get(props.modelValue)
+  if (!container || !targetEl) return false
+
+  const targetLeft = computeCenteredScrollLeft({
+    containerClientWidth: container.clientWidth,
+    containerScrollWidth: container.scrollWidth,
+    containerOffsetLeft: container.offsetLeft,
+    targetOffsetLeft: targetEl.offsetLeft,
+    targetOffsetWidth: targetEl.offsetWidth,
+    isContainerOffsetParent: targetEl.offsetParent === container
+  })
+
+  if (targetLeft === null) return false
+
+  if (behavior === 'smooth' && typeof container.scrollTo === 'function') {
+    container.scrollTo({
+      left: targetLeft,
+      behavior: 'smooth'
+    })
+  } else {
+    if (typeof container.scrollTo === 'function') {
+      container.scrollTo({
+        left: targetLeft,
+        behavior: 'auto'
+      })
+    }
+    container.scrollLeft = targetLeft
+  }
+
+  return true
+}
+
 /** 僅在橫向滾動容器內捲動至被選取的帳戶卡片，避免 scrollIntoView 劫持全頁垂直捲動 */
 const scrollToSelectedAccount = (behavior: ScrollBehavior = 'smooth') => {
+  clearPendingScroll()
   nextTick(() => {
     if (!props.modelValue) return
-    const container = pickerScrollRef.value
-    const targetEl = cardRefs.get(props.modelValue)
-    if (container && targetEl && container.clientWidth > 0) {
-      const targetLeft = targetEl.offsetLeft - (container.clientWidth / 2) + (targetEl.offsetWidth / 2)
-      container.scrollTo({
-        left: Math.max(0, targetLeft),
-        behavior
+    const scrolled = performScrollToSelected(behavior)
+    if (!scrolled && typeof requestAnimationFrame === 'function') {
+      scrollRafId = requestAnimationFrame(() => {
+        scrollRafId = null
+        performScrollToSelected(behavior)
       })
     }
   })
 }
 
+const setupResizeObserver = (el: HTMLElement | null) => {
+  cleanupResizeObserver()
+  lastContainerWidth = 0
+
+  if (!el || typeof ResizeObserver === 'undefined') return
+
+  resizeObserver = new ResizeObserver((entries) => {
+    const entry = entries[0]
+    const width = entry ? entry.contentRect.width : el.clientWidth
+
+    // 容器由隱藏 (display: none) 轉為可見或首次排版完成時，於繪製前立即對齊選中帳戶
+    if (lastContainerWidth === 0 && width > 0) {
+      lastContainerWidth = width
+      clearPendingScroll()
+      if (!performScrollToSelected('auto')) {
+        scrollToSelectedAccount('auto')
+      }
+      return
+    }
+
+    lastContainerWidth = width
+  })
+
+  resizeObserver.observe(el)
+}
+
+watch(pickerScrollRef, (el) => {
+  setupResizeObserver(el)
+}, { immediate: true, flush: 'post' })
+
+const filteredAccountIds = computed(() => filteredAccounts.value.map(a => a.id).join(','))
+
+// 當顯示清單變化（非同步載入、收支切換或篩選重置）時，立即對齊目前選取帳戶
+watch(filteredAccountIds, () => {
+  if (props.modelValue && filteredAccounts.value.some(a => a.id === props.modelValue)) {
+    scrollToSelectedAccount('auto')
+  }
+})
+
 // 監聽 modelValue 改變（包括分類自動切換帳戶時），平滑捲動至選取帳戶
 watch(() => props.modelValue, (newVal) => {
   if (newVal) {
     const isVisible = filteredAccounts.value.some(a => a.id === newVal)
-    if (!isVisible) {
+    if (!isVisible && props.accounts.some(a => a.id === newVal)) {
       selectedType.value = 'all'
       searchQuery.value = ''
     }
-    setTimeout(() => {
+    clearPendingScroll()
+    scrollTimer = setTimeout(() => {
+      scrollTimer = null
       scrollToSelectedAccount('smooth')
     }, 60)
   }
 }, { immediate: true })
 
 onMounted(() => {
-  setTimeout(() => {
-    scrollToSelectedAccount('auto')
-  }, 100)
+  scrollToSelectedAccount('auto')
+})
+
+onBeforeUnmount(() => {
+  clearPendingScroll()
+  cleanupResizeObserver()
+  cardRefs.clear()
+})
+
+defineExpose({
+  scrollToSelectedAccount
 })
 
 const select = (id: string) => emit('update:modelValue', id)
@@ -324,6 +432,7 @@ const balanceLabel = (acct: Account) => {
 }
 
 .picker-scroll {
+  position: relative;
   display: flex;
   gap: 8px;
   overflow-x: auto;

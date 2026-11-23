@@ -2,6 +2,22 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Web 2.8.8] - 2026-11-23
+
+### 🎯 修復剛打開與切回記帳頁面時，帳戶選取器未自動捲動至預設勾選帳戶問題 (Web 端更新)
+- **帳戶選取器 (`AccountPicker.vue`) 可見性偵測與顯示清單連動捲動**：
+  - 解決因 `App.vue` 採用 `v-show` 掛載 `TransactionForm`，導致啟動載入期間容器寬度為 `0` 而略過捲動、以及切換分頁瀏覽器重設 `scrollLeft` 後未重新對齊的問題。
+  - 透過 `watch(pickerScrollRef, ..., { immediate: true, flush: 'post' })` 管理 `ResizeObserver`，於容器由隱藏（寬度 `0`）轉為可見時即時定位至勾選卡片，並在 `onBeforeUnmount` 完整清理計時器、`requestAnimationFrame` 與觀察者。
+  - 新增 `filteredAccountIds` 監聽，確保非同步帳戶載入完成、收支切換或篩選重置後皆會自動對齊選取帳戶，並透過 `defineExpose({ scrollToSelectedAccount })` 供父元件主動呼叫。
+- **修正橫向置中基準與抽離共用計算工具 (`src/utils/scroll.ts`)**：
+  - 於 `.picker-scroll` 補上 `position: relative`，確保卡片 `offsetLeft` 固定相對於捲動容器計算，避免受外層內距或彈窗縮放動畫偏移影響。
+  - 新增 `computeCenteredScrollLeft` 計算置中位置與左右邊界夾限，維持僅操作橫向捲動容器，保留手機端直向滑動手勢流暢度。
+- **記帳表單 (`TransactionForm.vue`) 載入競態與互動對齊強化**：
+  - 調整分類與帳戶響應式監聽順序並消除 TDZ 風險；當帳戶列表晚於分類載入時，優先依目前分類與子分類套用記憶對應帳戶（無對應再退回首個帳戶）。
+  - 切換至記帳分頁時於 `nextTick` 主動對齊選中帳戶；重複點選已選中的分類／子分類且偏好帳戶相同時，平滑捲回可視區中央。
+- **單元測試套件全面通過 (14 個測試檔 / 全數 83 項測試 100% 通過)**：
+  - 新增 `tests/accountPickerScroll.test.ts`，驗證隱藏容器忽略、置中定位、首尾夾限、無溢位與相對位移扣除計算。
+
 ## [Web 2.8.7] - 2026-11-12
 
 ### 📱 修復手機端「錢包」與「明細」換頁後無法立即捲動問題，並支援非 HTTPS 區網預覽密碼驗證 (Web 端更新)

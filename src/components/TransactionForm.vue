@@ -37,7 +37,19 @@ const { getPreferredAccountId, learnFromTransaction } = useCategoryAccountMap()
 // 1. 交易類型：支出 / 收入
 const txType = ref<TransactionType>('expense')
 
-// 2. 帳戶選取 (過濾掉信用卡如果是收入，支出則可選信用卡或一般)
+// 2. 嚴謹雙層分類選擇（提前宣告以避免 availableAccounts 立即 watch 發生 TDZ）
+const categories = computed(() => {
+  return allCategories.value.filter(c => c.type === txType.value)
+})
+
+const selectedCatId = ref('')
+const selectedSubCat = ref('')
+
+const activeCategory = computed(() => {
+  return categories.value.find(c => c.id === selectedCatId.value)
+})
+
+// 3. 帳戶選取 (過濾掉信用卡如果是收入，支出則可選信用卡或一般)
 const availableAccounts = computed(() => {
   if (txType.value === 'income') {
     return visibleAccounts.value.filter(a => a.type !== 'credit_card')
@@ -47,14 +59,23 @@ const availableAccounts = computed(() => {
 
 const selectedAccountId = ref('')
 const autoMatchedAccountName = ref('')
+const accountPickerRef = ref<InstanceType<typeof AccountPicker> | null>(null)
 
-// 當帳戶列表載入或類型改變時，預設選取第一個帳戶
+// 當帳戶列表載入或類型改變時，優先對應當前分類記憶帳戶，否則選取第一個帳戶
 watch([availableAccounts, txType], () => {
   if (availableAccounts.value.length > 0) {
-    // 盡量保持之前的選擇，否則選第一個
+    // 盡量保持之前的選擇，否則優先依當前分類記憶帳戶，最後退回第一個
     const found = availableAccounts.value.find(a => a.id === selectedAccountId.value)
     if (!found) {
-      selectedAccountId.value = availableAccounts.value[0].id
+      const targetCat = activeCategory.value || categories.value[0]
+      const catName = targetCat?.name || ''
+      const subName = activeCategory.value ? selectedSubCat.value : (targetCat?.subCategories[0] || '')
+      const preferredId = catName ? getPreferredAccountId(catName, subName, txType.value) : null
+      if (preferredId && availableAccounts.value.some(a => a.id === preferredId)) {
+        selectedAccountId.value = preferredId
+      } else {
+        selectedAccountId.value = availableAccounts.value[0].id
+      }
     }
   } else {
     selectedAccountId.value = ''
@@ -65,14 +86,6 @@ const activeAccount = computed(() => {
   return accounts.value.find(a => a.id === selectedAccountId.value)
 })
 
-// 3. 嚴謹雙層分類選擇
-const categories = computed(() => {
-  return allCategories.value.filter(c => c.type === txType.value)
-})
-
-const selectedCatId = ref('')
-const selectedSubCat = ref('')
-
 /** 嘗試根據分類與子分類自動對應上次使用的帳戶 */
 const applyPreferredAccount = (catName?: string, subCatName?: string) => {
   const targetCat = catName || activeCategory.value?.name || ''
@@ -80,8 +93,8 @@ const applyPreferredAccount = (catName?: string, subCatName?: string) => {
   if (!targetCat) return
 
   const preferredId = getPreferredAccountId(targetCat, targetSub, txType.value)
-  if (preferredId && preferredId !== selectedAccountId.value) {
-    if (availableAccounts.value.some(a => a.id === preferredId)) {
+  if (preferredId && availableAccounts.value.some(a => a.id === preferredId)) {
+    if (preferredId !== selectedAccountId.value) {
       selectedAccountId.value = preferredId
       const matched = accounts.value.find(a => a.id === preferredId)
       if (matched) {
@@ -92,6 +105,8 @@ const applyPreferredAccount = (catName?: string, subCatName?: string) => {
           }
         }, 2200)
       }
+    } else {
+      accountPickerRef.value?.scrollToSelectedAccount('smooth')
     }
   }
 }
@@ -109,10 +124,6 @@ watch(categories, () => {
     selectedSubCat.value = ''
   }
 }, { immediate: true })
-
-const activeCategory = computed(() => {
-  return categories.value.find(c => c.id === selectedCatId.value)
-})
 
 const handleSelectCat = (catId: string) => {
   selectedCatId.value = catId
@@ -163,7 +174,7 @@ watch(addTxPrefilledDate, (newVal) => {
   }
 }, { immediate: true })
 
-// 監聽 Tab 切換：每次切換到記帳頁面，若無外部指定的補記日期，一律校正為當天
+// 監聽 Tab 切換：每次切換到記帳頁面，若無外部指定的補記日期，一律校正為當天，並對齊預設勾選帳戶
 watch(() => props.activeTab, (newTab) => {
   if (newTab === 'add') {
     if (addTxPrefilledDate.value) {
@@ -172,6 +183,9 @@ watch(() => props.activeTab, (newTab) => {
     } else {
       dateStr.value = getTodayLocalDateString()
     }
+    nextTick(() => {
+      accountPickerRef.value?.scrollToSelectedAccount('auto')
+    })
   }
 })
 
@@ -418,7 +432,7 @@ const handleSubmit = async () => {
             </span>
           </Transition>
         </div>
-        <AccountPicker v-model="selectedAccountId" :accounts="availableAccounts" />
+        <AccountPicker ref="accountPickerRef" v-model="selectedAccountId" :accounts="availableAccounts" />
       </div>
 
       <!-- 信用卡分期配置 (自適應展開) -->
