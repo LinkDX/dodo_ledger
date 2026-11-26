@@ -340,13 +340,12 @@ const formatCurrency = (val: number) => {
   return new Intl.NumberFormat('zh-TW', { style: 'decimal' }).format(val)
 }
 
-// 取得可用額度比例 (信用卡專屬)
+// 取得可用額度比例 (信用卡專屬；balance 為負代表欠款、為正代表溢繳)
 const getCreditAvailableRatio = (acct: Account) => {
-  if (!acct.cardDetails) return 0
+  if (!acct.cardDetails || acct.cardDetails.creditLimit <= 0) return 0
   const limit = acct.cardDetails.creditLimit
-  const debt = Math.abs(acct.balance)
-  const available = Math.max(limit - debt, 0)
-  return available / limit
+  const available = Math.max(limit + acct.balance, 0)
+  return Math.min(available / limit, 1)
 }
 
 // ========== 信用卡帳單區塊邏輯 ==========
@@ -425,7 +424,9 @@ const billPeriods = computed(() => {
   }
 
   for (const tx of transactions.value) {
-    if (tx.fromAccountId !== selectedCardId.value) continue
+    const isCardExpense = tx.type === 'expense' && tx.fromAccountId === selectedCardId.value
+    const isCardIncome = tx.type === 'income' && tx.toAccountId === selectedCardId.value
+    if (!isCardExpense && !isCardIncome) continue
     const period = getCreditCardBillPeriod(tx)
     if (period) {
       periods.add(period)
@@ -438,11 +439,11 @@ const billPeriods = computed(() => {
 const billedTransactions = computed(() => {
   if (!selectedCardId.value || !selectedPeriod.value) return []
   return transactions.value
-    .filter(tx =>
-      tx.type === 'expense' &&
-      tx.fromAccountId === selectedCardId.value &&
-      getCreditCardBillPeriod(tx) === selectedPeriod.value
-    )
+    .filter(tx => {
+      if (getCreditCardBillPeriod(tx) !== selectedPeriod.value) return false
+      return (tx.type === 'expense' && tx.fromAccountId === selectedCardId.value) ||
+             (tx.type === 'income' && tx.toAccountId === selectedCardId.value)
+    })
     .sort((a, b) => {
       const floorDay = (ts: number) => {
         const d = new Date(ts)
@@ -454,7 +455,10 @@ const billedTransactions = computed(() => {
 })
 
 const rawBilledTotal = computed(() =>
-  billedTransactions.value.reduce((sum, tx) => sum + tx.amount, 0)
+  billedTransactions.value.reduce(
+    (sum, tx) => sum + (tx.type === 'income' ? -tx.amount : tx.amount),
+    0
+  )
 )
 
 const paymentsForSelectedPeriod = computed(() => {
@@ -815,8 +819,9 @@ const onAcctDrop = async (targetAcct: Account) => {
           </div>
           <!-- 右：餘額 -->
           <div v-if="acct.type === 'credit_card'" class="credit-balance-info">
-            <div class="debt-amount">負債 ${{ formatCurrency(Math.abs(acct.balance)) }}</div>
-            <div class="limit-amount">額度 ${{ formatCurrency(Math.max((acct.cardDetails?.creditLimit || 50000) - Math.abs(acct.balance), 0)) }}</div>
+            <div v-if="acct.balance > 0" class="overpaid-amount">溢繳 +${{ formatCurrency(acct.balance) }}</div>
+            <div v-else class="debt-amount">負債 ${{ formatCurrency(Math.abs(acct.balance)) }}</div>
+            <div class="limit-amount">額度 ${{ formatCurrency(Math.max((acct.cardDetails?.creditLimit || 50000) + acct.balance, 0)) }}</div>
             <div class="credit-progress-section">
               <div class="progress-bar-container">
                 <div
@@ -901,7 +906,7 @@ const onAcctDrop = async (targetAcct: Account) => {
                 </button>
               </div>
             </div>
-            <h2 class="amount-value">${{ formatCurrency(billTotalAmount) }}</h2>
+            <h2 class="amount-value">{{ billTotalAmount < 0 ? '-' : '' }}${{ formatCurrency(Math.abs(billTotalAmount)) }}</h2>
             <div v-if="paidAmount > 0" class="paid-sub-status">
               <span class="paid-tag">已繳納 ${{ formatCurrency(paidAmount) }}</span>
               <span v-if="remainingDueAmount > 0" class="remain-tag">尚餘 ${{ formatCurrency(remainingDueAmount) }}</span>
@@ -911,7 +916,7 @@ const onAcctDrop = async (targetAcct: Account) => {
             <div class="progress-labels">
               <span>可用額度百分比</span>
               <span>
-                TWD ${{ formatCurrency(Math.max((activeCard?.cardDetails?.creditLimit || 50000) - Math.abs(activeCard?.balance || 0), 0)) }}
+                TWD ${{ formatCurrency(Math.max((activeCard?.cardDetails?.creditLimit || 50000) + (activeCard?.balance || 0), 0)) }}
                 / ${{ formatCurrency(activeCard?.cardDetails?.creditLimit || 50000) }}
               </span>
             </div>
@@ -919,7 +924,7 @@ const onAcctDrop = async (targetAcct: Account) => {
               <div 
                 class="progress-bar-fill"
                 :style="{ 
-                  width: `${(activeCard ? Math.max(activeCard.cardDetails!.creditLimit - Math.abs(activeCard.balance), 0) / activeCard.cardDetails!.creditLimit : 1) * 100}%`,
+                  width: `${(activeCard ? getCreditAvailableRatio(activeCard) : 1) * 100}%`,
                   backgroundColor: '#FFFDF9'
                 }"
               />
@@ -945,10 +950,12 @@ const onAcctDrop = async (targetAcct: Account) => {
               一鍵扣款繳納帳單 (銷帳) ➜
             </button>
 
-            <!-- 情況 3：本期明細為 0 且未繳納（剛開始記帳的歷史月份） -->
+            <!-- 情況 3：本期明細為 0 或刷退折抵後無需繳款 -->
             <div v-else class="empty-bill-actions pop-jelly">
               <div class="empty-bill-tip">
-                <span>🐾 本期尚未有消費明細紀錄</span>
+                <span v-if="billedTransactions.length > 0 && billTotalAmount < 0">✨ 本期刷退 / 回饋折抵後為溢繳結餘，無需繳款</span>
+                <span v-else-if="billedTransactions.length > 0">✨ 本期消費與刷退相抵，無需繳款</span>
+                <span v-else>🐾 本期尚未有消費明細紀錄</span>
               </div>
               <button class="btn-jelly btn-empty-pay" @click="openPayModal(0)" type="button">
                 💳 自訂金額手動銷帳 ➜
@@ -979,10 +986,15 @@ const onAcctDrop = async (targetAcct: Account) => {
                 <span v-if="tx.creditCardDetails?.isInstallment" class="tag-jelly installment-tag">
                   分期 {{ tx.creditCardDetails.currentInstallment }}/{{ tx.creditCardDetails.installmentTerm }} 期
                 </span>
+                <span v-else-if="tx.type === 'income'" class="tag-jelly refund-tag">
+                  刷退 / 折抵
+                </span>
               </div>
               <div class="bill-tx-right">
                 <div class="bill-tx-amount-group">
-                  <span class="bill-tx-amount">${{ formatCurrency(tx.amount) }}</span>
+                  <span class="bill-tx-amount" :class="{ 'is-refund': tx.type === 'income' }">
+                    {{ tx.type === 'income' ? '-' : '' }}${{ formatCurrency(tx.amount) }}
+                  </span>
                   <span class="bill-tx-date">
                     {{ new Date(tx.date).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }) }}
                   </span>
@@ -2015,6 +2027,14 @@ const onAcctDrop = async (targetAcct: Account) => {
   width: fit-content;
 }
 
+.refund-tag {
+  font-size: 11px !important;
+  padding: 2px 8px !important;
+  background-color: var(--color-income) !important;
+  margin-top: 4px;
+  width: fit-content;
+}
+
 .bill-tx-right {
   display: flex;
   align-items: center;
@@ -2033,6 +2053,10 @@ const onAcctDrop = async (targetAcct: Account) => {
   font-size: 17px;
   font-weight: 800;
   color: #FF5A5A;
+}
+
+.bill-tx-amount.is-refund {
+  color: #2C8C67;
 }
 
 .bill-tx-date {
@@ -2391,6 +2415,12 @@ const onAcctDrop = async (targetAcct: Account) => {
   font-size: 12px;
   font-weight: 800;
   color: #C66230;
+}
+
+.overpaid-amount {
+  font-size: 12px;
+  font-weight: 800;
+  color: #2C8C67;
 }
 
 .limit-amount {

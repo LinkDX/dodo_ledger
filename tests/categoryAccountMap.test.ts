@@ -144,7 +144,7 @@ describe('🎯 分類預設帳戶自動對應與獨立成員記憶測試', () =>
     expect(map.getPreferredAccountId('餐飲', undefined, 'expense')).toBe(accCash.id)
   })
 
-  it('4. 交易類型限制：收入不能自動帶入信用卡帳戶', async () => {
+  it('4. 信用卡刷退與回饋支援：收入亦可自動帶入已綁定的信用卡帳戶', async () => {
     const auth = useAuth()
     const ledger = useLedger()
     const map = useCategoryAccountMap()
@@ -163,14 +163,12 @@ describe('🎯 分類預設帳戶自動對應與獨立成員記憶測試', () =>
       cardDetails: { creditLimit: 30000, billingCycleDate: 5, paymentDueDate: 20 }
     })
 
-    // 綁定「其他收入」到信用卡
-    await map.setRule('其他收入', '二手出售', accCard.id)
+    // 綁定「其他收入 > 刷卡回饋」到信用卡
+    await map.setRule('其他收入', '刷卡回饋', accCard.id)
 
-    // 支出時可回傳
-    expect(map.getPreferredAccountId('其他收入', '二手出售', 'expense')).toBe(accCard.id)
-
-    // 收入時因信用卡不可作為收款帳戶，應過濾回傳 null
-    expect(map.getPreferredAccountId('其他收入', '二手出售', 'income')).toBeNull()
+    // 支出與收入（刷退／回饋）皆可回傳信用卡帳戶
+    expect(map.getPreferredAccountId('其他收入', '刷卡回饋', 'expense')).toBe(accCard.id)
+    expect(map.getPreferredAccountId('其他收入', '刷卡回饋', 'income')).toBe(accCard.id)
   })
 
   it('5. 帳戶有效性過濾：已被刪除或不存在的帳戶不予帶入', async () => {

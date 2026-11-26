@@ -42,7 +42,7 @@ const editFromAccountOpen = ref(false)
 const editToAccountOpen = ref(false)
 
 const expenseAccounts = computed(() => visibleAccounts.value)
-const incomeAccounts = computed(() => visibleAccounts.value.filter(a => a.type !== 'credit_card'))
+const incomeAccounts = computed(() => visibleAccounts.value)
 
 const selectedFromAccount = computed(() =>
   expenseAccounts.value.find(a => a.id === editFromAccountId.value)

@@ -2,6 +2,22 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Web 2.9.0] - 2026-11-26
+
+### 💳 支援信用卡刷退與刷卡回饋記帳，自動折抵當期帳單 (Web 端更新)
+- **記帳與編輯表單開放「收入」選擇信用卡帳戶**：
+  - `TransactionForm.vue` 與 `TransactionEditModal.vue` 不再於收入模式下過濾信用卡帳戶，可直接將刷退或刷卡回饋記在對應信用卡，並於選中信用卡收入時顯示自動折抵帳單提示。
+  - `useCategoryAccountMap.ts` 同步開放收入分類記憶並自動帶入信用卡帳戶。
+- **信用卡帳單折抵與溢繳計算升級 (`useLedger.ts`)**：
+  - `getCreditCardBillPeriod`、`addTransaction`、`editTransaction` 與 `isTransactionPaid` 皆支援信用卡收入，自動依結帳日歸屬對應帳單月份；編輯交易切換非信用卡帳戶時同步清理 `creditCardDetails`。
+  - `payCreditCardBill` 計算當期帳單應繳總額時，自動扣除該期信用卡刷退／回饋金額。
+  - `totalAssets`、`totalLiabilities` 與「無債一身輕」成就修正為正確處理信用卡溢繳（正餘額計入資產、不再誤算為負債）。
+- **帳單明細與溢繳額度顯示優化 (`AccountManager.vue`, `AccountPicker.vue`, `AccountDropdown.vue`)**：
+  - 信用卡帳單月份清單與「本期已出帳明細」納入刷退／回饋紀錄，標示「刷退 / 折抵」馬卡龍綠標籤與 `-$金額`，並於總額自動扣減；若折抵後為 `0` 或溢繳負值，改顯示無需繳款狀態提示。
+  - 信用卡卡片與可用額度計算改以 `creditLimit + balance` 處理，溢繳時顯示「溢繳 +$...」並將進度條上限夾於 100%。
+- **單元測試套件全面通過 (14 個測試檔 / 全數 84 項測試 100% 通過)**：
+  - 於 `tests/ledger.test.ts` 新增信用卡刷退、帳單折抵繳款、溢繳資產負債計算與編輯改帳測試；同步更新 `tests/categoryAccountMap.test.ts`。
+
 ## [Web 2.8.8] - 2026-11-23
 
 ### 🎯 修復剛打開與切回記帳頁面時，帳戶選取器未自動捲動至預設勾選帳戶問題 (Web 端更新)

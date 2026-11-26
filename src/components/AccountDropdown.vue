@@ -40,7 +40,7 @@ const formatBalance = (val: number) =>
 
 const getBalanceText = (acct: Account) => {
   if (acct.type === 'credit_card') {
-    const avail = Math.max((acct.cardDetails?.creditLimit || 0) - Math.abs(acct.balance), 0)
+    const avail = Math.max((acct.cardDetails?.creditLimit || 0) + acct.balance, 0)
     return `可用 $${formatBalance(avail)}`
   }
   return `$${formatBalance(acct.balance)}`

@@ -406,4 +406,101 @@ describe('🐱 Dodo Ledger 多人共同記帳與演算法測試', () => {
     // 2024年 (12 - 5 + 1 = 8個月) + 2025年 (12個月) + 2026年 (8個月) = 28 個月
     expect(months.length).toBe(28)
   })
+
+  it('7. 支援「信用卡刷退／刷卡回饋（收入記在信用卡）」：折抵當期帳單、恢復額度並正確處理溢繳', async () => {
+    const auth = useAuth()
+    const ledger = useLedger()
+
+    const profile = auth.createProfile('小美', '🐱')
+    auth.switchProfile(profile.id)
+    await ledger.loadLedgerData()
+
+    const bank = await ledger.addAccount({
+      name: '玉山銀行',
+      type: 'bank',
+      balance: 10000,
+      icon: 'Landmark',
+      color: 'card-blue',
+      currency: 'TWD'
+    })
+
+    const card = await ledger.addAccount({
+      name: '國泰 CUBE',
+      type: 'credit_card',
+      balance: 0,
+      icon: 'CreditCard',
+      color: 'card-pink',
+      currency: 'TWD',
+      cardDetails: {
+        creditLimit: 50000,
+        billingCycleDate: 10,
+        paymentDueDate: 25
+      }
+    })
+
+    const txDate = new Date(2026, 4, 5).getTime() // 2026-05-05，結帳 10 號、繳款 25 號 => 2026-05 帳單
+
+    // 1. 刷卡消費 1000 元
+    await ledger.addTransaction({
+      type: 'expense',
+      amount: 1000,
+      category: '購物',
+      subCategory: '網購',
+      fromAccountId: card.id,
+      date: txDate,
+      note: '買衣服',
+      tags: []
+    })
+    expect(ledger.accounts.value.find(a => a.id === card.id)?.balance).toBe(-1000)
+
+    // 2. 記一筆信用卡刷退（收入）300 元
+    await ledger.addTransaction({
+      type: 'income',
+      amount: 300,
+      category: '其他收入',
+      subCategory: '退款',
+      toAccountId: card.id,
+      date: txDate,
+      note: '衣服部分刷退',
+      tags: []
+    })
+
+    const refundTx = ledger.transactions.value.find(t => t.type === 'income' && t.toAccountId === card.id)
+    expect(refundTx).toBeDefined()
+    expect(refundTx?.creditCardDetails?.billPeriod).toBe('2026-05')
+    expect(ledger.getCreditCardBillPeriod(refundTx!)).toBe('2026-05')
+
+    // 信用卡欠款從 -1000 減少為 -700
+    expect(ledger.accounts.value.find(a => a.id === card.id)?.balance).toBe(-700)
+    expect(ledger.totalLiabilities.value).toBe(700)
+
+    // 3. 一鍵繳納 2026-05 帳單：應自動折抵刷退，只扣款 1000 - 300 = 700 元
+    await ledger.payCreditCardBill(card.id, bank.id, '2026-05')
+    expect(ledger.accounts.value.find(a => a.id === bank.id)?.balance).toBe(9300)
+    expect(ledger.accounts.value.find(a => a.id === card.id)?.balance).toBe(0)
+    expect(ledger.isTransactionPaid(refundTx!)).toBe(true)
+
+    // 4. 溢繳情境：欠款為 0 時又收到 500 元刷卡回饋
+    await ledger.addTransaction({
+      type: 'income',
+      amount: 500,
+      category: '其他收入',
+      subCategory: '刷卡回饋',
+      toAccountId: card.id,
+      date: txDate,
+      note: '活動加碼回饋',
+      tags: []
+    })
+    expect(ledger.accounts.value.find(a => a.id === card.id)?.balance).toBe(500)
+    expect(ledger.totalLiabilities.value).toBe(0)
+    expect(ledger.totalAssets.value).toBe(9800) // 銀行 9300 + 信用卡溢繳 500
+    expect(ledger.netWorth.value).toBe(9800)
+
+    // 5. 編輯該筆回饋改存入銀行帳戶：信用卡餘額應回退至 0、銀行變 9800、清除 creditCardDetails
+    const cashbackTx = ledger.transactions.value.find(t => t.note === '活動加碼回饋')!
+    await ledger.editTransaction(cashbackTx.id, { toAccountId: bank.id })
+    expect(ledger.accounts.value.find(a => a.id === card.id)?.balance).toBe(0)
+    expect(ledger.accounts.value.find(a => a.id === bank.id)?.balance).toBe(9800)
+    expect(ledger.transactions.value.find(t => t.id === cashbackTx.id)?.creditCardDetails).toBeUndefined()
+  })
 })

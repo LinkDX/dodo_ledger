@@ -49,11 +49,8 @@ const activeCategory = computed(() => {
   return categories.value.find(c => c.id === selectedCatId.value)
 })
 
-// 3. 帳戶選取 (過濾掉信用卡如果是收入，支出則可選信用卡或一般)
+// 3. 帳戶選取 (支出與收入皆可選所有帳戶，收入選信用卡可用於記刷退與刷卡回饋)
 const availableAccounts = computed(() => {
-  if (txType.value === 'income') {
-    return visibleAccounts.value.filter(a => a.type !== 'credit_card')
-  }
   return visibleAccounts.value
 })
 
@@ -468,6 +465,13 @@ const handleSubmit = async () => {
             </div>
           </Transition>
         </div>
+        <!-- 信用卡刷退 / 回饋提示 (收入選信用卡時顯示) -->
+        <div
+          v-else-if="txType === 'income' && activeAccount?.type === 'credit_card'"
+          class="credit-refund-tip card-jelly"
+        >
+          💳 刷退 / 刷卡回饋將自動折抵當期信用卡帳單並恢復可用額度喔！
+        </div>
       </Transition>
     </div>
 
@@ -784,6 +788,17 @@ const handleSubmit = async () => {
 .credit-installment-box {
   background-color: var(--color-bg-warm) !important;
   padding: 10px !important;
+  margin-top: 8px;
+  margin-bottom: 0 !important;
+  box-shadow: var(--shadow-jelly-sm) !important;
+}
+
+.credit-refund-tip {
+  background-color: var(--color-income) !important;
+  color: var(--color-text-dark);
+  font-size: 11px;
+  font-weight: 800;
+  padding: 8px 10px !important;
   margin-top: 8px;
   margin-bottom: 0 !important;
   box-shadow: var(--shadow-jelly-sm) !important;

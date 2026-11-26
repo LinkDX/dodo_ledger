@@ -234,24 +234,18 @@ export function useLedger() {
 
   // 4. 核心運算看板欄位 (Computed)
   
-  // 總資產
+  // 總資產（含信用卡溢繳正餘額）
   const totalAssets = computed(() => {
     return accounts.value
-      .filter(a => a.type !== 'credit_card' && a.balance > 0)
+      .filter(a => a.balance > 0)
       .reduce((sum, a) => sum + a.balance, 0)
   })
 
-  // 總負債
+  // 總負債（所有負餘額帳戶，包含信用卡欠款）
   const totalLiabilities = computed(() => {
-    const cardDebt = accounts.value
-      .filter(a => a.type === 'credit_card')
+    return accounts.value
+      .filter(a => a.balance < 0)
       .reduce((sum, a) => sum + Math.abs(a.balance), 0)
-    
-    const otherDebt = accounts.value
-      .filter(a => a.type !== 'credit_card' && a.balance < 0)
-      .reduce((sum, a) => sum + Math.abs(a.balance), 0)
-
-    return cardDebt + otherDebt
   })
 
   // 淨資產
@@ -419,7 +413,7 @@ export function useLedger() {
 
     // 2. 無債一身輕 (淨資產為正值，且所有信用卡負債餘額皆為 0)
     const cardDebt = accounts.value
-      .filter(a => a.type === 'credit_card')
+      .filter(a => a.type === 'credit_card' && a.balance < 0)
       .reduce((sum, a) => sum + Math.abs(a.balance), 0)
     if (netWorth.value > 0 && cardDebt === 0) {
       unlockAchievement('zero_debt', '無債一身輕', '個人淨資產為正值，且所有信用卡負債皆已全數清空！')
@@ -518,19 +512,20 @@ export function useLedger() {
     )
   }
 
-  const getCreditCardBillPeriod = (tx: Pick<Transaction, 'type' | 'fromAccountId' | 'date' | 'creditCardDetails'>) => {
-    if (tx.type !== 'expense') {
+  const getCreditCardBillPeriod = (tx: Pick<Transaction, 'type' | 'fromAccountId' | 'toAccountId' | 'date' | 'creditCardDetails'>) => {
+    if (tx.type !== 'expense' && tx.type !== 'income') {
       return tx.creditCardDetails?.billPeriod || null
     }
 
     // 分期交易各期數有固定規劃之期數月份，優先使用
-    if (tx.creditCardDetails?.isInstallment && tx.creditCardDetails?.billPeriod) {
+    if (tx.type === 'expense' && tx.creditCardDetails?.isInstallment && tx.creditCardDetails?.billPeriod) {
       return tx.creditCardDetails.billPeriod
     }
 
-    // 一般信用卡消費，以卡片最新結帳設定動態計算歸屬帳單月份
-    if (tx.fromAccountId) {
-      const dynamicPeriod = getBillPeriodForCard(tx.fromAccountId, tx.date)
+    // 一般信用卡消費或刷退/回饋收入，以卡片最新結帳設定動態計算歸屬帳單月份
+    const cardAccountId = tx.type === 'income' ? tx.toAccountId : tx.fromAccountId
+    if (cardAccountId) {
+      const dynamicPeriod = getBillPeriodForCard(cardAccountId, tx.date)
       if (dynamicPeriod) return dynamicPeriod
     }
 
@@ -575,10 +570,16 @@ export function useLedger() {
       ).catch(e => console.error('[Dodo Ledger] 原子寫入手續費失敗：', e))
     }
 
-    const creditCardBillPeriod =
-      txData.type === 'expense' && txData.fromAccountId
-        ? getBillPeriodForCard(txData.fromAccountId, txData.date)
-        : null
+    const creditCardAccountId =
+      txData.type === 'expense'
+        ? txData.fromAccountId
+        : txData.type === 'income'
+          ? txData.toAccountId
+          : undefined
+
+    const creditCardBillPeriod = creditCardAccountId
+      ? getBillPeriodForCard(creditCardAccountId, txData.date)
+      : null
 
     // b. 信用卡分期付款處理 (分期各期數明細同樣記名)
     if (txData.type === 'expense' && txData.creditCardDetails?.isInstallment) {
@@ -654,7 +655,7 @@ export function useLedger() {
       updatedAt: Date.now()
     }
 
-    if (txData.type === 'expense' && creditCardBillPeriod) {
+    if ((txData.type === 'expense' || txData.type === 'income') && creditCardBillPeriod) {
       newTx.creditCardDetails = {
         isInstallment: false,
         installmentTerm: 1,
@@ -865,8 +866,12 @@ export function useLedger() {
     if (!cardAcct || cardAcct.type !== 'credit_card' || !bankAcct) return
 
     const calculatedTotal = transactions.value
-      .filter(tx => tx.type === 'expense' && tx.fromAccountId === cardId && getCreditCardBillPeriod(tx) === billPeriod)
-      .reduce((sum, tx) => sum + tx.amount, 0)
+      .filter(tx => {
+        if (getCreditCardBillPeriod(tx) !== billPeriod) return false
+        return (tx.type === 'expense' && tx.fromAccountId === cardId) ||
+               (tx.type === 'income' && tx.toAccountId === cardId)
+      })
+      .reduce((sum, tx) => sum + (tx.type === 'income' ? -tx.amount : tx.amount), 0)
 
     let finalAmount = payAmount ?? cardAcct.cardDetails?.customBillAmounts?.[billPeriod] ?? calculatedTotal
     finalAmount = Math.round(finalAmount)
@@ -1165,6 +1170,21 @@ export function useLedger() {
 
     // 合併更新欄位
     const merged: Transaction = { ...old, ...updated, updatedAt: Date.now() }
+    if ((merged.type === 'expense' || merged.type === 'income') && !merged.creditCardDetails?.isInstallment) {
+      const cardId = merged.type === 'income' ? merged.toAccountId : merged.fromAccountId
+      const dynamicPeriod = cardId ? getBillPeriodForCard(cardId, merged.date) : null
+      if (dynamicPeriod) {
+        merged.creditCardDetails = {
+          isInstallment: false,
+          installmentTerm: 1,
+          currentInstallment: 1,
+          ...merged.creditCardDetails,
+          billPeriod: dynamicPeriod
+        }
+      } else if (merged.creditCardDetails) {
+        delete merged.creditCardDetails
+      }
+    }
     transactions.value[idx] = merged
 
     // 計算套用新餘額的 delta
@@ -1371,9 +1391,10 @@ export function useLedger() {
   }
 
   const isTransactionPaid = (tx: Transaction) => {
-    if (tx.type !== 'expense') return false
-    const fromAcct = accounts.value.find(a => a.id === tx.fromAccountId)
-    if (!fromAcct || fromAcct.type !== 'credit_card') return false
+    if (tx.type !== 'expense' && tx.type !== 'income') return false
+    const cardId = tx.type === 'income' ? tx.toAccountId : tx.fromAccountId
+    const cardAcct = accounts.value.find(a => a.id === cardId)
+    if (!cardAcct || cardAcct.type !== 'credit_card') return false
     
     const billPeriod = getCreditCardBillPeriod(tx)
     if (!billPeriod) return false
@@ -1381,7 +1402,7 @@ export function useLedger() {
     // 檢查是否有對應的信用卡繳款轉帳紀錄
     return transactions.value.some(payTx => 
       payTx.type === 'transfer' &&
-      payTx.toAccountId === tx.fromAccountId &&
+      payTx.toAccountId === cardId &&
       payTx.tags?.includes('信用卡繳款') &&
       payTx.note?.includes(billPeriod)
     )

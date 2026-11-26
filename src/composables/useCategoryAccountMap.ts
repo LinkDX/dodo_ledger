@@ -38,10 +38,9 @@ export function useCategoryAccountMap() {
   })
 
   /** 驗證帳戶對於特定交易類型是否有效且存在 */
-  const isAccountValidForType = (accountId: string, txType: TransactionType = 'expense'): boolean => {
+  const isAccountValidForType = (accountId: string, _txType: TransactionType = 'expense'): boolean => {
     const acct = accounts.value.find(a => a.id === accountId)
     if (!acct) return false
-    if (txType === 'income' && acct.type === 'credit_card') return false
     return true
   }
 
