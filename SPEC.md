@@ -296,7 +296,7 @@ ledgers/
    - 嚴禁使用 `new Date().toISOString().split('T')[0]`。因為在東八區（UTC+8）下，每日清晨 00:00 至 07:59 之 UTC 時間依然屬於前一天，使用 `toISOString()` 必定造成日期偷跑至昨天。
    - 統一使用本地時間 `getFullYear()`、`getMonth() + 1` 與 `getDate()` 構建 `YYYY-MM-DD`。
 2. **記帳頁籤切換動態校正 (Active Tab Sync)**：
-   - 記帳表單（`TransactionForm.vue`）以 `activeTab` 進行連動：當使用者切換至「➕ 記帳」分頁時，只要非外部指定（如明細頁面之特定日期快速補記），系統一律自動將日期重置為最新的本地當日。
+   - 記帳表單（`TransactionForm.vue`）合併監聽 `activeTab` 與 `addTxPrefilledDate`，並透過 `src/utils/date.ts` 的 `resolveAddTabDateChange()` 統一決策：僅在目前分頁為 `'add'` 時消費外部預填日期（如明細頁面特定日期的「記一筆」），避免預填日期遭分頁切換監聽競態覆蓋；若無外部指定且由其他分頁切入「➕ 記帳」分頁，系統一律自動將日期重置為最新的本地當日。
 3. **頁面可見性喚醒偵測 (Visibility Change Sync)**：
    - 監聽 `document.visibilitychange`：當 App 從背景恢復至前景且當前表單處於未輸入金額之空閒狀態時，系統自動比對並校正日期至最新當天，防止使用者隔夜未關閉 App 導致日期過期。
 4. **送出成功自動復位**：

@@ -5,7 +5,8 @@ import { useCategoryAccountMap } from '../composables/useCategoryAccountMap'
 import { 
   getTodayLocalDateString, 
   parseLocalDateToTimestamp,
-  isDateToday 
+  isDateToday,
+  resolveAddTabDateChange
 } from '../utils/date'
 import type { TransactionType } from '../types'
 import { 
@@ -163,28 +164,31 @@ const resetDateToToday = () => {
   dateStr.value = getTodayLocalDateString()
 }
 
-// 監聽來自明細頁面的預填日期請求
-watch(addTxPrefilledDate, (newVal) => {
-  if (newVal) {
-    dateStr.value = newVal
-    addTxPrefilledDate.value = null // 消費後立即清空
-  }
-}, { immediate: true })
-
-// 監聽 Tab 切換：每次切換到記帳頁面，若無外部指定的補記日期，一律校正為當天，並對齊預設勾選帳戶
-watch(() => props.activeTab, (newTab) => {
-  if (newTab === 'add') {
-    if (addTxPrefilledDate.value) {
-      dateStr.value = addTxPrefilledDate.value
-      addTxPrefilledDate.value = null
-    } else {
-      dateStr.value = getTodayLocalDateString()
-    }
-    nextTick(() => {
-      accountPickerRef.value?.scrollToSelectedAccount('auto')
+// 監聽 Tab 切換與外部預填日期請求（合併於單一 watch，僅在進入記帳頁時消費預填日期，避免兩者競態覆蓋）
+watch(
+  [() => props.activeTab, addTxPrefilledDate],
+  ([newTab, prefilled], oldValues) => {
+    const oldTab = oldValues?.[0]
+    const { nextDate, shouldConsumePrefilled, isEnteringAddTab } = resolveAddTabDateChange({
+      newTab,
+      oldTab,
+      prefilledDate: prefilled
     })
-  }
-})
+
+    if (nextDate) {
+      dateStr.value = nextDate
+    }
+    if (shouldConsumePrefilled) {
+      addTxPrefilledDate.value = null // 消費後立即清空
+    }
+    if (isEnteringAddTab) {
+      nextTick(() => {
+        accountPickerRef.value?.scrollToSelectedAccount('auto')
+      })
+    }
+  },
+  { immediate: true }
+)
 
 // 監聽頁面可見性：自背景恢復且未輸入金額時，自動校正日期至今天
 const handleVisibilityChange = () => {

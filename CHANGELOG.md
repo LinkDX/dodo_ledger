@@ -2,6 +2,15 @@
 
 本專案遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) 規範，詳細記錄各個版本的更新明細。
 
+## [Web 2.9.1] - 2026-11-27
+
+### 📅 修復從明細特定日期點選「記一筆」時日期被強制蓋回今天問題 (Web 端更新)
+- **消除記帳表單分頁切換與預填日期競態覆蓋 (`TransactionForm.vue`, `src/utils/date.ts`)**：
+  - 修復原獨立 `watch(addTxPrefilledDate)` 先消費並清空預填日期後，緊接著執行的 `watch(() => props.activeTab)` 誤判無預填日期而將日期覆蓋為今天之缺陷。
+  - 新增純函式 `resolveAddTabDateChange()` 並將 `props.activeTab` 與 `addTxPrefilledDate` 合併為單一 `watch`，僅於目前分頁為 `'add'` 時消費預填日期；若從明細點擊特定日期「記一筆」則精準保留該指定日期，從其他分頁一般切入「記帳」仍自動校正回今天。
+- **單元測試套件全面通過 (14 個測試檔 / 全數 88 項測試 100% 通過)**：
+  - 於 `tests/dateUtil.test.ts` 新增 4 項測試，涵蓋 `resolveAddTabDateChange` 各情境與 Vue `watch` 同步／非同步切換流程。
+
 ## [Web 2.9.0] - 2026-11-26
 
 ### 💳 支援信用卡刷退與刷卡回饋記帳，自動折抵當期帳單 (Web 端更新)

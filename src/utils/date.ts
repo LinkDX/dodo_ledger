@@ -72,3 +72,33 @@ export function parseLocalDateToTimestamp(
   // 預設為本地時間中午 12:00:00，防範任何 DST 與跨時區邊界偏差
   return new Date(y, m - 1, d, 12, 0, 0, 0).getTime()
 }
+
+/**
+ * 決定進入或停留在記帳分頁時，表單日期應如何更新
+ * - 僅在目前分頁為 'add' 時處理，避免非記帳分頁先消費預填日期而引發競態覆蓋
+ * - 若有外部預填日期（例如從明細頁點擊特定日期的「記一筆」），優先套用並標記消費
+ * - 若無預填日期且是從其他分頁切入記帳分頁，則自動校正為本地「今天」
+ */
+export function resolveAddTabDateChange(params: {
+  newTab?: string
+  oldTab?: string
+  prefilledDate: string | null
+  todayStr?: string
+}): { nextDate: string | null; shouldConsumePrefilled: boolean; isEnteringAddTab: boolean } {
+  const { newTab, oldTab, prefilledDate, todayStr = getTodayLocalDateString() } = params
+  if (newTab !== 'add') {
+    return { nextDate: null, shouldConsumePrefilled: false, isEnteringAddTab: false }
+  }
+
+  const isEnteringAddTab = oldTab !== 'add'
+
+  if (prefilledDate) {
+    return { nextDate: prefilledDate, shouldConsumePrefilled: true, isEnteringAddTab }
+  }
+
+  if (isEnteringAddTab) {
+    return { nextDate: todayStr, shouldConsumePrefilled: false, isEnteringAddTab }
+  }
+
+  return { nextDate: null, shouldConsumePrefilled: false, isEnteringAddTab: false }
+}
